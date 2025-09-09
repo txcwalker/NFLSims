@@ -1,0 +1,42 @@
+# folders
+data
+Notebooks
+tests
+
+# R basics
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+.Rapp.history
+.Renviron
+
+
+# renv
+renv/
+renv.lock.bak
+
+
+# Python odds (if any)
+__pycache__/
+*.pyc
+.venv/
+
+
+# Local secrets & runtime
+.env
+logs/
+R/bots/.posted_keys.rds
+
+
+# Data cache & artifacts
+/data/cache/
+*.duckdb
+*.sqlite
+
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+EOF
