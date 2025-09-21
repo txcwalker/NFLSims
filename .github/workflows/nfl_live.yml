@@ -1,7 +1,7 @@
 name: NFL Live Poster
 
 on:
-  workflow_dispatch: {}        # Manual trigger any time
+  workflow_dispatch: {}
   schedule:
     # --- SUNDAY WINDOWS (CT → UTC) ------------------------------------------
     - cron: "*/5 12-17 * * 0"  # Europe/London games (≈ 7:00–12:59 CT while CDT; 6:00–11:59 CT after DST)
@@ -15,7 +15,7 @@ on:
     - cron: "*/5 0-6 * * 5"    # Fri 00:00–05:59 UTC (covers TNF across CDT/CST)
 
     # --- SATURDAYS (late season) --------------------------------------------
-    - cron: "*/5 17-23 * * 6"  # Sat 11:00–17:59 CT windows (covers typical Sat slates)
+    - cron: "*/5 17-23 * * 6"  # Sat afternoon/evening CT
     - cron: "*/5 0-6 * * 0"    # Sun 00:00–05:59 UTC to catch late Sat finishes
 
     # --- FRIDAY SPECIALS (e.g., Black Friday) -------------------------------
@@ -29,12 +29,10 @@ jobs:
       group: nfl-live
       cancel-in-progress: false
     env:
-      TZ: America/Chicago                 # Make “today”/times align with CT in logs
+      TZ: America/Chicago
       DRY_RUN: "1"                        # 1 = test mode, 0 = actually post
       LIVE_LOG_DIR: "R/logs/live_runner_logs"
       LIVE_CSV_DIR: "R/output/live_csv"
-
-      # Posting creds (repo → Settings → Secrets and variables → Actions)
       BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
       BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
       MASTO_SERVER: ${{ secrets.MASTO_SERVER }}
@@ -84,22 +82,20 @@ jobs:
         env:
           TZ: America/Chicago
         run: |
-          out=$(Rscript - <<'RS'
+          # write a tiny R script to disk (avoids YAML heredoc parsing issues)
+          cat > guard.R << 'EOF'
           suppressPackageStartupMessages({
             library(nflreadr); library(lubridate); library(dplyr)
           })
-
           tz_ct <- "America/Chicago"
           now_ct <- lubridate::now(tzone = tz_ct)
           today_ct <- as_date(now_ct)
 
           sched <- nflreadr::load_schedules(seasons = nflreadr::most_recent_season())
 
-          # Helper: best-effort kickoff time parser -> POSIXct in CT
           kickoff_ct <- function(df){
             n <- nrow(df); if (!n) return(as.POSIXct(character(0), tz = tz_ct))
             has <- function(x) x %in% names(df)
-            # Try UTC columns first if present
             if (has("gametime_utc")) {
               kt <- suppressWarnings(ymd_hms(df$gametime_utc, tz = "UTC"))
               return(with_tz(kt, tz_ct))
@@ -109,7 +105,6 @@ jobs:
               kt <- suppressWarnings(ymd_hms(df[[col]], tz = "UTC"))
               return(with_tz(kt, tz_ct))
             }
-            # Fall back: combine gameday + gametime, assume ET if tz missing
             if (has("gameday") && has("gametime")) {
               try_et <- suppressWarnings(ymd_hm(paste(df$gameday, df$gametime), tz = "America/New_York"))
               if (all(is.na(try_et))) {
@@ -119,28 +114,24 @@ jobs:
                 return(with_tz(try_et, tz_ct))
               }
             }
-            # As a last resort, return NA vector
             rep(as.POSIXct(NA, tz = tz_ct), n)
           }
 
-          # Today’s games (by date, CT)
           sched$gameday_date <- suppressWarnings(as.Date(sched$gameday))
           todays <- sched %>% filter(!is.na(gameday_date), gameday_date == today_ct)
 
           kt <- kickoff_ct(todays)
           if (length(kt)) {
-            # Window: 30 min before kickoff through 5.5 hours after (SNF overruns)
             start <- kt - minutes(30)
             end   <- kt + hours(5) + minutes(30)
             within <- any(!is.na(start) & !is.na(end) & now_ct >= start & now_ct <= end)
           } else {
-            # If we can’t parse times, fall back to "it’s a game day"
             within <- nrow(todays) > 0
           }
-
           cat(paste0("should_run=", tolower(as.character(within)), "\n"))
-RS
-          )
+          EOF
+
+          out=$(Rscript guard.R)
           echo "$out" >> "$GITHUB_OUTPUT"
 
       - name: Run live chunk (8 min window, 20s polls)
