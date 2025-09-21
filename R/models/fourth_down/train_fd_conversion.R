@@ -1,6 +1,7 @@
 # ------------------------------------------------------------------------------
 # Fourth-Down Conversion model (uses fill_missing_weather_* from R/core/pbp_wp_prep.R)
 # Predicts whether a 4th-down attempt is converted.
+# 70/15/15 stratified splits; TRAIN-frozen levels; VALID held for calibration
 # ------------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
@@ -18,14 +19,11 @@ YEARS      <- 1999:(as.integer(format(Sys.Date(), "%Y")) - 1)
 MODEL_DIR  <- "R/models/fourth_down"
 MODEL_RDS  <- file.path(MODEL_DIR, "fd_conversion_model.rds")
 LEVELS_RDS <- file.path(MODEL_DIR, "fd_levels.rds")
+SPLIT_DIR  <- "data/fd"
 if (!dir.exists(MODEL_DIR)) dir.create(MODEL_DIR, recursive = TRUE, showWarnings = FALSE)
+if (!dir.exists(SPLIT_DIR)) dir.create(SPLIT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 # --- Load and derive 4th-down GO attempts -------------------------------------
-# nflfastR does NOT have 'fourth_down_attempt' column. We derive attempts as:
-#   - down == 4
-#   - the offense actually ran a play (rush/pass/scramble)
-#   - exclude spike/kneel
-# Conversion is derived from first_down == 1 (covers penalties that awarded a new first down)
 fd_data <- nflfastR::load_pbp(YEARS) %>%
   dplyr::filter(
     down == 4,
@@ -43,14 +41,10 @@ fd_data <- nflfastR::load_pbp(YEARS) %>%
     spread_line, total_line,
     play_type, rush, pass, qb_scramble, qb_spike, qb_kneel,
     first_down
-  )
-
-# ensure data.table
-fd_data <- as.data.table(fd_data)
+  ) |> as.data.table()
 
 # --- Weather cleanup + fills ---------------------------------------------------
 fd_data[, `:=`(temp = as.numeric(temp), wind = as.numeric(wind))]
-
 fd_data <- fill_missing_weather_within_game(fd_data); data.table::setDT(fd_data)
 fd_data <- fill_missing_weather_by_date(fd_data);    data.table::setDT(fd_data)
 
@@ -61,8 +55,6 @@ fd_data[, roof := ifelse(roof %in% c("outdoor","outdoors"), "outdoors",
 # --- Target + labels (derive conversion from first_down) ----------------------
 fd_data[, fd_converted := as.integer(first_down == 1)]
 fd_data <- fd_data[!is.na(fd_converted)]
-
-# Positive class first to match twoClassSummary convention
 fd_data[, label := factor(ifelse(fd_converted == 1, "Converted", "Failed"),
                           levels = c("Converted","Failed"))]
 
@@ -70,45 +62,51 @@ fd_data[, label := factor(ifelse(fd_converted == 1, "Converted", "Failed"),
 drop_cols <- c("game_date","weather_imputed","first_down","fd_converted","label","stadium_id")
 features  <- setdiff(names(fd_data), drop_cols)
 
-# Save categorical levels for deployment encoding
-is_cat   <- vapply(fd_data[, ..features], function(x) is.character(x) || is.factor(x), logical(1))
-cat_cols <- names(is_cat)[is_cat]
-levels_map <- lapply(fd_data[, ..cat_cols], function(col) {
+# --- 70/15/15 stratified split -------------------------------------------------
+idx_train <- caret::createDataPartition(fd_data$label, p = 0.70, list = FALSE)
+train_fd  <- fd_data[idx_train]
+rest_fd   <- fd_data[-idx_train]
+idx_valid <- caret::createDataPartition(rest_fd$label, p = 0.50, list = FALSE)
+valid_fd  <- rest_fd[idx_valid]
+test_fd   <- rest_fd[-idx_valid]
+
+# ---- Freeze categorical levels from TRAIN and encode across splits -----------
+is_cat    <- vapply(train_fd[, ..features], function(x) is.character(x) || is.factor(x), logical(1))
+cat_cols  <- names(is_cat)[is_cat]
+levels_map <- lapply(train_fd[, ..cat_cols], function(col) {
   if (is.factor(col)) levels(col) else sort(unique(as.character(col)))
 })
 saveRDS(levels_map, LEVELS_RDS)
 
-# Integer encode categoricals
+encode_with_levels <- function(x, lv) as.integer(factor(as.character(x), levels = lv))
 for (f in features) {
-  if (is.character(fd_data[[f]]) || is.factor(fd_data[[f]])) {
-    fd_data[[f]] <- as.integer(as.factor(fd_data[[f]]))
+  if (f %in% cat_cols) {
+    lv              <- levels_map[[f]]
+    train_fd[[f]]   <- encode_with_levels(train_fd[[f]], lv)
+    valid_fd[[f]]   <- encode_with_levels(valid_fd[[f]], lv)
+    test_fd[[f]]    <- encode_with_levels(test_fd[[f]],  lv)
+  } else {
+    train_fd[[f]] <- suppressWarnings(as.numeric(train_fd[[f]]))
+    valid_fd[[f]] <- suppressWarnings(as.numeric(valid_fd[[f]]))
+    test_fd[[f]]  <- suppressWarnings(as.numeric(test_fd[[f]]))
   }
 }
 
-# --- Train/test split (stratify on factor label) -------------------------------
-idx      <- caret::createDataPartition(fd_data$label, p = 0.8, list = FALSE)
-train_fd <- fd_data[idx, ]
-test_fd  <- fd_data[-idx, ]
+# ---- (Optional) Save splits for downstream evaluation ------------------------
+saveRDS(train_fd[, c(features, "label"), with = FALSE], file.path(SPLIT_DIR, "train.rds"))
+saveRDS(valid_fd[, c(features, "label"), with = FALSE], file.path(SPLIT_DIR, "valid.rds"))
+saveRDS(test_fd [, c(features, "label"), with = FALSE], file.path(SPLIT_DIR, "test.rds"))
+saveRDS(features, file.path(SPLIT_DIR, "feature_names.rds"))
 
-# Extra guardrail: if a class is missing (unlikely), re-split once
-if (length(unique(train_fd$label)) < 2L) {
-  warning("Resplitting because a class was missing in training set.")
-  idx      <- caret::createDataPartition(fd_data$label, p = 0.8, list = FALSE)
-  train_fd <- fd_data[idx, ]
-  test_fd  <- fd_data[-idx, ]
-}
-train_fd[, label := droplevels(label)]
-test_fd[,  label := droplevels(label)]
-
-cat("[FD] Class counts: train=", paste(capture.output(print(table(train_fd$label))), collapse=" "),
-    " | test=", paste(capture.output(print(table(test_fd$label))), collapse=" "), "\n")
-
-# --- Matrices for caret::train -------------------------------------------------
+# --- Matrices for caret::train (TRAIN only) -----------------------------------
 train_df <- as.data.frame(train_fd)
-test_df  <- as.data.frame(test_fd)
+test_df  <- as.data.frame(test_fd)   # quick AUC sanity check
+valid_df <- as.data.frame(valid_fd)  # reserved for later calibration/eval
+
 x_train  <- as.matrix(train_df[, features, drop = FALSE])
-x_test   <- as.matrix(test_df [ , features, drop = FALSE])
 y_train  <- train_df[["label"]]
+
+x_test   <- as.matrix(test_df[,  features, drop = FALSE])
 y_test   <- test_df[["label"]]
 
 # --- Tuning + training ---------------------------------------------------------
@@ -131,7 +129,7 @@ fd_model <- caret::train(
   method = "xgbTree", trControl = ctrl, tuneGrid = xgb_grid, metric = "ROC"
 )
 
-# --- Eval ----------------------------------------------------------------------
+# --- Eval on TEST (VALID remains pristine) ------------------------------------
 test_probs <- predict(fd_model, newdata = x_test, type = "prob")[, "Converted"]
 auc_test   <- as.numeric(pROC::auc(y_test, test_probs))
 
@@ -142,7 +140,8 @@ fd_bundle <- list(
   trained_at    = Sys.time(),
   params        = fd_model$bestTune,
   source        = "R/models/fourth_down/train_fd_conversion.R",
-  meta          = list(years = c(min(YEARS), max(YEARS)), n_train = nrow(x_train), n_test = nrow(x_test), metric = "ROC"),
+  meta          = list(years = c(min(YEARS), max(YEARS)),
+                       n_train = nrow(x_train), n_valid = nrow(valid_df), n_test = nrow(x_test), metric = "ROC"),
   eval          = list(auc_test = auc_test)
 )
 

@@ -1,0 +1,65 @@
+name: NFL Live Poster   # The name of this GitHub Actions workflow
+
+on:
+  workflow_dispatch: {}   # Allows manual trigger from the GitHub Actions UI
+  schedule:               # Scheduled cron jobs to run automatically
+    # SUNDAYS (UTC; covers ~11:00–23:59 CT across windows)
+    - cron: "*/5 16-23 * * 0"   # Every 5 minutes between 16:00–23:59 UTC on Sundays
+    - cron: "*/5 0-4 * * 1"     # Every 5 minutes between 00:00–04:59 UTC on Mondays (late Sunday games)
+    # THURSDAY NIGHT (Fri 00:00–04:59 UTC ≈ Thu eve CT)
+    - cron: "*/5 0-4 * * 5"     # Every 5 minutes between 00:00–04:59 UTC on Fridays
+    # MONDAY NIGHT (Tue 00:00–04:59 UTC ≈ Mon eve CT)
+    - cron: "*/5 0-4 * * 2"     # Every 5 minutes between 00:00–04:59 UTC on Tuesdays
+
+jobs:
+  live:                      # A single job named "live"
+    runs-on: ubuntu-latest   # Use the latest Ubuntu runner
+    timeout-minutes: 20      # Abort the job if it runs longer than 20 minutes
+    # avoid overlapping runs
+    concurrency:
+      group: nfl-live        # All runs share this concurrency group
+      cancel-in-progress: false   # Don’t cancel an older run if a new one starts
+
+    env:   # Environment variables available to all steps
+      # Posting creds (set in repo Settings → Secrets → Actions → New secret)
+      BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}          # Bluesky handle
+      BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}  # Bluesky app password
+      MASTO_SERVER: ${{ secrets.MASTO_SERVER }}        # Mastodon server URL
+      MASTO_TOKEN: ${{ secrets.MASTO_TOKEN }}          # Mastodon access token
+
+      # Behavior (uses your paths)
+      DRY_RUN: "1"               # 1 = test mode, 0 = actually post
+      LIVE_LOG_DIR: "R/logs/live_runner_logs"   # Path where logs are written
+      LIVE_CSV_DIR: "R/output/live_csv"         # Path where per-play CSVs are written
+
+    steps:
+      - uses: actions/checkout@v4    # Checkout the repo code
+        with:
+          lfs: true                  # Enable Git LFS (needed for large model files)
+
+      - name: Pull LFS files (models)
+        run: git lfs pull || true    # Download Git LFS-tracked files (e.g. RDS models); ignore error if none
+
+      - uses: r-lib/actions/setup-r@v2   # Install R on the runner
+        with:
+          r-version: "4.4.1"             # Specify R version
+
+      - name: Install R deps
+        run: |                          # Install required R packages
+          Rscript -e 'install.packages(c("dplyr","readr","glue","tibble","dotenv","rtoot","nflreadr","nflfastR","lubridate","here","purrr","tidyr"), repos="https://cloud.r-project.org")'
+          Rscript -e 'if(!requireNamespace("atrrr", quietly=TRUE)) install.packages("atrrr", repos="https://cloud.r-project.org")'
+
+      - name: Run live chunk (8 min window, 20s polls)
+        run: Rscript -e "source('R/bots/run_live_chunk.R'); run_live_chunk(duration_minutes = 8, poll_seconds = 20)"
+        # Runs your bot loop: checks every 20s for 8 minutes, evaluating/posting decisions
+
+      # Save outputs from the ephemeral runner; nothing is committed to the repo.
+      - name: Upload live logs & CSVs
+        uses: actions/upload-artifact@v4   # Uploads files for download in the Actions UI
+        with:
+          name: live-${{ github.run_id }}  # Artifact name includes workflow run ID
+          path: |                          # Files/folders to upload as artifact
+            R/logs/live_runner_logs/**
+            R/output/live_csv/**
+          if-no-files-found: ignore        # Don’t fail if no files were generated
+          retention-days: 14               # Keep artifacts for 14 days

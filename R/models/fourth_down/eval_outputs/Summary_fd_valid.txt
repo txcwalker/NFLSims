@@ -1,0 +1,87 @@
+=== Binary Model Evaluation ===
+Tag:  fd_valid 
+
+Positive class: Converted
+
+AUC:    0.681121 
+AUPRC:  0.666803 
+Brier:  0.225162 
+LogLoss: 0.641489 
+ECE:   0.01847 (10 bins)
+
+-- Thresholds --
+0.50 Confusion Matrix:
+Confusion Matrix and Statistics
+
+          Reference
+Prediction   0   1
+         0 685 391
+         1 442 766
+                                          
+               Accuracy : 0.6353          
+                 95% CI : (0.6152, 0.6551)
+    No Information Rate : 0.5066          
+    P-Value [Acc > NIR] : <2e-16          
+                                          
+                  Kappa : 0.27            
+                                          
+ Mcnemar's Test P-Value : 0.0832          
+                                          
+            Sensitivity : 0.6621          
+            Specificity : 0.6078          
+         Pos Pred Value : 0.6341          
+         Neg Pred Value : 0.6366          
+             Prevalence : 0.5066          
+         Detection Rate : 0.3354          
+   Detection Prevalence : 0.5289          
+      Balanced Accuracy : 0.6349          
+                                          
+       'Positive' Class : 1               
+                                          
+
+Youden-opt threshold: 0.517891
+Youden Confusion Matrix:
+Confusion Matrix and Statistics
+
+          Reference
+Prediction   0   1
+         0 733 422
+         1 394 735
+                                          
+               Accuracy : 0.6427          
+                 95% CI : (0.6227, 0.6624)
+    No Information Rate : 0.5066          
+    P-Value [Acc > NIR] : <2e-16          
+                                          
+                  Kappa : 0.2856          
+                                          
+ Mcnemar's Test P-Value : 0.3446          
+                                          
+            Sensitivity : 0.6353          
+            Specificity : 0.6504          
+         Pos Pred Value : 0.6510          
+         Neg Pred Value : 0.6346          
+             Prevalence : 0.5066          
+         Detection Rate : 0.3218          
+   Detection Prevalence : 0.4943          
+      Balanced Accuracy : 0.6428          
+                                          
+       'Positive' Class : 1               
+                                          
+
+-- Top Feature Importance (head) --
+                  feature        gain       cover        freq
+1                 ydstogo 0.550832043 0.327025769 0.204379562
+2               play_type 0.140159141 0.112224167 0.103649635
+3             qb_scramble 0.053818407 0.098051052 0.059854015
+4            yardline_100 0.053411534 0.098831280 0.115328467
+5                    rush 0.044988021 0.035139876 0.046715328
+6  game_seconds_remaining 0.044053365 0.095573029 0.106569343
+7              total_line 0.043454260 0.129473088 0.100729927
+8      score_differential 0.025039019 0.024989591 0.084671533
+9             spread_line 0.009795521 0.015500601 0.051094891
+10                   wind 0.008781216 0.015924688 0.037956204
+11                   week 0.007925890 0.019549028 0.027737226
+12                   temp 0.007410062 0.011403825 0.032116788
+13                   pass 0.006237546 0.006922444 0.008759124
+14                surface 0.004093972 0.009391561 0.020437956

@@ -1,5 +1,9 @@
 # ------------------------------------------------------------------------------
 # Win Probability model (uses prep_wp_pbp from R/core/pbp_wp_prep.R)
+# 70/15/15 stratified splits: train / valid / test
+# - Train: used for caret CV training
+# - Test : quick post-train metric check (AUC)
+# - Valid: held-out for calibration/other eval (untouched here)
 # ------------------------------------------------------------------------------
 suppressPackageStartupMessages({
   library(dplyr); library(data.table); library(caret); library(pROC)
@@ -12,7 +16,9 @@ set.seed(42)
 MODEL_DIR   <- "R/models/win_probability"
 MODEL_RDS   <- file.path(MODEL_DIR, "wp_model.rds")
 LEVELS_RDS  <- file.path(MODEL_DIR, "wp_levels.rds")
+SPLIT_DIR   <- "data/wp"
 if (!dir.exists(MODEL_DIR)) dir.create(MODEL_DIR, recursive = TRUE, showWarnings = FALSE)
+if (!dir.exists(SPLIT_DIR)) dir.create(SPLIT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 # --- Data (single source of truth) --------------------------------------------
 wp_df <- prep_wp_pbp(start_year = 1999, include_current = FALSE) |> as.data.table()
@@ -20,27 +26,43 @@ wp_df <- prep_wp_pbp(start_year = 1999, include_current = FALSE) |> as.data.tabl
 # Winner already created by clean_pbp_data() inside prep (binary int 0/1)
 # Drop non-predictive / leakage cols
 drop_cols <- c("game_date","result","posteam_type","drive","stadium_id",
-               "weather_imputed","total","Winner")  # Winner is target
+               "weather_imputed","total","Winner")
 features <- setdiff(names(wp_df), drop_cols)
 
-# Partition
-idx   <- caret::createDataPartition(wp_df$Winner, p = 0.8, list = FALSE)
-train <- wp_df[idx]
-test  <- wp_df[-idx]
+# --- 70/15/15 stratified split -------------------------------------------------
+idx_train <- caret::createDataPartition(wp_df$Winner, p = 0.70, list = FALSE)
+train     <- wp_df[idx_train]
+rest      <- wp_df[-idx_train]
+idx_valid <- caret::createDataPartition(rest$Winner, p = 0.50, list = FALSE) # half of 30% = 15%
+valid     <- rest[idx_valid]
+test      <- rest[-idx_valid]
 
-# ---- Save factor levels for deterministic inference --------------------------
-is_cat <- vapply(train[, ..features], \(x) is.character(x) || is.factor(x), logical(1))
-cat_cols <- names(is_cat)[is_cat]
+# ---- Save factor levels from TRAIN only --------------------------------------
+is_cat    <- vapply(train[, ..features], \(x) is.character(x) || is.factor(x), logical(1))
+cat_cols  <- names(is_cat)[is_cat]
 wp_levels <- lapply(train[, ..cat_cols], \(col) if (is.factor(col)) levels(col) else sort(unique(as.character(col))))
 saveRDS(wp_levels, LEVELS_RDS)
 
-# ---- Integer encode categoricals (tree-friendly) -----------------------------
-encode_int <- function(df, cols){
-  for (f in cols) if (is.character(df[[f]]) || is.factor(df[[f]])) df[[f]] <- as.integer(as.factor(df[[f]]))
-  df
+# ---- Integer encode categoricals (using TRAIN levels) ------------------------
+encode_with_levels <- function(x, lv) as.integer(factor(as.character(x), levels = lv))
+for (f in features) {
+  if (f %in% cat_cols) {
+    lv          <- wp_levels[[f]]
+    train[[f]]  <- encode_with_levels(train[[f]], lv)
+    valid[[f]]  <- encode_with_levels(valid[[f]], lv)
+    test[[f]]   <- encode_with_levels(test[[f]],  lv)
+  } else {
+    train[[f]] <- suppressWarnings(as.numeric(train[[f]]))
+    valid[[f]] <- suppressWarnings(as.numeric(valid[[f]]))
+    test[[f]]  <- suppressWarnings(as.numeric(test[[f]]))
+  }
 }
-train <- encode_int(train, features)
-test  <- encode_int(test,  features)
+
+# ---- (Optional) Save splits for downstream evaluation ------------------------
+saveRDS(train[, c(features, "Winner"), with = FALSE], file.path(SPLIT_DIR, "train.rds"))
+saveRDS(valid[, c(features, "Winner"), with = FALSE], file.path(SPLIT_DIR, "valid.rds"))
+saveRDS(test [, c(features, "Winner"), with = FALSE], file.path(SPLIT_DIR, "test.rds"))
+saveRDS(features, file.path(SPLIT_DIR, "feature_names.rds"))
 
 # ---- Matrices / labels -------------------------------------------------------
 x_train <- as.matrix(as.data.frame(train)[, features, drop = FALSE])
@@ -48,7 +70,7 @@ x_test  <- as.matrix(as.data.frame(test)[ , features, drop = FALSE])
 y_train <- factor(ifelse(train$Winner == 1, "Win", "Loss"), levels = c("Win","Loss"))
 y_test  <- test$Winner
 
-# ---- Grid / Control (RStudio-style) ------------------------------------------
+# ---- Grid / Control ----------------------------------------------------------
 xgb_grid <- expand.grid(
   nrounds = c(100, 200),
   max_depth = c(3, 6),
@@ -69,7 +91,7 @@ wp_model <- caret::train(
   method = "xgbTree", trControl = ctrl, tuneGrid = xgb_grid, metric = "ROC"
 )
 
-# ---- Evaluate ----------------------------------------------------------------
+# ---- Evaluate on TEST (VALID remains untouched) ------------------------------
 test_probs <- predict(wp_model, newdata = x_test, type = "prob")[, "Win"]
 auc_test   <- as.numeric(pROC::auc(y_test, test_probs))
 
@@ -80,7 +102,7 @@ bundle <- list(
   trained_at    = Sys.time(),
   params        = wp_model$bestTune,
   source        = "R/models/win_probability/train_wp.R",
-  meta          = list(n_train = nrow(x_train), n_test = nrow(x_test), metric = "ROC"),
+  meta          = list(n_train = nrow(x_train), n_valid = nrow(valid), n_test = nrow(x_test), metric = "ROC"),
   eval          = list(auc_test = auc_test)
 )
 saveRDS(bundle, MODEL_RDS)

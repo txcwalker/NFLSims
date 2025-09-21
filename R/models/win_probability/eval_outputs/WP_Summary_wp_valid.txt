@@ -1,0 +1,30 @@
+=== Win Probability Model Evaluation ===
+Tag:  wp_valid 
+
+AUC:    0.852009 
+AUPRC:  0.859354 
+Brier:  0.156302 
+LogLoss: 0.462027 
+ECE:   0.01099 (10 bins)
+
+-- Calibration Slope/Intercept (glm(y ~ logit(p))) --
+# A tibble: 2 x 5
+  term        estimate std.error statistic p.value
+  <chr>          <dbl>     <dbl>     <dbl>   <dbl>
+1 (Intercept) -0.00881   0.00613     -1.44   0.150
+2 logit        1.10      0.00621    177.     0    
+
+-- Decile Reliability --
+# A tibble: 10 x 4
+   decile     n mean_wp win_rate
+    <int> <int>   <dbl>    <dbl>
+ 1      1 17214  0.0186  0.00505
+ 2      2 17213  0.133   0.111  
+ 3      3 17213  0.270   0.263  
+ 4      4 17213  0.380   0.390  
+ 5      5 17213  0.475   0.485  
+ 6      6 17213  0.549   0.536  
+ 7      7 17213  0.630   0.623  
+ 8      8 17213  0.737   0.743  
+ 9      9 17213  0.867   0.884  
+10     10 17213  0.981   0.991  

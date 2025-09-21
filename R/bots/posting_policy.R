@@ -1,20 +1,6 @@
 # ------------------------------------------------------------------------------
 # Posting Policy & Cache Helpers for Fourth-Down Bot
 # ------------------------------------------------------------------------------
-# This module decides whether to post a 4th-down evaluation, formats the text,
-# and appends every evaluated 4th down (posted or not) to a CSV cache.
-#
-# EXPECTED USAGE:
-# - Source this file from your main loop (e.g., run_bot.R).
-# - For each 4th-down play, call `handle_fourth_down(gs, models, game_meta)`.
-#   - `gs` is your game_state list/data.frame containing play context.
-#   - `models` is your bundle of models; used by your own eval function.
-#   - `game_meta` has window info (e.g., MNF/TNF/SNF/standalone flags).
-#
-# FILE LAYOUT:
-# - Per-game CSV: data/cache/{season}/week_{wk}/decisions_{game_id}.csv
-# - You can add a weekly rollup later if desired.
-# ------------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -23,56 +9,47 @@ suppressPackageStartupMessages({
   library(readr)
 })
 
-# ------------------------------------------------------------------------------
-# In-memory global state for cooldowns & rate-limiting
-# - Reset on each fresh R session (intended for a single run of the bot).
-# ------------------------------------------------------------------------------
-.post_state <- new.env(parent = emptyenv())
-.post_state$last_post_ts_by_game <- list()   # map: game_id -> POSIXct of last post
-.post_state$last_post_drive_by_game <- list()# map: game_id -> last posted drive_id
-.post_state$posts_last_hour_ts <- c()        # vector of POSIXct of all posts (global)
+# Utility: null-coalescing
+`%||%` <- function(a, b) if (is.null(a) || is.na(a)) b else a
 
 # ------------------------------------------------------------------------------
-# Helper: Identify if this game is in a prime/standalone window.
-# Expects `game_meta` to include a boolean `standalone` or a `window` code.
+# In-memory global state for cooldowns & rate-limiting (reset each R session)
+# ------------------------------------------------------------------------------
+.post_state <- new.env(parent = emptyenv())
+.post_state$last_post_ts_by_game <- list()    # game_id -> POSIXct of last post
+.post_state$last_post_drive_by_game <- list() # game_id -> last posted drive_id
+.post_state$posts_last_hour_ts <- c()         # POSIXct vector of recent posts
+
+# ------------------------------------------------------------------------------
+# Prime/standalone window?
 # ------------------------------------------------------------------------------
 is_prime_window <- function(game_meta) {
-  # Treats any standalone game as prime; else checks common prime window labels.
   isTRUE(game_meta$standalone) ||
     (is.character(game_meta$window) &&
        game_meta$window %in% c("MNF","TNF","SNF","HOL","INTL","SAT"))
 }
 
 # ------------------------------------------------------------------------------
-# Core policy evaluator:
-# - Decides if a post should be made and returns reasoning + rate-limit flags.
-# - `row` must contain fields listed below (see comment).
+# Core policy evaluator
 # ------------------------------------------------------------------------------
 should_post_decision <- function(row, game_meta, now = Sys.time()) {
-  # REQUIRED FIELDS in `row` (list or 1-row data.frame):
-  #   game_id, drive_id, play_id
-  #   qtr (1–4/+OT), sec_left (int seconds left in game), clock (e.g., "12:34")
-  #   off, def, off_score, def_score, margin (abs score diff)
-  #   ydstogo, yardline_100, down
-  #   pre_wp (0–1), wp_go, wp_punt, wp_fg (0–1 each)
-  #   best_action, called_action  ("go","punt","fg")
-  #
-  #   Optional env/meta: roof, surface, wind, temp, precip, notes
-
+  # REQUIRED FIELDS in `row`:
+  # game_id, drive_id, play_id
+  # qtr, sec_left, clock
+  # off, def, off_score, def_score, margin
+  # ydstogo, yardline_100, down
+  # pre_wp, wp_go, wp_punt, wp_fg (0–1 each)
+  # best_action, called_action ("go","punt","fg")
   prime <- is_prime_window(game_meta)
 
-  # Collect WPs by action
   wp_vec <- c(go = row$wp_go, punt = row$wp_punt, fg = row$wp_fg)
 
-  # Best-case WP and called-action WP
   wp_best   <- suppressWarnings(max(wp_vec, na.rm = TRUE))
   wp_called <- wp_vec[[tolower(row$called_action)]]
   wp_gap    <- ifelse(is.na(wp_called), NA_real_, wp_best - wp_called)
 
-  # "Leverage" = best action’s WP minus average of available actions
   leverage <- wp_best - mean(wp_vec[!is.na(wp_vec)], na.rm = TRUE)
 
-  # Sunday posting gates (unchanged)
   one_score_2h <- (row$margin <= 8) && (row$qtr >= 3)
   clear_mistake <- (!is.na(wp_gap)) &&
                    (row$best_action != row$called_action) &&
@@ -81,43 +58,32 @@ should_post_decision <- function(row, game_meta, now = Sys.time()) {
               row$pre_wp >= 0.35 && row$pre_wp <= 0.65 &&
               leverage >= 0.04
 
-  # ---------------------------------------------------------------------------
-  # NEW: Global "obvious situation" suppressor (overrides everything)
-  # 1) If the spread between ANY options is ≥ 0.30 WP, don't post (too obvious)
-  #    (implemented as max(option) - min(option) among non-NA options)
-  # 2) "Must-go": if punt WP < 0.10, don't post (obvious go situation)
-  # ---------------------------------------------------------------------------
+  # ---- Global "obvious situation" suppressor ----
   non_na <- wp_vec[!is.na(wp_vec)]
   spread <- if (length(non_na) >= 2) (max(non_na) - min(non_na)) else 0
-  obvious_spread_block <- spread >= 0.30
-
-  must_go_block <- !is.na(row$wp_punt) && (row$wp_punt < 0.10)
-
+  obvious_spread_block <- spread >= 0.30              # any options differ by ≥30 pts
+  must_go_block <- !is.na(row$wp_punt) && (row$wp_punt < 0.10)  # "must-go" if punt <10%
   obvious_block <- obvious_spread_block || must_go_block
-  # ---------------------------------------------------------------------------
 
-  # Per-game cooldown (shorter for prime windows)
+  # ---- Rate limits / blocks ----
   cd_secs <- if (prime) 45 else 60
   last_ts <- .post_state$last_post_ts_by_game[[row$game_id]]
   within_cd <- !is.null(last_ts) &&
                as.numeric(difftime(now, last_ts, units = "secs")) < cd_secs
-  cooldown_block <- within_cd && !clear_mistake  # skip cooldown for clear mistakes
+  cooldown_block <- within_cd && !clear_mistake
 
-  # Per-drive throttle: at most one post per drive
   last_drive <- .post_state$last_post_drive_by_game[[row$game_id]]
   drive_block <- !is.null(last_drive) && identical(last_drive, row$drive_id)
 
-  # Global rate-limit: soft cap of 12 posts per hour across all games
   recent <- .post_state$posts_last_hour_ts[
     as.numeric(difftime(now, .post_state$posts_last_hour_ts, units = "mins")) <= 60
   ]
   global_block <- length(recent) >= 12
 
-  # Blowout guard (unchanged)
   blowout <- (row$margin >= 17) && !(row$qtr == 4 && row$sec_left <= 120)
   blowout_block <- blowout && !clear_mistake && (is.na(wp_gap) || wp_gap < 0.08)
 
-  # Eligibility by window (unchanged), but will be overridden by obvious_block below
+  # ---- Eligibility gates by window ----
   reason <- NA_character_
   eligible <-
     if (prime) {
@@ -132,7 +98,7 @@ should_post_decision <- function(row, game_meta, now = Sys.time()) {
       FALSE
     }
 
-  # FINAL: apply global "obvious" suppressor before other blocks
+  # Apply global "obvious" suppressor
   eligible <- eligible && !obvious_block
 
   post_it <- eligible && !cooldown_block && !drive_block && !global_block && !blowout_block
@@ -145,66 +111,84 @@ should_post_decision <- function(row, game_meta, now = Sys.time()) {
     drive_block = drive_block,
     global_block = global_block,
     blowout_block = blowout_block,
-    # new diagnostics:
+    # diagnostics
     obvious_block = obvious_block,
     obvious_spread_block = obvious_spread_block,
     must_go_block = must_go_block,
-    # metrics:
+    # metrics
     wp_gap = wp_gap,
     leverage = leverage,
     prime = prime
   )
 }
 
+# ------------------------------------------------------------------------------
+# Message formatter (PUNT omitted if suppressed/NA)
+# ------------------------------------------------------------------------------
+.pct <- function(x) ifelse(is.na(x), "", paste0(round(100*as.numeric(x)), "%"))
+.yard_str <- function(y100) {
+  if (is.na(y100)) return("Own ?")
+  if (y100 > 50) paste0("Own ", 100 - y100) else paste0("Opp ", y100)
+}
 
-# ------------------------------------------------------------------------------
-# Message formatter:
-# - Creates text for live posts and revisionist posts (after the play).
-# ------------------------------------------------------------------------------
 format_post <- function(row, revisionist = FALSE) {
-  # Helper to format percentages (e.g., 0.123 -> "12.3")
-  pct <- function(x) sprintf("%.1f", 100 * x)
-
-  # Human-readable score string at time of play.
-  score_str <- sprintf("%s %d – %s %d", row$off, row$score_off, row$def, row$score_def)
-
-  # If revisionist flag is set, use a look-back template.
-  if (revisionist) {
-    return(sprintf(
-      "Looking back: 4th & %d at %s (%s %s). %s chose %s, model preferred %s (+%s%% WP). Score then: %s.",
-      row$ydstogo, row$yardline, row$qtr_label, row$clock,
-      row$off, toupper(row$called_action), toupper(row$best_action),
-      pct(row$wp_gap), score_str
-    ))
+  # quarter label and clock
+  qlabel <- if (!is.null(row$qtr) && row$qtr >= 5) "OT" else paste0("Q", row$qtr %||% "?")
+  if (!is.null(row$clock) && !is.na(row$clock)) {
+    qclock <- row$clock
+  } else {
+    q <- as.integer(row$qtr %||% 1L)
+    s <- as.integer(row$sec_left %||% 0L)
+    # seconds remaining in current quarter
+    q_left <- s - pmax(0L, (4L - pmin(q, 4L)) * 900L)
+    q_left <- max(0L, min(900L, q_left))
+    qclock <- sprintf("%d:%02d", q_left %/% 60L, q_left %% 60L)
   }
 
-  # If it was a clear mistake in real time, highlight the better action.
-  if (!is.na(row$wp_gap) && row$best_action != row$called_action && row$wp_gap >= 0.05) {
-    return(sprintf(
-      "%s faced 4th & %d at %s (%s %s). They %s, model says %s (+%s%% WP).\nGo %s%% | Punt %s%% | FG %s%% | Pre-WP %s%%.",
-      row$off, row$ydstogo, row$yardline, row$qtr_label, row$clock,
-      toupper(row$called_action), toupper(row$best_action), pct(row$wp_gap),
-      pct(row$wp_go), pct(row$wp_punt), pct(row$wp_fg), pct(row$pre_wp)
-    ))
+  # score string
+  score_str <- if (!is.null(row$off_score) && !is.null(row$def_score) &&
+                   !is.na(row$off_score) && !is.na(row$def_score) &&
+                   !is.null(row$off) && !is.null(row$def)) {
+    paste0(row$off, " ", row$off_score, " vs ", row$def, " ", row$def_score)
+  } else {
+    "Score N/A"
   }
 
-  # Otherwise, neutral summary of the model’s recommendation.
-  # “Next best” delta is best - second best among actions.
-  sorted <- sort(c(row$wp_go, row$wp_punt, row$wp_fg), decreasing = TRUE, na.last = NA)
-  next_gap <- if (length(sorted) >= 2) (sorted[1] - sorted[2]) else NA_real_
+  # All-scenarios line: include only available actions; omit PUNT when suppressed/NA
+  parts <- character(0)
+  if (!is.null(row$wp_fg)   && !is.na(row$wp_fg))   parts <- c(parts, paste0("FG ",  .pct(row$wp_fg)))
+  if (!is.null(row$wp_go)   && !is.na(row$wp_go))   parts <- c(parts, paste0("GO ",  .pct(row$wp_go)))
+  if (!isTRUE(row$punt_suppressed) && !is.na(row$wp_punt %||% NA_real_)) {
+    parts <- c(parts, paste0("PUNT ", .pct(row$wp_punt)))
+  }
+  all_line <- if (length(parts)) paste(parts, collapse = "  ") else ""
 
-  sprintf(
-    "4th & %d at %s | %s vs %s, %s %s.\nModel: %s (+%s%% WP vs next). Go %s%% | Punt %s%% | FG %s%% | Pre-WP %s%%.",
-    row$ydstogo, row$yardline, row$off, row$def, row$qtr_label, row$clock,
-    toupper(row$best_action), pct(next_gap),
-    pct(row$wp_go), pct(row$wp_punt), pct(row$wp_fg), pct(row$pre_wp)
+  # recommended action & WP
+  ba <- tolower(row$best_action %||% "")
+  rec_act <- toupper(ba %||% "—")
+  rec_wp  <- {
+    key <- paste0("wp_", ba)
+    .pct(if (!is.null(row[[key]]) && !is.na(row[[key]])) row[[key]] else row$pre_wp)
+  }
+
+  header <- paste0(
+    "4th & ", row$ydstogo, " at ", .yard_str(row$yardline_100),
+    " | ", score_str, " | ", qlabel, " ", qclock,
+    if (!is.null(row$off)) paste0(" (", row$off, " ball)") else ""
   )
+
+  lines <- c(
+    header,
+    paste0(if (revisionist) "Model Says: " else "Model Recommendation: ",
+           rec_act, " (WP ", rec_wp, ")")
+  )
+  if (nzchar(all_line)) lines <- c(lines, paste0("All Scenarios: ", all_line))
+
+  paste0(paste(lines, collapse = "\n"), "\n#nfl #4thDown #analytics")
 }
 
 # ------------------------------------------------------------------------------
-# CSV cache appender:
-# - Writes one row for every evaluated 4th down (regardless of posting).
-# - Creates directories as needed.
+# CSV cache appender
 # ------------------------------------------------------------------------------
 append_cache <- function(row, policy, cache_path) {
   dir.create(dirname(cache_path), recursive = TRUE, showWarnings = FALSE)
@@ -250,13 +234,12 @@ append_cache <- function(row, policy, cache_path) {
     stringsAsFactors = FALSE
   )
 
-  # Append if file exists; create otherwise.
   is_new <- !file.exists(cache_path)
   readr::write_csv(out, cache_path, append = !is_new)
 }
 
 # ------------------------------------------------------------------------------
-# Mark a successful post in in-memory state for cooldown and rate limiting.
+# Mark a successful post (cooldown / rate limits)
 # ------------------------------------------------------------------------------
 mark_posted <- function(game_id, drive_id) {
   .post_state$last_post_ts_by_game[[game_id]] <- Sys.time()
@@ -265,37 +248,22 @@ mark_posted <- function(game_id, drive_id) {
 }
 
 # ------------------------------------------------------------------------------
-# Main handler to be called for each 4th down:
-# - Expects you to have an `eval_fourth_down(gs, models)` function elsewhere
-#   that returns WP by action plus a recommended action.
-# - Decides whether to post, formats the message, writes cache, and (optionally)
-#   calls your social poster.
+# Main handler (optional helper; uses a project-specific eval_fourth_down())
 # ------------------------------------------------------------------------------
 handle_fourth_down <- function(gs, models, game_meta) {
-  # Your own evaluator: must return a named list including:
-  #   pre_wp, wp_go, wp_punt, wp_fg (0–1 each)
-  #   best_action, called_action  ("go", "punt", or "fg")
-  #   Any extra fields you want to carry along (optional).
-  res <- eval_fourth_down(gs, models)
+  res <- eval_fourth_down(gs, models)  # project-specific
 
-  # Merge the input `gs` and model results into a single row list.
   row <- c(gs, res) %>% as.list()
-
-  # Human-readable labels used in formatted messages:
   row$qtr_label <- paste0("Q", row$qtr)
-  row$yardline <- sprintf(
-    "%s %d",
-    ifelse(row$yardline_100 > 50, row$off, row$def),
-    100 - row$yardline_100
-  )
+  row$yardline <- sprintf("%s %d",
+                          ifelse(row$yardline_100 > 50, row$off, row$def),
+                          100 - row$yardline_100)
   row$score_off <- row$off_score
   row$score_def <- row$def_score
   row$margin   <- abs(row$off_score - row$def_score)
 
-  # Evaluate policy & blocks.
   policy <- should_post_decision(row, game_meta)
 
-  # Build cache file path and write the record.
   cache_file <- file.path(
     "data/cache", row$season,
     sprintf("week_%02d", as.integer(row$week)),
@@ -303,26 +271,14 @@ handle_fourth_down <- function(gs, models, game_meta) {
   )
   append_cache(row, policy, cache_file)
 
-  # If we should post, format the message and call your poster.
   if (isTRUE(policy$post)) {
     is_revisionist <- (!is.na(policy$wp_gap) &&
                        row$best_action != row$called_action &&
                        policy$wp_gap >= 0.05)
-
     msg <- format_post(row, revisionist = is_revisionist)
-
-    # TODO: implement these in your project:
-    # post_to_bluesky(msg) or post_to_mastodon(msg) or post_to_x(msg)
-    # post_to_social(msg)
-
-    # Update in-memory cooldown & rate-limits.
+    # post_to_social(msg)  # implement in your project
     mark_posted(row$game_id, row$drive_id)
   }
 
-  invisible(policy)  # return policy object for logging/testing if desired
+  invisible(policy)
 }
-
-# ------------------------------------------------------------------------------
-# Utility: "null-coalescing" operator for simple defaults.
-# ------------------------------------------------------------------------------
-`%||%` <- function(a, b) if (is.null(a) || is.na(a)) b else a

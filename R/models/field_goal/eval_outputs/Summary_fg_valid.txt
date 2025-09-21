@@ -1,0 +1,83 @@
+=== Binary Model Evaluation ===
+Tag:  fg_valid 
+
+Positive class: Made
+
+AUC:    0.75434 
+AUPRC:  0.933691 
+Brier:  0.125899 
+LogLoss: 0.399657 
+ECE:   0.008283 (10 bins)
+
+-- Thresholds --
+0.50 Confusion Matrix:
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    0    1
+         0   24    9
+         1  669 3293
+                                          
+               Accuracy : 0.8303          
+                 95% CI : (0.8183, 0.8418)
+    No Information Rate : 0.8265          
+    P-Value [Acc > NIR] : 0.2733          
+                                          
+                  Kappa : 0.0512          
+                                          
+ Mcnemar's Test P-Value : <2e-16          
+                                          
+            Sensitivity : 0.99727         
+            Specificity : 0.03463         
+         Pos Pred Value : 0.83115         
+         Neg Pred Value : 0.72727         
+             Prevalence : 0.82653         
+         Detection Rate : 0.82428         
+   Detection Prevalence : 0.99174         
+      Balanced Accuracy : 0.51595         
+                                          
+       'Positive' Class : 1               
+                                          
+
+Youden-opt threshold: 0.843288
+Youden Confusion Matrix:
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    0    1
+         0  550 1340
+         1  143 1962
+                                          
+               Accuracy : 0.6288          
+                 95% CI : (0.6136, 0.6438)
+    No Information Rate : 0.8265          
+    P-Value [Acc > NIR] : 1               
+                                          
+                  Kappa : 0.2305          
+                                          
+ Mcnemar's Test P-Value : <2e-16          
+                                          
+            Sensitivity : 0.5942          
+            Specificity : 0.7937          
+         Pos Pred Value : 0.9321          
+         Neg Pred Value : 0.2910          
+             Prevalence : 0.8265          
+         Detection Rate : 0.4911          
+   Detection Prevalence : 0.5269          
+      Balanced Accuracy : 0.6939          
+                                          
+       'Positive' Class : 1               
+                                          
+
+-- Top Feature Importance (head) --
+                  feature        gain      cover        freq
+1            yardline_100 0.852982370 0.53471305 0.389684814
+2              total_line 0.034575702 0.10910713 0.137535817
+3                 ydstogo 0.026490449 0.08085706 0.068767908
+4                    temp 0.024106609 0.08120012 0.114613181
+5  game_seconds_remaining 0.023145812 0.07294642 0.110315186
+6                    wind 0.018604016 0.05100123 0.074498567
+7             spread_line 0.007299339 0.02047440 0.037249284
+8                 surface 0.006037640 0.03156688 0.031518625
+9                    week 0.004101757 0.01538042 0.027220630
+10                   roof 0.002656306 0.00275329 0.008595989
