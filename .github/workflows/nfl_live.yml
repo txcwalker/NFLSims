@@ -136,7 +136,9 @@ jobs:
 
       - name: Run live chunk (8 min window, 20s polls)
         if: steps.guard.outputs.should_run == 'true'
-        run: Rscript -e "source('R/bots/run_live_chunk.R'); run_live_chunk(duration_minutes = 8, poll_seconds = 20)"
+        run: |
+          Rscript -e "source('R/bots/fetch_live_plays.R'); source('R/bots/run_live_chunk.R'); run_live_chunk(duration_minutes = 8, poll_seconds = 20)"
+
 
       - name: Upload live logs & CSVs
         if: steps.guard.outputs.should_run == 'true'

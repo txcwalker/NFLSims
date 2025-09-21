@@ -121,13 +121,44 @@ suppressPackageStartupMessages({
 # Live-only entry point. `fetcher` must return a data.frame of the latest plays.
 # It can be your NFL API fetcher. We filter to 4th downs and evaluate.
 run_fd_live_once <- function(fetcher = NULL, ...) {
+  # 1) Pick a fetcher (prefer the global fetch_live_plays if none passed)
   if (is.null(fetcher)) {
-    if (!exists("fetch_live_plays", mode = "function")) {
-      stop("No live fetcher found. Provide `fetcher=` or define `fetch_live_plays()`.")
+    if (exists("fetch_live_plays", mode = "function")) {
+      fetcher <- fetch_live_plays
+    } else {
+      # Warn only once per session to avoid log spam
+      if (!isTRUE(getOption("fd_live.fetcher_warned", FALSE))) {
+        message("[run_fd_live_once] No live fetcher found; returning empty tibble.")
+        options(fd_live.fetcher_warned = TRUE)
+      }
+      return(tibble::tibble())
     }
-    fetcher <- fetch_live_plays
   }
-  df <- fetcher(...)
-  df <- tryCatch(df %>% dplyr::filter(.data$down == 4), error = function(e) tibble())
+
+  # 2) Call the fetcher (catch errors once, return empty tibble on failure)
+  df <- tryCatch(
+    fetcher(...),
+    error = function(e) {
+      if (!isTRUE(getOption("fd_live.fetch_error_warned", FALSE))) {
+        message("[run_fd_live_once] fetcher() error: ", conditionMessage(e))
+        options(fd_live.fetch_error_warned = TRUE)
+      }
+      tibble::tibble()
+    }
+  )
+
+  # 3) Fast exits if nothing usable came back
+  if (!is.data.frame(df) || !nrow(df)) return(tibble::tibble())
+  if (!"down" %in% names(df)) df$down <- NA_integer_
+
+  # 4) Keep only 4th downs; guard against filter errors
+  df <- tryCatch(
+    dplyr::filter(df, .data$down == 4),
+    error = function(e) tibble::tibble()
+  )
+  if (!nrow(df)) return(tibble::tibble())
+
+  # 5) Evaluate rows to policy schema
   .evaluate_frame(df)
 }
+
