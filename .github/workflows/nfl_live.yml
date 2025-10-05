@@ -4,27 +4,27 @@ on:
   workflow_dispatch: {}
   schedule:
     # --- SUNDAY WINDOWS (CT → UTC) ------------------------------------------
-    - cron: "*/10 12-17 * * 0"  # <-- changed from */5 to */10
-    - cron: "*/10 17-23 * * 0"  # <-- changed
-    - cron: "*/10 0-6 * * 1"    # <-- changed
+    - cron: "*/10 12-17 * * 0"  # Europe/London games (≈ 7:00–12:59 CT while CDT; 6:00–11:59 CT after DST)
+    - cron: "*/10 17-23 * * 0"  # Early & late Sunday games (≈ 12:00–18:59 CT)
+    - cron: "*/10 0-6 * * 1"    # Sunday Night Football spillover (≈ 7:00 PM–12:59 AM CT)
 
     # --- MONDAY NIGHT FOOTBALL ----------------------------------------------
-    - cron: "*/10 0-6 * * 2"    # <-- changed
+    - cron: "*/10 0-6 * * 2"    # Tue 00:00–05:59 UTC (covers MNF across CDT/CST)
 
     # --- THURSDAY NIGHT FOOTBALL --------------------------------------------
-    - cron: "*/10 0-6 * * 5"    # <-- changed
+    - cron: "*/10 0-6 * * 5"    # Fri 00:00–05:59 UTC (covers TNF across CDT/CST)
 
     # --- SATURDAYS (late season) --------------------------------------------
-    - cron: "*/10 17-23 * * 6"  # <-- changed
-    - cron: "*/10 0-6 * * 0"    # <-- changed
+    - cron: "*/10 17-23 * * 6"  # Sat afternoon/evening CT
+    - cron: "*/10 0-6 * * 0"    # Sun 00:00–05:59 UTC to catch late Sat finishes
 
     # --- FRIDAY SPECIALS -----------------------------------------------------
-    - cron: "*/10 17-23 * * 5"  # <-- changed
+    - cron: "*/10 17-23 * * 5"  # Fri afternoon/evening CT (Black Friday and rare Friday games)
 
 jobs:
   live:
     runs-on: ubuntu-latest
-    timeout-minutes: 10        # <-- shorter, since we do one quick tick
+    timeout-minutes: 20
     concurrency:
       group: nfl-live
       cancel-in-progress: true
@@ -48,6 +48,7 @@ jobs:
       - name: Pull LFS files (models)
         run: git lfs pull || true
 
+      # System libs needed by httr2/rtoot/etc.
       - name: Install system dependencies
         run: |
           sudo apt-get update -y
@@ -145,29 +146,38 @@ jobs:
             source('R/bots/posting_policy.R');
             source('R/bots/post_targets.R');
 
-            # If you have a paid feed, your run_fd_live_once() will use it via NFL_LIVE_URL/TOKEN.
-            # Otherwise it should fall back to nflreadr, as in your current repo.
+            has_paid <- nzchar(Sys.getenv('NFL_LIVE_URL', ''));
+            if (has_paid) {
+              source('R/bots/fetch_live_plays.R');
+              f <- fetch_live_plays
+            } else {
+              source('R/bots/fetch_live_plays_nflreadr.R');
+              f <- fetch_live_plays_nflreadr
+            }
 
             ts <- format(Sys.time(), '%Y%m%d_%H%M%S')
-            dir.create('R/output/live_csv', recursive = TRUE, showWarnings = FALSE)
-            dir.create('R/logs/live_runner_logs', recursive = TRUE, showWarnings = FALSE)
+            csv_dir <- Sys.getenv('LIVE_CSV_DIR', 'R/output/live_csv')
+            log_dir <- Sys.getenv('LIVE_LOG_DIR', 'R/logs/live_runner_logs')
+            dir.create(csv_dir, recursive = TRUE, showWarnings = FALSE)
+            dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
 
-            res <- tryCatch({
-              run_fd_live_once(dry_run = TRUE)
-            }, error = function(e) {
-              writeLines(paste('ERROR', conditionMessage(e)),
-                         file.path('R/logs/live_runner_logs', paste0('tick_', ts, '.log')))
-              NULL
-            })
+            res <- tryCatch(
+              run_fd_live_once(fetcher = f, dry_run = TRUE),
+              error = function(e) {
+                writeLines(paste('ERROR', conditionMessage(e)),
+                           file.path(log_dir, paste0('tick_', ts, '.log')))
+                NULL
+              }
+            )
 
             if (is.null(res)) {
               readr::write_csv(tibble::tibble(note = 'no-data-returned'),
-                               file.path('R/output/live_csv', paste0('tick_', ts, '.csv')))
+                               file.path(csv_dir, paste0('tick_', ts, '.csv')))
             } else if (nrow(res) == 0) {
               readr::write_csv(tibble::tibble(note = 'no-fourth-downs-found'),
-                               file.path('R/output/live_csv', paste0('tick_', ts, '.csv')))
+                               file.path(csv_dir, paste0('tick_', ts, '.csv')))
             } else {
-              readr::write_csv(res, file.path('R/output/live_csv', paste0('tick_', ts, '.csv')))
+              readr::write_csv(res, file.path(csv_dir, paste0('tick_', ts, '.csv')))
             }
           "
 
