@@ -4,33 +4,33 @@ on:
   workflow_dispatch: {}
   schedule:
     # --- SUNDAY WINDOWS (CT → UTC) ------------------------------------------
-    - cron: "*/5 12-17 * * 0"  # Europe/London games (≈ 7:00–12:59 CT while CDT; 6:00–11:59 CT after DST)
-    - cron: "*/5 17-23 * * 0"  # Early & late Sunday games (≈ 12:00–18:59 CT)
-    - cron: "*/5 0-6 * * 1"    # Sunday Night Football spillover (≈ 7:00 PM–12:59 AM CT)
+    - cron: "*/10 12-17 * * 0"  # <-- changed from */5 to */10
+    - cron: "*/10 17-23 * * 0"  # <-- changed
+    - cron: "*/10 0-6 * * 1"    # <-- changed
 
     # --- MONDAY NIGHT FOOTBALL ----------------------------------------------
-    - cron: "*/5 0-6 * * 2"    # Tue 00:00–05:59 UTC (covers MNF across CDT/CST)
+    - cron: "*/10 0-6 * * 2"    # <-- changed
 
     # --- THURSDAY NIGHT FOOTBALL --------------------------------------------
-    - cron: "*/5 0-6 * * 5"    # Fri 00:00–05:59 UTC (covers TNF across CDT/CST)
+    - cron: "*/10 0-6 * * 5"    # <-- changed
 
     # --- SATURDAYS (late season) --------------------------------------------
-    - cron: "*/5 17-23 * * 6"  # Sat afternoon/evening CT
-    - cron: "*/5 0-6 * * 0"    # Sun 00:00–05:59 UTC to catch late Sat finishes
+    - cron: "*/10 17-23 * * 6"  # <-- changed
+    - cron: "*/10 0-6 * * 0"    # <-- changed
 
     # --- FRIDAY SPECIALS -----------------------------------------------------
-    - cron: "*/5 17-23 * * 5"  # Fri afternoon/evening CT (Black Friday and rare Friday games)
+    - cron: "*/10 17-23 * * 5"  # <-- changed
 
 jobs:
   live:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10        # <-- shorter, since we do one quick tick
     concurrency:
       group: nfl-live
-      cancel-in-progress: true   # prevent overlap from */5 cron
+      cancel-in-progress: true
     env:
       TZ: America/Chicago
-      DRY_RUN: "1"                        # CHANGE TO "0" when ready to post
+      DRY_RUN: "1"                        # keep dry-run ON
       LIVE_LOG_DIR: "R/logs/live_runner_logs"
       LIVE_CSV_DIR: "R/output/live_csv"
       BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
@@ -48,7 +48,6 @@ jobs:
       - name: Pull LFS files (models)
         run: git lfs pull || true
 
-      # System libs needed by httr2/rtoot/etc.
       - name: Install system dependencies
         run: |
           sudo apt-get update -y
@@ -84,7 +83,7 @@ jobs:
             any::caret
             any::pROC
 
-      # ---- Guard: run only near actual kickoffs (Chicago time) --------------
+      # ---- Guard: run only near actual kickoffs (Chicago time)
       - name: Guard – run only near kickoff windows
         id: guard
         shell: bash
@@ -137,24 +136,38 @@ jobs:
           out=$(Rscript guard.R)
           echo "$out" >> "$GITHUB_OUTPUT"
 
-      # ---- Run an 8-min poll chunk. If paid feed is missing, fall back to nflreadr.
-      - name: Run live chunk (8 min window, 20s polls)
+      # ---- Single tick: find + evaluate 4th downs right now (no inner loop)
+      - name: Run one live tick (dry-run)
         if: steps.guard.outputs.should_run == 'true'
         run: |
           Rscript -e "
             source('R/bots/run_fd_live_once.R');
             source('R/bots/posting_policy.R');
             source('R/bots/post_targets.R');
-            has_paid <- nzchar(Sys.getenv('NFL_LIVE_URL', ''));
-            if (has_paid) {
-              source('R/bots/fetch_live_plays.R');
-              source('R/bots/run_live_chunk.R');
-              run_live_chunk(duration_minutes = 8, poll_seconds = 20);
+
+            # If you have a paid feed, your run_fd_live_once() will use it via NFL_LIVE_URL/TOKEN.
+            # Otherwise it should fall back to nflreadr, as in your current repo.
+
+            ts <- format(Sys.time(), '%Y%m%d_%H%M%S')
+            dir.create('R/output/live_csv', recursive = TRUE, showWarnings = FALSE)
+            dir.create('R/logs/live_runner_logs', recursive = TRUE, showWarnings = FALSE)
+
+            res <- tryCatch({
+              run_fd_live_once(dry_run = TRUE)
+            }, error = function(e) {
+              writeLines(paste('ERROR', conditionMessage(e)),
+                         file.path('R/logs/live_runner_logs', paste0('tick_', ts, '.log')))
+              NULL
+            })
+
+            if (is.null(res)) {
+              readr::write_csv(tibble::tibble(note = 'no-data-returned'),
+                               file.path('R/output/live_csv', paste0('tick_', ts, '.csv')))
+            } else if (nrow(res) == 0) {
+              readr::write_csv(tibble::tibble(note = 'no-fourth-downs-found'),
+                               file.path('R/output/live_csv', paste0('tick_', ts, '.csv')))
             } else {
-              source('R/bots/fetch_live_plays_nflreadr.R');
-              source('R/bots/run_live_loop.R');
-              # run 8 minutes using nflreadr fallback
-              run_live(poll_seconds = 20, end_at = Sys.time() + 8*60, fetcher = fetch_live_plays_nflreadr);
+              readr::write_csv(res, file.path('R/output/live_csv', paste0('tick_', ts, '.csv')))
             }
           "
 
