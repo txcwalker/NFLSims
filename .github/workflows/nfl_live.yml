@@ -162,7 +162,7 @@ jobs:
             dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
 
             res <- tryCatch(
-              run_fd_live_once(fetcher = f, dry_run = TRUE),
+              run_fd_live_once(fetcher = f),   # <-- removed dry_run=TRUE here
               error = function(e) {
                 writeLines(paste('ERROR', conditionMessage(e)),
                            file.path(log_dir, paste0('tick_', ts, '.log')))
