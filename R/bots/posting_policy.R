@@ -1,5 +1,12 @@
+# R/bots/posting_policy.R
 # ------------------------------------------------------------------------------
 # Posting Policy & Cache Helpers for Fourth-Down Bot
+# Standard row schema REQUIRED by this file (emitted by run_fd_live_once):
+#   game_id, (drive_id|play_id), season, week,
+#   off, def, off_score, def_score, margin,
+#   qtr, sec_left, clock, down, ydstogo, yardline_100,
+#   pre_wp, wp_go, wp_punt, wp_fg, best_action, called_action,
+#   roof, surface, wind, temp, punt_suppressed
 # ------------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
@@ -9,37 +16,30 @@ suppressPackageStartupMessages({
   library(readr)
 })
 
-# Utility: null-coalescing
 `%||%` <- function(a, b) if (is.null(a) || is.na(a)) b else a
 
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------------
 # In-memory global state for cooldowns & rate-limiting (reset each R session)
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------------
 .post_state <- new.env(parent = emptyenv())
 .post_state$last_post_ts_by_game <- list()    # game_id -> POSIXct of last post
 .post_state$last_post_drive_by_game <- list() # game_id -> last posted drive_id
 .post_state$posts_last_hour_ts <- c()         # POSIXct vector of recent posts
 
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------------
 # Prime/standalone window?
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------------
 is_prime_window <- function(game_meta) {
   isTRUE(game_meta$standalone) ||
     (is.character(game_meta$window) &&
        game_meta$window %in% c("MNF","TNF","SNF","HOL","INTL","SAT"))
 }
 
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------------
 # Core policy evaluator
-# ------------------------------------------------------------------------------
+# Returns list(post=TRUE/FALSE, reason=..., diagnostics...)
+# ----------------------------------------------------------------------
 should_post_decision <- function(row, game_meta, now = Sys.time()) {
-  # REQUIRED FIELDS in `row`:
-  # game_id, drive_id, play_id
-  # qtr, sec_left, clock
-  # off, def, off_score, def_score, margin
-  # ydstogo, yardline_100, down
-  # pre_wp, wp_go, wp_punt, wp_fg (0–1 each)
-  # best_action, called_action ("go","punt","fg")
   prime <- is_prime_window(game_meta)
 
   wp_vec <- c(go = row$wp_go, punt = row$wp_punt, fg = row$wp_fg)
@@ -132,20 +132,9 @@ should_post_decision <- function(row, game_meta, now = Sys.time()) {
 }
 
 format_post <- function(row, revisionist = FALSE) {
-  # quarter label and clock
   qlabel <- if (!is.null(row$qtr) && row$qtr >= 5) "OT" else paste0("Q", row$qtr %||% "?")
-  if (!is.null(row$clock) && !is.na(row$clock)) {
-    qclock <- row$clock
-  } else {
-    q <- as.integer(row$qtr %||% 1L)
-    s <- as.integer(row$sec_left %||% 0L)
-    # seconds remaining in current quarter
-    q_left <- s - pmax(0L, (4L - pmin(q, 4L)) * 900L)
-    q_left <- max(0L, min(900L, q_left))
-    qclock <- sprintf("%d:%02d", q_left %/% 60L, q_left %% 60L)
-  }
+  qclock <- if (!is.null(row$clock) && !is.na(row$clock)) row$clock else "?:??"
 
-  # score string
   score_str <- if (!is.null(row$off_score) && !is.null(row$def_score) &&
                    !is.na(row$off_score) && !is.na(row$def_score) &&
                    !is.null(row$off) && !is.null(row$def)) {
@@ -154,7 +143,6 @@ format_post <- function(row, revisionist = FALSE) {
     "Score N/A"
   }
 
-  # All-scenarios line: include only available actions; omit PUNT when suppressed/NA
   parts <- character(0)
   if (!is.null(row$wp_fg)   && !is.na(row$wp_fg))   parts <- c(parts, paste0("FG ",  .pct(row$wp_fg)))
   if (!is.null(row$wp_go)   && !is.na(row$wp_go))   parts <- c(parts, paste0("GO ",  .pct(row$wp_go)))
@@ -163,13 +151,10 @@ format_post <- function(row, revisionist = FALSE) {
   }
   all_line <- if (length(parts)) paste(parts, collapse = "  ") else ""
 
-  # recommended action & WP
   ba <- tolower(row$best_action %||% "")
   rec_act <- toupper(ba %||% "—")
-  rec_wp  <- {
-    key <- paste0("wp_", ba)
-    .pct(if (!is.null(row[[key]]) && !is.na(row[[key]])) row[[key]] else row$pre_wp)
-  }
+  key <- paste0("wp_", ba)
+  rec_wp <- .pct(if (!is.null(row[[key]]) && !is.na(row[[key]])) row[[key]] else row$pre_wp)
 
   header <- paste0(
     "4th & ", row$ydstogo, " at ", .yard_str(row$yardline_100),
@@ -188,7 +173,7 @@ format_post <- function(row, revisionist = FALSE) {
 }
 
 # ------------------------------------------------------------------------------
-# CSV cache appender
+# CSV cache appender (field names aligned: off_score/def_score)
 # ------------------------------------------------------------------------------
 append_cache <- function(row, policy, cache_path) {
   dir.create(dirname(cache_path), recursive = TRUE, showWarnings = FALSE)
@@ -207,8 +192,8 @@ append_cache <- function(row, policy, cache_path) {
     sec_left = row$sec_left,
     off = row$off,
     def = row$def,
-    score_off = row$score_off,
-    score_def = row$score_def,
+    off_score = row$off_score,
+    def_score = row$def_score,
     margin = row$margin,
     one_score_2h = (row$margin <= 8 && row$qtr >= 3),
     yardline_100 = row$yardline_100,
@@ -245,40 +230,4 @@ mark_posted <- function(game_id, drive_id) {
   .post_state$last_post_ts_by_game[[game_id]] <- Sys.time()
   .post_state$last_post_drive_by_game[[game_id]] <- drive_id
   .post_state$posts_last_hour_ts <- c(.post_state$posts_last_hour_ts, Sys.time())
-}
-
-# ------------------------------------------------------------------------------
-# Main handler (optional helper; uses a project-specific eval_fourth_down())
-# ------------------------------------------------------------------------------
-handle_fourth_down <- function(gs, models, game_meta) {
-  res <- eval_fourth_down(gs, models)  # project-specific
-
-  row <- c(gs, res) %>% as.list()
-  row$qtr_label <- paste0("Q", row$qtr)
-  row$yardline <- sprintf("%s %d",
-                          ifelse(row$yardline_100 > 50, row$off, row$def),
-                          100 - row$yardline_100)
-  row$score_off <- row$off_score
-  row$score_def <- row$def_score
-  row$margin   <- abs(row$off_score - row$def_score)
-
-  policy <- should_post_decision(row, game_meta)
-
-  cache_file <- file.path(
-    "data/cache", row$season,
-    sprintf("week_%02d", as.integer(row$week)),
-    sprintf("decisions_%s.csv", row$game_id)
-  )
-  append_cache(row, policy, cache_file)
-
-  if (isTRUE(policy$post)) {
-    is_revisionist <- (!is.na(policy$wp_gap) &&
-                       row$best_action != row$called_action &&
-                       policy$wp_gap >= 0.05)
-    msg <- format_post(row, revisionist = is_revisionist)
-    # post_to_social(msg)  # implement in your project
-    mark_posted(row$game_id, row$drive_id)
-  }
-
-  invisible(policy)
 }

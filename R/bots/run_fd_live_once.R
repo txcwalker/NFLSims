@@ -1,11 +1,12 @@
 # R/bots/run_fd_live_once.R
 # -----------------------------------------------------------------------------
 # LIVE ONLY: fetch current plays, evaluate 4th downs via your models/sim,
-# and return rows ready for should_post_decision() + post_everywhere().
+# and return rows ready for should_post_decision() + format_post() + post_everywhere().
+# This version standardizes the row schema to match posting_policy.R requirements.
 # -----------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
-  library(dplyr); library(purrr); library(tibble); library(rlang)
+  library(dplyr); library(purrr); library(tibble); library(rlang); library(tidyr)
 })
 
 `%||%` <- function(a, b) if (is.null(a) || length(a)==0 || (is.atomic(a) && all(is.na(a)))) b else a
@@ -55,10 +56,20 @@ suppressPackageStartupMessages({
 .load_models <- function(){
   if (exists(".load_models", mode = "function")) return(.load_models())
   list(
-    fg = readRDS("R/models/field_goal/fg_model.rds"),
-    fd = readRDS("R/models/fourth_down/fd_model.rds"),
-    wp = readRDS("R/models/win_probability/wp_model.rds")
+    fg = readRDS("data/models/fg_model.rds"),
+    fd = readRDS("data/models/fd_model.rds"),
+    wp = readRDS("data/models/wp_model.rds")
   )
+}
+
+# derive sec_left and a human clock string for the current quarter
+.sec_and_clock <- function(qtr, gsr){
+  q <- suppressWarnings(as.integer(qtr)); s <- suppressWarnings(as.numeric(gsr))
+  if (is.na(q) || is.na(s)) return(list(sec_left = NA_integer_, clock = NA_character_))
+  # For regulation, sec_left == game_seconds_remaining (Q1-4). For OT we'll just format the visible clock.
+  q_seconds_left <- pmax(0L, ifelse(q <= 4, s - pmax(0, (4 - q) * 900), s))
+  mm <- floor(q_seconds_left / 60); ss <- round(q_seconds_left %% 60)
+  list(sec_left = as.integer(s), clock = sprintf("%d:%02d", mm, ss))
 }
 
 # Evaluate ONE 4th-down row to the policy schema
@@ -87,19 +98,47 @@ suppressPackageStartupMessages({
   if (all(is.na(wp_vec))) return(NULL)
   best_idx  <- names(wp_vec)[which.max(wp_vec)]
   best_wp   <- max(wp_vec, na.rm = TRUE)
-  second_wp <- max(wp_vec[names(wp_vec) != best_idx], na.rm = TRUE)
-  margin    <- ifelse(is.finite(best_wp - second_wp), best_wp - second_wp, NA_real_)
+
+  sc <- .sec_and_clock(r$qtr, r$game_seconds_remaining)
+  called <- .infer_called_action(r)
+
+  # Scores: try posteam/defteam scores first; fall back to home/away if available
+  off_score <- r$posteam_score %||% r$home_score %||% NA_real_
+  def_score <- r$defteam_score %||% r$away_score %||% NA_real_
 
   tibble(
-    game_id  = r$game_id, season = r$season, week = r$week, qtr = r$qtr,
-    game_seconds_remaining = r$game_seconds_remaining,
-    posteam = r$posteam, defteam = r$defteam,
-    yardline_100 = r$yardline_100, ydstogo = r$ydstogo,
-    pre_wp = suppressWarnings(as.numeric(r$wp %||% NA_real_)),  # if present in your feed
-    wp_go = wp_go, wp_punt = wp_punt, wp_fg = wp_fg,
+    # identity
+    game_id  = r$game_id,
+    drive_id = r$drive_id %||% NA,
+    play_id  = r$play_id  %||% NA,
+    season   = r$season, week = r$week,
+
+    # teams + scores (policy expects off/def fields)
+    off = r$posteam %||% NA_character_,
+    def = r$defteam %||% NA_character_,
+    off_score = off_score,
+    def_score = def_score,
+    margin = ifelse(!is.na(off_score) && !is.na(def_score), abs(off_score - def_score), NA_real_),
+
+    # situation
+    qtr = r$qtr,
+    sec_left = sc$sec_left,
+    clock = sc$clock,
+    down = 4L,
+    ydstogo = r$ydstogo,
+    yardline_100 = r$yardline_100,
+
+    # environmental (debug convenience)
+    roof = r$roof, surface = r$surface, wind = r$wind, temp = r$temp,
+
+    # model fields used by formatter/policy
+    pre_wp  = suppressWarnings(as.numeric(r$wp %||% NA_real_)),
+    wp_go   = wp_go, wp_punt = wp_punt, wp_fg = wp_fg,
     best_action = best_idx,
-    margin = margin,
-    called_action = .infer_called_action(r)
+    called_action = called,
+
+    # posting niceties
+    punt_suppressed = is.na(wp_punt)
   )
 }
 
@@ -114,7 +153,7 @@ suppressPackageStartupMessages({
   })
   rows %>%
     filter(!is.na(.data$wp_go) | !is.na(.data$wp_punt) | !is.na(.data$wp_fg)) %>%
-    tidyr::replace_na(list(called_action = NA_character_, pre_wp = NA_real_, margin = NA_real_))
+    tidyr::replace_na(list(called_action = NA_character_, pre_wp = NA_real_))
 }
 
 # ------------------------------ PUBLIC API -----------------------------------
@@ -161,4 +200,3 @@ run_fd_live_once <- function(fetcher = NULL, ...) {
   # 5) Evaluate rows to policy schema
   .evaluate_frame(df)
 }
-

@@ -8,17 +8,17 @@ on:
     - cron: "*/5 17-23 * * 0"  # Early & late Sunday games (≈ 12:00–18:59 CT)
     - cron: "*/5 0-6 * * 1"    # Sunday Night Football spillover (≈ 7:00 PM–12:59 AM CT)
 
-    # --- MONDAY NIGHT FOOTBALL (kick ~7:15 PM CT ⇒ 00:15–~04:15 UTC Tue) ----
+    # --- MONDAY NIGHT FOOTBALL ----------------------------------------------
     - cron: "*/5 0-6 * * 2"    # Tue 00:00–05:59 UTC (covers MNF across CDT/CST)
 
-    # --- THURSDAY NIGHT FOOTBALL (kick ~7:15 PM CT ⇒ 00:15–~04:15 UTC Fri) ---
+    # --- THURSDAY NIGHT FOOTBALL --------------------------------------------
     - cron: "*/5 0-6 * * 5"    # Fri 00:00–05:59 UTC (covers TNF across CDT/CST)
 
     # --- SATURDAYS (late season) --------------------------------------------
     - cron: "*/5 17-23 * * 6"  # Sat afternoon/evening CT
     - cron: "*/5 0-6 * * 0"    # Sun 00:00–05:59 UTC to catch late Sat finishes
 
-    # --- FRIDAY SPECIALS (e.g., Black Friday) -------------------------------
+    # --- FRIDAY SPECIALS -----------------------------------------------------
     - cron: "*/5 17-23 * * 5"  # Fri afternoon/evening CT (Black Friday and rare Friday games)
 
 jobs:
@@ -27,16 +27,18 @@ jobs:
     timeout-minutes: 20
     concurrency:
       group: nfl-live
-      cancel-in-progress: false
+      cancel-in-progress: true   # prevent overlap from */5 cron
     env:
       TZ: America/Chicago
-      DRY_RUN: "1"                        # 1 = test mode, 0 = actually post
+      DRY_RUN: "1"                        # CHANGE TO "0" when ready to post
       LIVE_LOG_DIR: "R/logs/live_runner_logs"
       LIVE_CSV_DIR: "R/output/live_csv"
       BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
       BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
       MASTO_SERVER: ${{ secrets.MASTO_SERVER }}
       MASTO_TOKEN: ${{ secrets.MASTO_TOKEN }}
+      NFL_LIVE_URL: ${{ secrets.NFL_LIVE_URL }}
+      NFL_LIVE_TOKEN: ${{ secrets.NFL_LIVE_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -46,12 +48,18 @@ jobs:
       - name: Pull LFS files (models)
         run: git lfs pull || true
 
+      # System libs needed by httr2/rtoot/etc.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: "4.4.1"
           use-public-rspm: true
 
-      - name: Install R packages
+      - name: Install R packages (cached)
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
           cache: true
@@ -62,6 +70,7 @@ jobs:
             any::tibble
             any::dotenv
             any::rtoot
+            any::atrrr
             any::nflreadr
             github::nflverse/nflfastR
             any::lubridate
@@ -82,7 +91,6 @@ jobs:
         env:
           TZ: America/Chicago
         run: |
-          # write a tiny R script to disk (avoids YAML heredoc parsing issues)
           cat > guard.R << 'EOF'
           suppressPackageStartupMessages({
             library(nflreadr); library(lubridate); library(dplyr)
@@ -90,9 +98,7 @@ jobs:
           tz_ct <- "America/Chicago"
           now_ct <- lubridate::now(tzone = tz_ct)
           today_ct <- as_date(now_ct)
-
           sched <- nflreadr::load_schedules(seasons = nflreadr::most_recent_season())
-
           kickoff_ct <- function(df){
             n <- nrow(df); if (!n) return(as.POSIXct(character(0), tz = tz_ct))
             has <- function(x) x %in% names(df)
@@ -116,10 +122,8 @@ jobs:
             }
             rep(as.POSIXct(NA, tz = tz_ct), n)
           }
-
           sched$gameday_date <- suppressWarnings(as.Date(sched$gameday))
           todays <- sched %>% filter(!is.na(gameday_date), gameday_date == today_ct)
-
           kt <- kickoff_ct(todays)
           if (length(kt)) {
             start <- kt - minutes(30)
@@ -130,15 +134,29 @@ jobs:
           }
           cat(paste0("should_run=", tolower(as.character(within)), "\n"))
           EOF
-
           out=$(Rscript guard.R)
           echo "$out" >> "$GITHUB_OUTPUT"
 
+      # ---- Run an 8-min poll chunk. If paid feed is missing, fall back to nflreadr.
       - name: Run live chunk (8 min window, 20s polls)
         if: steps.guard.outputs.should_run == 'true'
         run: |
-          Rscript -e "source('R/bots/fetch_live_plays.R'); source('R/bots/run_live_chunk.R'); run_live_chunk(duration_minutes = 8, poll_seconds = 20)"
-
+          Rscript -e "
+            source('R/bots/run_fd_live_once.R');
+            source('R/bots/posting_policy.R');
+            source('R/bots/post_targets.R');
+            has_paid <- nzchar(Sys.getenv('NFL_LIVE_URL', ''));
+            if (has_paid) {
+              source('R/bots/fetch_live_plays.R');
+              source('R/bots/run_live_chunk.R');
+              run_live_chunk(duration_minutes = 8, poll_seconds = 20);
+            } else {
+              source('R/bots/fetch_live_plays_nflreadr.R');
+              source('R/bots/run_live_loop.R');
+              # run 8 minutes using nflreadr fallback
+              run_live(poll_seconds = 20, end_at = Sys.time() + 8*60, fetcher = fetch_live_plays_nflreadr);
+            }
+          "
 
       - name: Upload live logs & CSVs
         if: steps.guard.outputs.should_run == 'true'

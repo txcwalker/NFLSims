@@ -15,8 +15,8 @@ suppressPackageStartupMessages({
     q == 1L ~ 3L*900L,
     q == 2L ~ 2L*900L,
     q == 3L ~ 1L*900L,
-    q >= 4L ~ 0L,
-    TRUE    ~ NA_integer_
+    q == 4L ~ 0L,
+    q >= 5L ~ 0L  # OT: treat regulation remaining as 0; sec_left shows visible OT clock
   )
   as.numeric(base + secs_left)
 }
@@ -50,7 +50,8 @@ fetch_live_plays <- function(){
     "down","game_id","season","week","qtr","game_seconds_remaining",
     "posteam","defteam","yardline_100","ydstogo","score_differential",
     "play_type","roof","surface","wind","temp","spread_line","total_line",
-    "posteam_timeouts_remaining","defteam_timeouts_remaining","wp"
+    "posteam_timeouts_remaining","defteam_timeouts_remaining","wp",
+    "drive_id","play_id","posteam_score","defteam_score","home_score","away_score","clock"
   )
   for (nm in needed) if (!nm %in% names(df)) df[[nm]] <- NA
 
@@ -75,7 +76,11 @@ fetch_live_plays <- function(){
       spread_line = suppressWarnings(as.numeric(spread_line)),
       total_line  = suppressWarnings(as.numeric(total_line)),
       posteam_timeouts_remaining = suppressWarnings(as.integer(posteam_timeouts_remaining)),
-      defteam_timeouts_remaining = suppressWarnings(as.integer(defteam_timeouts_remaining))
+      defteam_timeouts_remaining = suppressWarnings(as.integer(defteam_timeouts_remaining)),
+      posteam_score = suppressWarnings(as.numeric(posteam_score)),
+      defteam_score = suppressWarnings(as.numeric(defteam_score)),
+      home_score = suppressWarnings(as.numeric(home_score)),
+      away_score = suppressWarnings(as.numeric(away_score))
     )
 
   df
