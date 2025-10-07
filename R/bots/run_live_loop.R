@@ -6,7 +6,6 @@
 #  - formats via format_post()
 #  - posts via post_everywhere()
 #  - logs to CSV + .log file
-#  - respects optional end_at (POSIXct) to stop automatically
 # -----------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
@@ -20,18 +19,22 @@ if (requireNamespace("dotenv", quietly = TRUE)) {
 
 # Project sources
 source("R/bots/post_targets.R")     # post_everywhere()
-source("R/bots/posting_policy.R")   # should_post_decision(), format_post(), optional mark_posted()
+source("R/bots/posting_policy.R")   # should_post_decision(), format_post()
 source("R/bots/run_fd_live_once.R") # run_fd_live_once()
 
-# Optional: nflreadr fetcher (if present)
+# --- Optional fetchers -------------------------------------------------------
 if (file.exists("R/bots/fetch_live_plays_nflreadr.R")) {
   source("R/bots/fetch_live_plays_nflreadr.R")
+}
+
+if (file.exists("R/bots/fetch_live_plays_espn.R")) {
+  source("R/bots/fetch_live_plays_espn.R")
 }
 
 `%||%` <- function(a,b) if (is.null(a)||length(a)==0||(is.atomic(a)&&all(is.na(a)))) b else a
 .dir_ok <- function(p){ if (!dir.exists(p)) dir.create(p, recursive = TRUE, showWarnings = FALSE) }
 
-# Build meta passed to policy (kept small on purpose)
+# Build meta passed to policy
 .build_game_meta <- function(row){
   list(
     game_id = as.character(row$game_id %||% NA),
@@ -52,21 +55,18 @@ if (file.exists("R/bots/fetch_live_plays_nflreadr.R")) {
   )
 }
 
-# Best-effort drive identifier if feed lacks drive_id
 .get_drive_id <- function(row){
   if (!is.null(row$drive_id) && !is.na(row$drive_id)) return(as.character(row$drive_id))
   if (!is.null(row$play_id)  && !is.na(row$play_id))  return(paste0("p", row$play_id))
   paste0("g", row$game_id, "_q", row$qtr, "_y", row$yardline_100, "_t", row$ydstogo)
 }
 
-# One pass: take 0+ candidate rows, gate + post each
+# One pass: process 0+ candidate rows
 .process_batch <- function(df, csv_dir) {
   if (is.null(df) || !nrow(df)) return(invisible(0L))
-
   posted_ct <- 0L
   for (i in seq_len(nrow(df))) {
     row <- df[i, , drop = FALSE]
-
     gate <- tryCatch(
       do.call(should_post_decision, .policy_args(row)),
       error = function(e) { message("[Policy ERROR] ", conditionMessage(e)); list(post = FALSE) }
@@ -96,10 +96,13 @@ if (file.exists("R/bots/fetch_live_plays_nflreadr.R")) {
   invisible(posted_ct)
 }
 
-# Public entrypoint
-# - end_at: optional POSIXct; when reached, loop exits
-# - fetcher: optional function; if provided, passed to run_fd_live_once()
+# ------------------------------ PUBLIC API -----------------------------------
 run_live <- function(poll_seconds = 20, end_at = NULL, fetcher = NULL) {
+  # Prefer ESPN if available and none explicitly passed
+  if (is.null(fetcher) && exists("fetch_live_plays_espn", mode = "function")) {
+    fetcher <- fetch_live_plays_espn
+  }
+
   log_dir <- Sys.getenv("LIVE_LOG_DIR", unset = "R/bots/logs")
   csv_dir <- Sys.getenv("LIVE_CSV_DIR", unset = "R/bots/live_csv")
   .dir_ok(log_dir); .dir_ok(csv_dir)
@@ -134,14 +137,17 @@ run_live <- function(poll_seconds = 20, end_at = NULL, fetcher = NULL) {
   }
 }
 
-# Convenience wrapper to run with nflreadr fetcher when present
+# --- Convenience wrappers ----------------------------------------------------
+run_live_espn <- function(poll_seconds = 15, end_at = NULL){
+  if (!exists("fetch_live_plays_espn", mode = "function")) {
+    stop("fetch_live_plays_espn() not found. Did you create R/bots/fetch_live_plays_espn.R?")
+  }
+  run_live(poll_seconds = poll_seconds, end_at = end_at, fetcher = fetch_live_plays_espn)
+}
+
 run_live_nflreadr <- function(poll_seconds = 20, end_at = NULL) {
   if (!exists("fetch_live_plays_nflreadr", mode = "function")) {
     stop("fetch_live_plays_nflreadr() not found. Did you source R/bots/fetch_live_plays_nflreadr.R?")
   }
   run_live(poll_seconds = poll_seconds, end_at = end_at, fetcher = fetch_live_plays_nflreadr)
 }
-
-# --- Quick smoke test (manual) -----------------------------------------------
-# source("R/bots/fetch_live_plays_nflreadr.R"); source("R/bots/run_live_loop.R")
-# Sys.setenv(DRY_RUN="1"); run_live_nflreadr(poll_seconds = 10, end_at = Sys.time() + 20)

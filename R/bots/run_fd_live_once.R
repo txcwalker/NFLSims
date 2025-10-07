@@ -66,7 +66,6 @@ suppressPackageStartupMessages({
 .sec_and_clock <- function(qtr, gsr){
   q <- suppressWarnings(as.integer(qtr)); s <- suppressWarnings(as.numeric(gsr))
   if (is.na(q) || is.na(s)) return(list(sec_left = NA_integer_, clock = NA_character_))
-  # For regulation, sec_left == game_seconds_remaining (Q1-4). For OT we'll just format the visible clock.
   q_seconds_left <- pmax(0L, ifelse(q <= 4, s - pmax(0, (4 - q) * 900), s))
   mm <- floor(q_seconds_left / 60); ss <- round(q_seconds_left %% 60)
   list(sec_left = as.integer(s), clock = sprintf("%d:%02d", mm, ss))
@@ -74,13 +73,11 @@ suppressPackageStartupMessages({
 
 # Evaluate ONE 4th-down row to the policy schema
 .eval_one_row <- function(r, models){
-  # Prefer your project’s native row evaluator if present
   if (exists(".evaluate_row", mode = "function")) {
     out <- tryCatch(.evaluate_row(r), error = function(e) NULL)
     if (!is.null(out)) return(out)
   }
 
-  # Otherwise drive via your simulator
   if (!exists("simulate_fourth_down_decision", mode = "function")) return(NULL)
 
   gs  <- .build_game_state(r)
@@ -102,42 +99,30 @@ suppressPackageStartupMessages({
   sc <- .sec_and_clock(r$qtr, r$game_seconds_remaining)
   called <- .infer_called_action(r)
 
-  # Scores: try posteam/defteam scores first; fall back to home/away if available
   off_score <- r$posteam_score %||% r$home_score %||% NA_real_
   def_score <- r$defteam_score %||% r$away_score %||% NA_real_
 
   tibble(
-    # identity
     game_id  = r$game_id,
     drive_id = r$drive_id %||% NA,
     play_id  = r$play_id  %||% NA,
     season   = r$season, week = r$week,
-
-    # teams + scores (policy expects off/def fields)
     off = r$posteam %||% NA_character_,
     def = r$defteam %||% NA_character_,
     off_score = off_score,
     def_score = def_score,
     margin = ifelse(!is.na(off_score) && !is.na(def_score), abs(off_score - def_score), NA_real_),
-
-    # situation
     qtr = r$qtr,
     sec_left = sc$sec_left,
     clock = sc$clock,
     down = 4L,
     ydstogo = r$ydstogo,
     yardline_100 = r$yardline_100,
-
-    # environmental (debug convenience)
     roof = r$roof, surface = r$surface, wind = r$wind, temp = r$temp,
-
-    # model fields used by formatter/policy
     pre_wp  = suppressWarnings(as.numeric(r$wp %||% NA_real_)),
     wp_go   = wp_go, wp_punt = wp_punt, wp_fg = wp_fg,
     best_action = best_idx,
     called_action = called,
-
-    # posting niceties
     punt_suppressed = is.na(wp_punt)
   )
 }
@@ -158,14 +143,13 @@ suppressPackageStartupMessages({
 
 # ------------------------------ PUBLIC API -----------------------------------
 # Live-only entry point. `fetcher` must return a data.frame of the latest plays.
-# It can be your NFL API fetcher. We filter to 4th downs and evaluate.
+# It can be nflreadr, ESPN, or any API fetcher.
 run_fd_live_once <- function(fetcher = NULL, ...) {
-  # 1) Pick a fetcher (prefer the global fetch_live_plays if none passed)
+  # 1) Pick a fetcher (prefer global fetch_live_plays if none passed)
   if (is.null(fetcher)) {
     if (exists("fetch_live_plays", mode = "function")) {
       fetcher <- fetch_live_plays
     } else {
-      # Warn only once per session to avoid log spam
       if (!isTRUE(getOption("fd_live.fetcher_warned", FALSE))) {
         message("[run_fd_live_once] No live fetcher found; returning empty tibble.")
         options(fd_live.fetcher_warned = TRUE)
@@ -174,27 +158,26 @@ run_fd_live_once <- function(fetcher = NULL, ...) {
     }
   }
 
-  # 2) Call the fetcher (catch errors once, return empty tibble on failure)
-  df <- tryCatch(
-    fetcher(...),
-    error = function(e) {
-      if (!isTRUE(getOption("fd_live.fetch_error_warned", FALSE))) {
-        message("[run_fd_live_once] fetcher() error: ", conditionMessage(e))
-        options(fd_live.fetch_error_warned = TRUE)
-      }
-      tibble::tibble()
+  # 2) Call the fetcher
+  df <- tryCatch(fetcher(...), error = function(e) {
+    if (!isTRUE(getOption("fd_live.fetch_error_warned", FALSE))) {
+      message("[run_fd_live_once] fetcher() error: ", conditionMessage(e))
+      options(fd_live.fetch_error_warned = TRUE)
     }
-  )
+    tibble::tibble()
+  })
 
-  # 3) Fast exits if nothing usable came back
+  # 3) Exit early if nothing usable
   if (!is.data.frame(df) || !nrow(df)) return(tibble::tibble())
-  if (!"down" %in% names(df)) df$down <- NA_integer_
 
-  # 4) Keep only 4th downs; guard against filter errors
-  df <- tryCatch(
-    dplyr::filter(df, .data$down == 4),
-    error = function(e) tibble::tibble()
-  )
+  # --- NEW: try to infer 4th downs if 'down' missing
+  if (!"down" %in% names(df)) df$down <- NA_integer_
+  if (all(is.na(df$down)) && "text" %in% names(df)) {
+    df$down <- ifelse(grepl("\\b4th\\b", tolower(df$text %||% "")), 4L, NA_integer_)
+  }
+
+  # 4) Keep only 4th downs
+  df <- tryCatch(dplyr::filter(df, .data$down == 4), error = function(e) tibble::tibble())
   if (!nrow(df)) return(tibble::tibble())
 
   # 5) Evaluate rows to policy schema
