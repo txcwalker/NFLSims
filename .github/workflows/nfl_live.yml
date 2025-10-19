@@ -49,10 +49,14 @@ jobs:
         run: git lfs pull || true
 
       # System libs needed by httr/rtoot/jsonlite/etc.
-      - name: Install system dependencies
+      # .github/workflows/live.yml  (replace the deps step)
+      - name: Install deps (CRAN)
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+          Rscript -e 'install.packages(c(
+            "httr","jsonlite","dplyr","purrr","stringr",
+            "tibble","lubridate","readr","glue"
+          ), repos="https://cran.r-project.org")'
+      
 
       - uses: r-lib/actions/setup-r@v2
         with:
