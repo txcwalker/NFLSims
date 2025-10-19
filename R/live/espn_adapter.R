@@ -3,6 +3,15 @@
 # ESPN (unofficial) adapter: fetches scoreboard/summary/pbp and normalizes plays
 # to a stable schema for the 4th-down bot. ALWAYS returns a `down` column.
 # Includes light retry/backoff, one %||% helper, and a small stateful dedup.
+#
+# Key points:
+# - Keep JSON as lists (no unwanted data.frame simplification).
+# - Scoreboard helper (works with/without explicit date; seasontype/groups supported).
+# - Robust extraction of event IDs even if `events` is a data.frame.
+# - espn_list_events(...) accepts a pre-fetched scoreboard to avoid extra calls.
+# - espn_fetch_pbp(...) returns a tibble of plays plus a small meta list.
+# - espn_plays_to_fd_rows(...) expects that tibble, so dplyr never mutates a raw list.
+# - filter_new_plays(event_id, plays_df) only operates on plays (not meta).
 # ------------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
@@ -10,12 +19,15 @@ suppressPackageStartupMessages({
   library(stringr); library(tibble); library(lubridate)
 })
 
-# Single, project-wide null/empty coalescer
+# --- Utilities ----------------------------------------------------------------
+
 `%||%` <- function(a,b) if (is.null(a)||length(a)==0||(is.atomic(a)&&all(is.na(a)))) b else a
+.pluck <- function(x, ...) purrr::pluck(x, ..., .default = NULL)
 
 # --- HTTP JSON with light retry/backoff --------------------------------------
-.espm_json <- function(url, flatten = TRUE){
-  ua <- httr::user_agent("fd-bot/espn-adapter/0.5")
+# Keep JSON as LISTS by default (simplifyVector = FALSE) so shapes are stable.
+.espm_json <- function(url, flatten = FALSE, simplify = FALSE){
+  ua <- httr::user_agent("fd-bot/espn-adapter/0.6")
   for (i in 1:3) {
     resp <- try(httr::GET(url, ua, timeout(10)), silent = TRUE)
     if (inherits(resp, "try-error")) { Sys.sleep(runif(1, 0.2, 0.8)); next }
@@ -23,12 +35,13 @@ suppressPackageStartupMessages({
       if (i == 3) httr::stop_for_status(resp) else { Sys.sleep(runif(1, 0.2, 0.8)); next }
     }
     txt <- httr::content(resp, "text", encoding = "UTF-8")
-    return(jsonlite::fromJSON(txt, flatten = flatten))
+    return(jsonlite::fromJSON(txt, flatten = flatten, simplifyVector = simplify))
   }
   stop("ESPN request failed after retries.")
 }
 
 # --- Time & yardline helpers --------------------------------------------------
+
 .parse_clock_secs <- function(display){
   if (is.null(display) || is.na(display) || !nzchar(display)) return(0L)
   mm <- suppressWarnings(as.integer(sub(":.*$", "", display)))
@@ -55,44 +68,8 @@ suppressPackageStartupMessages({
   if (isTRUE(toupper(posteam) == toupper(mark_team))) 100 - yard else yard
 }
 
-# --- Public: ids/map ----------------------------------------------------------
-espn_active_event_ids <- function(league = "nfl") {
-  url <- sprintf("https://site.api.espn.com/apis/site/v2/sports/football/%s/scoreboard", league)
-  json <- .espm_json(url, flatten = FALSE)
-  purrr::map_chr(json$events %||% list(), "id")
-}
+# --- Down inference -----------------------------------------------------------
 
-espn_event <- function(event_id) {
-  url <- sprintf("https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=%s", event_id)
-  .espm_json(url, flatten = FALSE)
-}
-
-espn_list_events <- function() {
-  ids <- espn_active_event_ids()
-  purrr::map_dfr(ids, function(id) {
-    dat <- espn_event(id)
-    tibble::tibble(
-      id = id,
-      state = dat[["status"]][["type"]][["state"]] %||% NA_character_,
-      detail = dat[["status"]][["type"]][["detail"]] %||% NA_character_,
-      home = purrr::pluck(dat, "competitions", 1, "competitors", 1, "team", "displayName") %||% NA_character_,
-      away = purrr::pluck(dat, "competitions", 1, "competitors", 2, "team", "displayName") %||% NA_character_
-    )
-  })
-}
-
-espn_team_map <- function(event_id){
-  sm <- .espm_json(sprintf("https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=%s", event_id), flatten = FALSE)
-  comps <- purrr::pluck(sm, "header", "competitions", 1, "competitors")
-  if (is.null(comps) || !length(comps)) return(NULL)
-  tibble(
-    side    = purrr::map_chr(comps, ~ .x$homeAway %||% NA_character_),
-    abbrev  = purrr::map_chr(comps, ~ .x$team$abbreviation %||% .x$team$shortDisplayName %||% NA_character_),
-    team_id = purrr::map_chr(comps, ~ .x$team$id %||% NA_character_)
-  )
-}
-
-# --- Robust down inference ----------------------------------------------------
 .infer_down_from_text <- function(x){
   xx <- tolower(x %||% "")
   if (grepl("\\b1st\\b", xx)) return(1L)
@@ -110,14 +87,134 @@ espn_team_map <- function(event_id){
   .infer_down_from_text(text)
 }
 
-# safe pluck
-.pluck <- function(x, ...) purrr::pluck(x, ..., .default = NULL)
+# --- Scoreboard fetcher (works with/without date; seasontype/groups) ----------
+# seasontype: 1=pre, 2=reg, 3=post; groups commonly 28 or 80 for NFL.
+espn_scoreboard <- function(league = "nfl", date = NULL, seasontype = NULL, groups = NULL) {
+  base <- sprintf("https://site.api.espn.com/apis/site/v2/sports/football/%s/scoreboard", league)
+  qs <- list()
+  if (!is.null(date))       qs$dates <- format(as.Date(date), "%Y%m%d")
+  if (!is.null(seasontype)) qs$seasontype <- as.character(seasontype)
+  if (!is.null(groups))     qs$groups <- as.character(groups)
 
-# --- Play-by-play fetch (unflattened) ----------------------------------------
+  url <- if (length(qs)) paste0(base, "?", paste(sprintf("%s=%s", names(qs), qs), collapse="&")) else base
+  .espm_json(url, flatten = FALSE, simplify = FALSE)
+}
+
+# --- Robust event id getter (handles list or data.frame `events`) -------------
+espn_active_event_ids <- function(league = "nfl",
+                                  date = NULL,
+                                  only_live = TRUE,
+                                  seasontype = NULL,
+                                  groups = NULL,
+                                  scoreboard = NULL) {
+  sb <- scoreboard %||% espn_scoreboard(league = league, date = date,
+                                        seasontype = seasontype, groups = groups)
+
+  evs <- sb$events %||% list()
+  if (is.data.frame(evs)) {
+    if (nrow(evs) == 0) return(character())
+    evs <- split(evs, seq_len(nrow(evs)))
+  }
+  if (!length(evs)) return(character())
+
+  first_comp <- function(e) purrr::pluck(e, "competitions", 1)
+
+  evs <- purrr::keep(evs, ~ !is.null(first_comp(.x)))
+
+  if (isTRUE(only_live)) {
+    evs <- purrr::keep(evs, function(e) {
+      st <- purrr::pluck(first_comp(e), "status", "type", "name")
+      isTRUE(identical(st, "STATUS_IN_PROGRESS"))
+    })
+  }
+
+  .scalar_chr <- function(x) {
+    if (is.null(x) || length(x) == 0) return(NA_character_)
+    if (length(x) > 1) x <- x[[1]]
+    as.character(x)
+  }
+
+  ids <- vapply(evs, function(e) {
+    id1 <- .scalar_chr(purrr::pluck(e, "id"))
+    if (!is.na(id1) && nzchar(id1)) return(id1)
+
+    id2 <- .scalar_chr(purrr::pluck(first_comp(e), "id"))
+    if (!is.na(id2) && nzchar(id2)) return(id2)
+
+    uid <- .scalar_chr(purrr::pluck(e, "uid"))
+    if (!is.na(uid) && nzchar(uid)) {
+      m <- regmatches(uid, regexpr("e:([0-9]+)", uid))
+      if (length(m) && nzchar(m)) return(sub("^e:", "", m))
+    }
+    NA_character_
+  }, character(1))
+
+  unique(ids[!is.na(ids) & nzchar(ids)])
+}
+
+# --- Summary/event & small listing helper ------------------------------------
+
+espn_event <- function(event_id) {
+  url <- sprintf("https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=%s", event_id)
+  .espm_json(url, flatten = FALSE, simplify = FALSE)
+}
+
+# Accepts a pre-fetched scoreboard; mirrors espn_active_event_ids semantics.
+espn_list_events <- function(scoreboard = NULL,
+                             league = "nfl",
+                             date = NULL,
+                             only_live = FALSE,
+                             seasontype = NULL,
+                             groups = NULL) {
+  sb <- scoreboard %||% espn_scoreboard(league = league, date = date,
+                                        seasontype = seasontype, groups = groups)
+
+  evs <- sb$events %||% list()
+  if (is.data.frame(evs)) evs <- split(evs, seq_len(nrow(evs)))
+  if (!length(evs)) {
+    return(tibble::tibble(id=character(), state=character(), detail=character(),
+                          home=character(), away=character()))
+  }
+
+  rows <- purrr::map_dfr(evs, function(e) {
+    comp <- purrr::pluck(e, "competitions", 1)
+    tibble::tibble(
+      id     = as.character((e$id %||% purrr::pluck(comp, "id")) %||% NA_character_),
+      state  = purrr::pluck(comp, "status", "type", "state") %||% NA_character_,
+      detail = purrr::pluck(comp, "status", "type", "detail") %||% NA_character_,
+      home   = purrr::pluck(comp, "competitors", 1, "team", "displayName") %||% NA_character_,
+      away   = purrr::pluck(comp, "competitors", 2, "team", "displayName") %||% NA_character_
+    )
+  })
+
+  if (isTRUE(only_live)) {
+    rows <- dplyr::filter(rows, !is.na(state) & state == "in")
+  }
+  rows
+}
+
+# --- Team map (home/away + abbreviations) ------------------------------------
+
+espn_team_map <- function(event_id){
+  sm <- .espm_json(sprintf("https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=%s", event_id),
+                   flatten = FALSE, simplify = FALSE)
+  comps <- purrr::pluck(sm, "header", "competitions", 1, "competitors")
+  if (is.null(comps) || !length(comps)) return(NULL)
+  tibble::tibble(
+    side    = purrr::map_chr(comps, ~ .x$homeAway %||% NA_character_),
+    abbrev  = purrr::map_chr(comps, ~ .x$team$abbreviation %||% .x$team$shortDisplayName %||% NA_character_),
+    team_id = purrr::map_chr(comps, ~ .x$team$id %||% NA_character_)
+  )
+}
+
+# --- Play-by-play fetch (unflattened JSON -> tibble plays + meta) ------------
+
+# Uses "site.api" playbyplay endpoint. If a drive is split into previous/current,
+# we merge both. If nothing returns, we provide a valid empty tibble with `meta`.
 espn_fetch_pbp <- function(event_id){
   pb <- .espm_json(
     sprintf("https://site.api.espn.com/apis/site/v2/sports/football/nfl/playbyplay?event=%s", event_id),
-    flatten = FALSE
+    flatten = FALSE, simplify = FALSE
   )
 
   # Collect plays from previous drives + current
@@ -145,9 +242,9 @@ espn_fetch_pbp <- function(event_id){
       start_sddt    = as.character(.pluck(p, "start", "shortDownDistanceText") %||% NA_character_),
       start_poss    = as.character(
         .pluck(p, "start", "possession", "displayValue") %||%
-        .pluck(p, "start", "possessionText") %||%
-        .pluck(p, "start", "team", "abbreviation") %||%
-        .pluck(p, "start", "team", "shortDisplayName") %||% NA_character_
+          .pluck(p, "start", "possessionText") %||%
+          .pluck(p, "start", "team", "abbreviation") %||%
+          .pluck(p, "start", "team", "shortDisplayName") %||% NA_character_
       ),
       start_home    = suppressWarnings(as.integer(.pluck(p, "start", "homeScore") %||% NA_integer_)),
       start_away    = suppressWarnings(as.integer(.pluck(p, "start", "awayScore") %||% NA_integer_)),
@@ -164,20 +261,23 @@ espn_fetch_pbp <- function(event_id){
 }
 
 # --- Normalize to FD schema (ALWAYS includes `down`) --------------------------
+
 espn_plays_to_fd_rows <- function(event_id, plays_df, team_map, season = NA_integer_, week = NA_integer_){
-  if (nrow(plays_df) == 0 || is.null(team_map) || !nrow(team_map)) return(tibble())
+  if (NROW(plays_df) == 0 || is.null(team_map) || NROW(team_map) == 0) {
+    return(tibble::tibble())
+  }
 
   home_abbr <- toupper(team_map$abbrev[team_map$side == "home"] %||% NA_character_)
   away_abbr <- toupper(team_map$abbrev[team_map$side == "away"] %||% NA_character_)
 
   out <- plays_df %>%
-    mutate(
+    dplyr::mutate(
       poss = purrr::map(start_poss, .parse_possession_text),
       poss_team = purrr::map_chr(poss, "team"),
       poss_yard = purrr::map_int(poss, "yard"),
-      posteam   = toupper(coalesce(team_abbr, poss_team)),
-      defteam   = ifelse(posteam == home_abbr, away_abbr,
-                  ifelse(posteam == away_abbr, home_abbr, NA_character_)),
+      posteam   = toupper(dplyr::coalesce(team_abbr, poss_team)),
+      defteam   = dplyr::if_else(posteam == home_abbr, away_abbr,
+                         dplyr::if_else(posteam == away_abbr, home_abbr, NA_character_)),
       yardline_100 = .compute_yardline_100(posteam, poss_team, poss_yard),
       qtr   = as.integer(period),
       gsr   = .game_seconds_remaining(period, clock_display),
@@ -189,7 +289,7 @@ espn_plays_to_fd_rows <- function(event_id, plays_df, team_map, season = NA_inte
       play_type = tolower(type_text %||% NA_character_),
       down = .infer_down_coalesce(start_down, start_sddt, text)
     ) %>%
-    transmute(
+    dplyr::transmute(
       game_id = as.character(event_id),
       play_id,
       season = as.integer(season),
@@ -208,28 +308,42 @@ espn_plays_to_fd_rows <- function(event_id, plays_df, team_map, season = NA_inte
       text = text %||% NA_character_,
       down = as.integer(down)
     )
+
   out
 }
 
-# --- Stateful de-dup per event_id --------------------------------------------
+# --- Small on-disk state for dedup (per event) --------------------------------
+
 .espm_state_path <- function(){
   dir.create("data/live", recursive = TRUE, showWarnings = FALSE)
   file.path("data/live", "espn_state.json")
 }
+
 .read_espm_state <- function(){
   p <- .espm_state_path()
   if (!file.exists(p)) return(list())
   jsonlite::read_json(p, simplifyVector = TRUE)
 }
+
 .write_espm_state <- function(state){
   jsonlite::write_json(state, path = .espm_state_path(), auto_unbox = TRUE, pretty = TRUE)
 }
+
+# --- Stateful de-dup per event_id (robust to empty input) ---------------------
+
 filter_new_plays <- function(event_id, plays_df){
+  if (NROW(plays_df) == 0) return(tibble::tibble())
+  if (!inherits(plays_df, "data.frame")) plays_df <- tibble::as_tibble(plays_df)
+  if (!"play_id" %in% names(plays_df))  return(tibble::tibble())
+
   st <- .read_espm_state(); key <- as.character(event_id)
   seen <- st[[key]] %||% character()
-  new_df <- plays_df %>% filter(!(play_id %in% seen), !is.na(play_id))
+
+  new_df <- dplyr::filter(plays_df, !(play_id %in% seen), !is.na(play_id))
+
   st[[key]] <- unique(c(seen, new_df$play_id))
   if (length(st[[key]]) > 300) st[[key]] <- tail(st[[key]], 300)
+
   .write_espm_state(st)
   new_df
 }
