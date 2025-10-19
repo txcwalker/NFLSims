@@ -23,8 +23,8 @@ source("R/bots/posting_policy.R")   # should_post_decision(), format_post()
 source("R/bots/run_fd_live_once.R") # run_fd_live_once()
 
 # --- Optional fetchers -------------------------------------------------------
-if (file.exists("R/bots/fetch_live_plays_nflreadr.R")) {
-  source("R/bots/fetch_live_plays_nflreadr.R")
+if (file.exists("../../legacy/fetch_live_plays_nflreadr.R")) {
+  source("../../legacy/fetch_live_plays_nflreadr.R")
 }
 
 if (file.exists("R/bots/fetch_live_plays_espn.R")) {
@@ -97,7 +97,12 @@ if (file.exists("R/bots/fetch_live_plays_espn.R")) {
 }
 
 # ------------------------------ PUBLIC API -----------------------------------
-run_live <- function(poll_seconds = 20, end_at = NULL, fetcher = NULL) {
+# run_live()
+# - You can pass either:
+#     * end_at = POSIXct deadline, OR
+#     * duration_secs = number of seconds to run (ignored if end_at is provided)
+# - Guarantees at least one tick even if end_at is very close to now.
+run_live <- function(poll_seconds = 20, end_at = NULL, fetcher = NULL, duration_secs = NULL) {
   # Prefer ESPN if available and none explicitly passed
   if (is.null(fetcher) && exists("fetch_live_plays_espn", mode = "function")) {
     fetcher <- fetch_live_plays_espn
@@ -110,10 +115,30 @@ run_live <- function(poll_seconds = 20, end_at = NULL, fetcher = NULL) {
   poll_seconds <- as.integer(poll_seconds %||% 20)
   if (is.na(poll_seconds) || poll_seconds < 5) poll_seconds <- 5
 
-  message(glue("Live loop started (poll={poll_seconds}s, DRY_RUN={Sys.getenv('DRY_RUN', '0')})"))
+  # Derive a deadline if duration_secs provided
+  if (is.null(end_at) && !is.null(duration_secs)) {
+    end_at <- Sys.time() + as.numeric(duration_secs)
+  }
+
+  # Normalize: ensure end_at is POSIXct or NULL
+  if (!is.null(end_at)) {
+    if (!inherits(end_at, "POSIXt")) {
+      stop("end_at must be POSIXct/POSIXlt (or NULL).")
+    }
+  }
+
+  start_time <- Sys.time()
+  message(glue::glue(
+    "Live loop started (poll={poll_seconds}s, DRY_RUN={Sys.getenv('DRY_RUN','0')}, ",
+    "start={format(start_time, '%H:%M:%S')}, ",
+    "end_at={ifelse(is.null(end_at), 'NULL', format(end_at, '%H:%M:%S'))})"
+  ))
+
+  did_tick <- FALSE
 
   repeat {
-    if (!is.null(end_at) && Sys.time() >= end_at) {
+    # Only enforce the cutoff AFTER we've done at least one tick
+    if (!is.null(end_at) && did_tick && Sys.time() >= end_at) {
       message("[run_live] Reached end_at; exiting loop.")
       break
     }
@@ -129,11 +154,24 @@ run_live <- function(poll_seconds = 20, end_at = NULL, fetcher = NULL) {
       message("[Batch ERROR] ", conditionMessage(e)); 0L
     })
 
-    log_line <- glue("[{format(Sys.time(), '%Y-%m-%d %H:%M:%S')}] polled: rows={nrow(df %||% tibble())}, posted={n_posted}\n")
+    did_tick <- TRUE
+
+    log_line <- glue::glue("[{format(Sys.time(), '%Y-%m-%d %H:%M:%S')}] polled: rows={nrow(df %||% tibble())}, posted={n_posted}\n")
     cat(log_line, file = file.path(log_dir, paste0("live_", format(Sys.Date(), "%Y%m%d"), ".log")), append = TRUE)
 
-    elapsed <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
-    Sys.sleep(max(0, poll_seconds - elapsed))
+    # If a deadline exists and the next sleep would overshoot, exit cleanly.
+    if (!is.null(end_at)) {
+      remaining <- as.numeric(difftime(end_at, Sys.time(), units = "secs"))
+      if (remaining <= 0) {
+        message("[run_live] Deadline reached after this tick; exiting.")
+        break
+      }
+      Sys.sleep(max(0, min(poll_seconds, remaining)))
+    } else {
+      # No deadline: normal cadence
+      elapsed <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
+      Sys.sleep(max(0, poll_seconds - elapsed))
+    }
   }
 }
 

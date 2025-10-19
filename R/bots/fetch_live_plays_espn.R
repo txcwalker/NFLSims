@@ -1,54 +1,61 @@
+# R/bots/fetch_live_plays_espn.R
 # ------------------------------------------------------------------------------
-# ESPN live fetcher
-# Returns a data.frame with the columns expected by run_fd_live_once() pipeline.
+# ESPN live fetcher:
+# - Enumerates active events (optionally filter to in-progress)
+# - Fetches PBP + team map, normalizes to FD rows (guaranteed `down` column)
+# - Dedups per-event via adapter's state file
 # ------------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
   library(dplyr); library(purrr); library(tibble)
 })
-
 source("R/live/espn_adapter.R")
 
-# Optional: pin the logical "season/week" if you want (or leave NA)
-.get_season_week <- function(){
-  # Neutral defaults; adjust if you have a helper in your project
-  list(season = NA_integer_, week = NA_integer_)
-}
+# Optional: derive season/week if you need them in rows (here we keep NA)
+.get_season_week <- function(){ list(season = NA_integer_, week = NA_integer_) }
 
-fetch_live_plays_espn <- function(){
-  events <- tryCatch(espn_active_event_ids(), error = function(e) character())
-  if (!length(events)) return(tibble())
+fetch_live_plays_espn <- function(only_in_progress = TRUE){
+  # Pull scoreboard once to optionally filter to "in" games
+  ids <- tryCatch(espn_active_event_ids(), error = function(e) character())
+  if (!length(ids)) return(tibble())
 
   sw <- .get_season_week()
 
-  rows <- purrr::map_dfr(events, function(eid){
-    pbp <- tryCatch(espn_fetch_pbp(eid), error = function(e) NULL)
-    if (is.null(pbp)) return(tibble())
+  # Optional in-progress filter using summary$status.type.state
+  if (isTRUE(only_in_progress)) {
+    states <- purrr::map_chr(ids, function(id){
+      sm <- tryCatch(espn_event(id), error = function(e) NULL)
+      if (is.null(sm)) return(NA_character_)
+      sm[["status"]][["type"]][["state"]] %||% NA_character_
+    })
+    ids <- ids[tolower(states) == "in"]
+  }
 
+  if (!length(ids)) return(tibble())
+
+  rows <- purrr::map_dfr(ids, function(eid){
+    pbp  <- tryCatch(espn_fetch_pbp(eid), error = function(e) NULL)
+    if (is.null(pbp)) return(tibble())
     tmap <- tryCatch(espn_team_map(eid), error = function(e) NULL)
     if (is.null(tmap) || !nrow(tmap)) return(tibble())
 
     raw <- espn_plays_to_fd_rows(eid, pbp$plays, tmap, season = sw$season, week = sw$week)
     if (!nrow(raw)) return(tibble())
 
-    # Deduplicate newly seen plays only
+    # Guarantee `down` exists (adapter should have it; this is belt-and-suspenders)
+    if (!("down" %in% names(raw))) {
+      down_map <- tibble(
+        play_id = pbp$plays$play_id,
+        down    = suppressWarnings(as.integer(pbp$plays$start_down))
+      )
+      raw <- dplyr::left_join(raw, down_map, by = "play_id")
+    }
+
     filter_new_plays(eid, raw)
   })
-
-  # Ensure a 'down' column exists for run_fd_live_once() filter step
-  # ESPN exposes down via start_down in the raw; here we approximate 4th-down candidates by
-  # trying to infer when start_down == 4 (if available) otherwise leave NA and let caller filter again.
-  if (!nrow(rows)) return(rows)
-
-  # In case some rows came without knowing the down, try to refill from the raw PBP if present later.
-  # For now, we set NA; run_fd_live_once() already guards for missing and will drop them.
-  rows$down <- NA_integer_
-
-  # We don't know the down for all plays here, but your evaluator will filter to down==4.
-  # If you prefer to prefilter here, uncomment and compute a join back to pbp$plays$start_down.
 
   rows
 }
 
-# Optional: make ESPN the default fetcher name used by run_live()
+# Alias so run_live() will default to ESPN when no fetcher is passed
 fetch_live_plays <- function(){ fetch_live_plays_espn() }

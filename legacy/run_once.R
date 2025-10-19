@@ -8,8 +8,8 @@ suppressPackageStartupMessages({
 # --------------------------------------------------------------------------
 # Sim + Policy (policy includes the "obvious" suppressor & wrong-only gating)
 # --------------------------------------------------------------------------
-source("R/simulators/fourth_down/fourth_down_decision.R")
-source("R/bots/posting_policy.R")   # should_post_decision(), format_post(), append_cache(), mark_posted()
+source("../R/simulators/fourth_down/fourth_down_decision.R")
+source("../R/bots/posting_policy.R")   # should_post_decision(), format_post(), append_cache(), mark_posted()
 
 # ---------- Config via env vars ----------
 BSKY_HANDLE   <- Sys.getenv("BSKY_HANDLE")

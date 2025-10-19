@@ -147,18 +147,16 @@ jobs:
             source('R/bots/posting_policy.R');
             source('R/bots/post_targets.R');
 
-            # Choose source: Paid feed -> ESPN -> nflreadr
-            has_paid <- nzchar(Sys.getenv('NFL_LIVE_URL', ''));
+            # -------- PICK FETCHER: Paid -> ESPN -> nflreadr (log selection) --------
+            has_paid <- nzchar(Sys.getenv('NFL_LIVE_URL', ''))
+            fetcher_name <- NA_character_
             f <- NULL
             if (has_paid && file.exists('R/bots/fetch_live_plays.R')) {
-              source('R/bots/fetch_live_plays.R');
-              f <- fetch_live_plays
+              source('R/bots/fetch_live_plays.R');      f <- fetch_live_plays;            fetcher_name <- 'paid'
             } else if (file.exists('R/bots/fetch_live_plays_espn.R')) {
-              source('R/bots/fetch_live_plays_espn.R');
-              f <- fetch_live_plays_espn
+              source('R/bots/fetch_live_plays_espn.R'); f <- fetch_live_plays_espn;       fetcher_name <- 'espn'
             } else if (file.exists('R/bots/fetch_live_plays_nflreadr.R')) {
-              source('R/bots/fetch_live_plays_nflreadr.R');
-              f <- fetch_live_plays_nflreadr
+              source('R/bots/fetch_live_plays_nflreadr.R'); f <- fetch_live_plays_nflreadr; fetcher_name <- 'nflreadr'
             } else {
               stop('No live fetcher found (paid/ESPN/nflreadr).')
             }
@@ -168,24 +166,43 @@ jobs:
             log_dir <- Sys.getenv('LIVE_LOG_DIR', 'R/logs/live_runner_logs')
             dir.create(csv_dir, recursive = TRUE, showWarnings = FALSE)
             dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
+            dbg <- file.path(log_dir, paste0('tick_', ts, '.log'))
 
+            writeLines(paste('FETCHER:', fetcher_name), dbg)
+
+            # --- ESPN-specific: print active event IDs so we know the feed is live ---
+            if (identical(fetcher_name, 'espn')) {
+              source('R/live/espn_adapter.R')
+              ids <- tryCatch(espn_active_event_ids(), error = function(e) character())
+              writeLines(paste('ESPN event ids:', paste(ids, collapse=', ')), dbg, append = TRUE)
+            }
+
+            # ------------------------------- RUN TICK --------------------------------
             res <- tryCatch(
               run_fd_live_once(fetcher = f),
               error = function(e) {
-                writeLines(paste('ERROR', conditionMessage(e)),
-                           file.path(log_dir, paste0('tick_', ts, '.log')))
+                writeLines(paste('ERROR', conditionMessage(e)), dbg, append = TRUE)
                 NULL
               }
             )
 
+            # Small debug summary
             if (is.null(res)) {
+              writeLines('RESULT: NULL (no data frame returned)', dbg, append = TRUE)
               readr::write_csv(tibble::tibble(note = 'no-data-returned'),
                                file.path(csv_dir, paste0('tick_', ts, '.csv')))
             } else if (nrow(res) == 0) {
+              writeLines('RESULT: 0 rows (no fourth downs in this tick)', dbg, append = TRUE)
               readr::write_csv(tibble::tibble(note = 'no-fourth-downs-found'),
                                file.path(csv_dir, paste0('tick_', ts, '.csv')))
             } else {
-              readr::write_csv(res, file.path(csv_dir, paste0('tick_', ts, '.csv')))
+              writeLines(sprintf('RESULT: %d rows', nrow(res)), dbg, append = TRUE)
+              # Keep just a few columns so artifact stays small
+              keep <- intersect(c('game_id','play_id','off','def','qtr','sec_left','ydstogo',
+                                  'yardline_100','pre_wp','wp_go','wp_punt','wp_fg','best_action'),
+                                names(res))
+              readr::write_csv(res[, keep, drop=FALSE],
+                               file.path(csv_dir, paste0('tick_', ts, '.csv')))
             }
           "
 

@@ -1,9 +1,9 @@
 # R/bots/run_fd_live_once.R
-# -----------------------------------------------------------------------------
-# LIVE ONLY: fetch current plays, evaluate 4th downs via your models/sim,
-# and return rows ready for should_post_decision() + format_post() + post_everywhere().
-# This version standardizes the row schema to match posting_policy.R requirements.
-# -----------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# One-shot “fetch → filter to 4th downs → simulate → policy row” generator.
+# - Agnostic to source (ESPN, nflreadr, custom) via `fetcher` function.
+# - Fixes model loader recursion, unifies sim call, and documents each step.
+# ------------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
   library(dplyr); library(purrr); library(tibble); library(rlang); library(tidyr)
@@ -11,7 +11,7 @@ suppressPackageStartupMessages({
 
 `%||%` <- function(a, b) if (is.null(a) || length(a)==0 || (is.atomic(a) && all(is.na(a)))) b else a
 
-# Weather/context defaults so the sim never crashes
+# --- Weather/context defaults (bot stability) ---------------------------------
 .apply_weather_defaults <- function(df){
   df %>%
     mutate(
@@ -24,7 +24,7 @@ suppressPackageStartupMessages({
     )
 }
 
-# Infer what the team actually did on 4th down (best-effort)
+# --- Called action from text/type (best-effort) -------------------------------
 .infer_called_action <- function(r){
   pt <- tolower(as.character(r$play_type %||% ""))
   if (grepl("punt", pt)) return("punt")
@@ -33,7 +33,7 @@ suppressPackageStartupMessages({
   NA_character_
 }
 
-# Build the minimal game_state your sim needs
+# --- Build the game_state expected by the simulator ---------------------------
 .build_game_state <- function(r){
   list(
     down = 4L,
@@ -52,9 +52,11 @@ suppressPackageStartupMessages({
   )
 }
 
-# Load models (use your project loader if it exists)
+# --- Model loader (fixed: no self-recursion). Allow project override ----------
 .load_models <- function(){
-  if (exists(".load_models", mode = "function")) return(.load_models())
+  if (exists("project_load_models", mode = "function")) {
+    return(project_load_models())
+  }
   list(
     fg = readRDS("data/models/fg_model.rds"),
     fd = readRDS("data/models/fd_model.rds"),
@@ -62,7 +64,36 @@ suppressPackageStartupMessages({
   )
 }
 
-# derive sec_left and a human clock string for the current quarter
+# --- Simulator wrapper: unify to a single return shape ------------------------
+# Expect a function `simulate_fourth_down_decision(gs, fg, fd, wp)` or an older
+# variant `simulate_fourth_down_decision(gs, reload_models=FALSE)`.
+.simulate_fd <- function(gs, models){
+  if (exists("simulate_fourth_down_decision", mode = "function")) {
+    # First, try explicit models signature
+    out <- tryCatch(
+      simulate_fourth_down_decision(gs, models$fg, models$fd, models$wp),
+      error = function(e) NULL
+    )
+    if (!is.null(out)) return(out)
+
+    # Fallback to reload_models signature
+    out2 <- tryCatch(
+      simulate_fourth_down_decision(gs, reload_models = FALSE),
+      error = function(e) NULL
+    )
+    if (!is.null(out2)) {
+      return(list(
+        wp_go = out2$go_for_it_ev,
+        wp_punt = out2$punt_wp,
+        wp_fg = out2$field_goal_ev,
+        punt_suppressed = isTRUE(out2$punt_suppressed)
+      ))
+    }
+  }
+  NULL
+}
+
+# --- Derive quarter clock string from game-seconds-remaining ------------------
 .sec_and_clock <- function(qtr, gsr){
   q <- suppressWarnings(as.integer(qtr)); s <- suppressWarnings(as.numeric(gsr))
   if (is.na(q) || is.na(s)) return(list(sec_left = NA_integer_, clock = NA_character_))
@@ -71,31 +102,18 @@ suppressPackageStartupMessages({
   list(sec_left = as.integer(s), clock = sprintf("%d:%02d", mm, ss))
 }
 
-# Evaluate ONE 4th-down row to the policy schema
+# --- Evaluate ONE 4th-down row to the posting-policy schema -------------------
 .eval_one_row <- function(r, models){
-  if (exists(".evaluate_row", mode = "function")) {
-    out <- tryCatch(.evaluate_row(r), error = function(e) NULL)
-    if (!is.null(out)) return(out)
-  }
-
-  if (!exists("simulate_fourth_down_decision", mode = "function")) return(NULL)
-
-  gs  <- .build_game_state(r)
-  sim <- tryCatch(
-    simulate_fourth_down_decision(gs, models$fg, models$fd, models$wp),
-    error = function(e) NULL
-  )
+  sim <- .simulate_fd(.build_game_state(r), models)
   if (is.null(sim)) return(NULL)
 
   wp_go   <- suppressWarnings(as.numeric(sim$wp_go   %||% NA_real_))
   wp_punt <- suppressWarnings(as.numeric(sim$wp_punt %||% NA_real_))
   wp_fg   <- suppressWarnings(as.numeric(sim$wp_fg   %||% NA_real_))
 
-  wp_vec <- c(go = wp_go, punt = wp_punt, fg = wp_fg)
-  if (all(is.na(wp_vec))) return(NULL)
-  best_idx  <- names(wp_vec)[which.max(wp_vec)]
-  best_wp   <- max(wp_vec, na.rm = TRUE)
+  if (all(is.na(c(wp_go, wp_punt, wp_fg)))) return(NULL)
 
+  best_idx <- names(c(go = wp_go, punt = wp_punt, fg = wp_fg))[which.max(c(wp_go, wp_punt, wp_fg))]
   sc <- .sec_and_clock(r$qtr, r$game_seconds_remaining)
   called <- .infer_called_action(r)
 
@@ -113,8 +131,8 @@ suppressPackageStartupMessages({
     def_score = def_score,
     margin = ifelse(!is.na(off_score) && !is.na(def_score), abs(off_score - def_score), NA_real_),
     qtr = r$qtr,
-    sec_left = sc$sec_left,
-    clock = sc$clock,
+    sec_left = sc$sec_left,   # total game seconds remaining
+    clock = sc$clock,         # quarter clock string (MM:SS)
     down = 4L,
     ydstogo = r$ydstogo,
     yardline_100 = r$yardline_100,
@@ -123,29 +141,27 @@ suppressPackageStartupMessages({
     wp_go   = wp_go, wp_punt = wp_punt, wp_fg = wp_fg,
     best_action = best_idx,
     called_action = called,
-    punt_suppressed = is.na(wp_punt)
+    punt_suppressed = isTRUE(sim$punt_suppressed)
   )
 }
 
-# Evaluate a FRAME of current plays (expects down==4 rows)
+# --- Evaluate a FRAME of candidate 4th-down rows ------------------------------
 .evaluate_frame <- function(df){
   if (!nrow(df)) return(tibble())
   df <- .apply_weather_defaults(df)
   models <- .load_models()
-  rows <- purrr::map_dfr(seq_len(nrow(df)), function(i){
-    r <- df[i, , drop = FALSE]
-    .eval_one_row(r, models)
-  })
+  rows <- purrr::map_dfr(seq_len(nrow(df)), function(i) .eval_one_row(df[i, , drop = FALSE], models))
   rows %>%
     filter(!is.na(.data$wp_go) | !is.na(.data$wp_punt) | !is.na(.data$wp_fg)) %>%
     tidyr::replace_na(list(called_action = NA_character_, pre_wp = NA_real_))
 }
 
 # ------------------------------ PUBLIC API -----------------------------------
-# Live-only entry point. `fetcher` must return a data.frame of the latest plays.
-# It can be nflreadr, ESPN, or any API fetcher.
+# run_fd_live_once(fetcher = NULL, ...)
+# - If `fetcher` is NULL, it will call a global `fetch_live_plays()` if present
+#   (ESPN default via R/bots/fetch_live_plays_espn.R).
 run_fd_live_once <- function(fetcher = NULL, ...) {
-  # 1) Pick a fetcher (prefer global fetch_live_plays if none passed)
+  # 1) Pick a fetcher
   if (is.null(fetcher)) {
     if (exists("fetch_live_plays", mode = "function")) {
       fetcher <- fetch_live_plays
@@ -154,32 +170,31 @@ run_fd_live_once <- function(fetcher = NULL, ...) {
         message("[run_fd_live_once] No live fetcher found; returning empty tibble.")
         options(fd_live.fetcher_warned = TRUE)
       }
-      return(tibble::tibble())
+      return(tibble())
     }
   }
 
-  # 2) Call the fetcher
+  # 2) Fetch latest plays
   df <- tryCatch(fetcher(...), error = function(e) {
     if (!isTRUE(getOption("fd_live.fetch_error_warned", FALSE))) {
       message("[run_fd_live_once] fetcher() error: ", conditionMessage(e))
       options(fd_live.fetch_error_warned = TRUE)
     }
-    tibble::tibble()
+    tibble()
   })
 
   # 3) Exit early if nothing usable
-  if (!is.data.frame(df) || !nrow(df)) return(tibble::tibble())
+  if (!is.data.frame(df) || !nrow(df)) return(tibble())
 
-  # --- NEW: try to infer 4th downs if 'down' missing
+  # 4) Ensure a `down` column exists (belt-and-suspenders for sources)
   if (!"down" %in% names(df)) df$down <- NA_integer_
   if (all(is.na(df$down)) && "text" %in% names(df)) {
     df$down <- ifelse(grepl("\\b4th\\b", tolower(df$text %||% "")), 4L, NA_integer_)
   }
 
-  # 4) Keep only 4th downs
-  df <- tryCatch(dplyr::filter(df, .data$down == 4), error = function(e) tibble::tibble())
-  if (!nrow(df)) return(tibble::tibble())
+  # 5) Keep only 4th downs, then evaluate
+  df <- tryCatch(dplyr::filter(df, .data$down == 4), error = function(e) tibble())
+  if (!nrow(df)) return(tibble())
 
-  # 5) Evaluate rows to policy schema
   .evaluate_frame(df)
 }
