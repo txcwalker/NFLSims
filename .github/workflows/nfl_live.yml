@@ -16,8 +16,8 @@ jobs:
   run-live:
     runs-on: ubuntu-latest
     env:
-      LIVE_FETCHER: espn
-      BOT_ENABLE_POSTING: "0"
+      LIVE_FETCHER: espn           # use ESPN adapter in fetcher
+      BOT_ENABLE_POSTING: "0"      # disable any posting libs/side-effects in this job
 
     steps:
       - name: Checkout
@@ -33,6 +33,7 @@ jobs:
           R --version
           Rscript --version
 
+      # Install core deps + resilient rtoot fallback (from ropensci r-universe if needed)
       - name: "Install deps (CRAN + rtoot fallback)"
         run: |
           Rscript -e '
@@ -54,6 +55,18 @@ jobs:
             }
           '
 
+      # Belt-and-suspenders: verify fetch deps right before running
+      - name: "Preflight: ensure fetch deps are installed"
+        run: |
+          Rscript -e '
+            options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
+            pkgs <- c("httr","jsonlite","dplyr","purrr","stringr",
+                      "tibble","lubridate","readr","glue","tidyr")
+            need <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly=TRUE)]
+            if (length(need)) install.packages(need)
+            cat("OK. Installed/available:", paste(pkgs, collapse=", "), "\n")
+          '
+
       - name: "R session info (debug)"
         run: |
           Rscript -e "sessionInfo()"
@@ -63,12 +76,13 @@ jobs:
           echo "Scanning repo for unconditional library(rtoot) calls..."
           grep -R --line-number -E 'library\(\s*rtoot\s*\)' || true
 
-      - name: Run live poll (writes CSV + LOG)
+      - name: "Run live poll (writes CSV + LOG)"
         run: |
           mkdir -p R/bots/live_csv
+          # --vanilla avoids loading user/site profiles; wrapper must source fetch-only code
           Rscript --vanilla -e "source('R/bots/run_live_today.R'); run_live_today()"
 
-      - name: Upload outputs
+      - name: "Upload outputs"
         if: always()
         uses: actions/upload-artifact@v4
         with:
