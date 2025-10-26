@@ -12,7 +12,8 @@ jobs:
   run-live:
     runs-on: ubuntu-latest
     env:
-      LIVE_FETCHER: espn   # use ESPN adapter
+      LIVE_FETCHER: espn
+      BOT_ENABLE_POSTING: "0"   # ensure any posting code stays disabled
 
     steps:
       - name: Checkout
@@ -28,20 +29,26 @@ jobs:
           R --version
           Rscript --version
 
-      - name: Install deps (CRAN)
+      - name: Install deps (CRAN) + verify rtoot
         run: |
-          Rscript -e 'pkgs <- c(
-            "httr","jsonlite","dplyr","purrr","stringr",
-            "tibble","lubridate","readr","glue","tidyr",
-            "rtoot"   # <-- prevents the crash you saw
-          );
+          Rscript -e 'options(repos = c(CRAN="https://cloud.r-project.org"));
+          pkgs <- c("httr","jsonlite","dplyr","purrr","stringr",
+                    "tibble","lubridate","readr","glue","tidyr","rtoot");
           inst <- rownames(installed.packages());
           need <- setdiff(pkgs, inst);
-          if(length(need)) install.packages(need, repos="https://cran.r-project.org")'
+          if(length(need)) install.packages(need);
+          cat("Installed/available packages:\\n"); print(pkgs);
+          cat("Trying to load rtoot...\\n"); library(rtoot); cat("rtoot OK: ", as.character(utils::packageVersion("rtoot")), "\\n")'
+
+      - name: "Debug: find any top-level library(rtoot)"
+        run: |
+          echo "Scanning repo for unconditional library(rtoot) calls..."
+          grep -R --line-number -E 'library\\(\\s*rtoot\\s*\\)' || true
 
       - name: Run live poll (writes CSV + LOG)
         run: |
           mkdir -p R/bots/live_csv
+          # --vanilla prevents site/user profiles; we source only fetch-only files
           Rscript --vanilla -e "source('R/bots/run_live_today.R'); run_live_today()"
 
       - name: Upload outputs
