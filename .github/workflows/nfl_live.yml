@@ -8,12 +8,16 @@ on:
     - cron: "*/5 0-6 * * 2"    # Mon night
     - cron: "*/5 0-6 * * 5"    # Thu night
 
+concurrency:
+  group: nfl-live-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   run-live:
     runs-on: ubuntu-latest
     env:
       LIVE_FETCHER: espn
-      BOT_ENABLE_POSTING: "0"   # ensure any posting code stays disabled
+      BOT_ENABLE_POSTING: "0"
 
     steps:
       - name: Checkout
@@ -29,26 +33,39 @@ jobs:
           R --version
           Rscript --version
 
-      - name: Install deps (CRAN) + verify rtoot
+      - name: "Install deps (CRAN + rtoot fallback)"
         run: |
-          Rscript -e 'options(repos = c(CRAN="https://cloud.r-project.org"));
-          pkgs <- c("httr","jsonlite","dplyr","purrr","stringr",
-                    "tibble","lubridate","readr","glue","tidyr","rtoot");
-          inst <- rownames(installed.packages());
-          need <- setdiff(pkgs, inst);
-          if(length(need)) install.packages(need);
-          cat("Installed/available packages:\\n"); print(pkgs);
-          cat("Trying to load rtoot...\\n"); library(rtoot); cat("rtoot OK: ", as.character(utils::packageVersion("rtoot")), "\\n")'
+          Rscript -e '
+            options(repos = c(CRAN = "https://cloud.r-project.org"))
+            pkgs <- c("httr","jsonlite","dplyr","purrr","stringr",
+                      "tibble","lubridate","readr","glue","tidyr")
+            inst <- rownames(installed.packages())
+            need <- setdiff(pkgs, inst)
+            if (length(need)) install.packages(need)
+            if (!requireNamespace("rtoot", quietly = TRUE)) {
+              cat("Installing rtoot from r-universe fallback...\n")
+              install.packages("rtoot",
+                repos = c("https://ropensci.r-universe.dev", "https://cloud.r-project.org"))
+            }
+            if (!requireNamespace("rtoot", quietly = TRUE)) {
+              cat("WARNING: rtoot still missing; continuing without it.\n")
+            } else {
+              cat("rtoot OK: ", as.character(utils::packageVersion("rtoot")), "\n")
+            }
+          '
+
+      - name: "R session info (debug)"
+        run: |
+          Rscript -e "sessionInfo()"
 
       - name: "Debug: find any top-level library(rtoot)"
         run: |
           echo "Scanning repo for unconditional library(rtoot) calls..."
-          grep -R --line-number -E 'library\\(\\s*rtoot\\s*\\)' || true
+          grep -R --line-number -E 'library\(\s*rtoot\s*\)' || true
 
       - name: Run live poll (writes CSV + LOG)
         run: |
           mkdir -p R/bots/live_csv
-          # --vanilla prevents site/user profiles; we source only fetch-only files
           Rscript --vanilla -e "source('R/bots/run_live_today.R'); run_live_today()"
 
       - name: Upload outputs

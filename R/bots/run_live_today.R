@@ -1,38 +1,53 @@
 # R/bots/run_live_today.R
 # ------------------------------------------------------------------------------
-# Run the live loop across today's kickoff window using ESPN SCOREBOARD times,
-# not nflreadr. If no games today, exit immediately.
+# CI-safe "fetch once" wrapper:
+# - No sleeping
+# - No posting deps
+# - Always writes CSV + LOG to R/bots/live_csv/
+# - Uses ESPN scoreboard to decide whether to fetch now or exit gracefully
 # ------------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
-  library(dplyr); library(lubridate); library(glue); library(jsonlite); library(purrr)
+  library(dplyr); library(lubridate); library(glue); library(jsonlite); library(tibble)
+  library(readr)
 })
-source("R/bots/run_live_loop.R")   # run_live()
 
 `%||%` <- function(a, b) if (is.null(a) || length(a)==0 || (is.atomic(a) && all(is.na(a)))) b else a
+.ensure_dir <- function(p){ if(!dir.exists(p)) dir.create(p, recursive = TRUE, showWarnings = FALSE) }
+.now_stamp <- function(){ format(Sys.time(), "%Y%m%d-%H%M%S") }
 
-run_live_today <- function(poll_seconds = 20,
+# IMPORTANT: Only source fetch/eval code (no posting files here)
+.source_fetch_stack <- function(){
+  source("R/bots/run_fd_live_once.R")        # returns tibble and can write artifacts
+  # this file must define fetch_live_plays() for the ESPN path
+  source("R/bots/fetch_live_plays_espn.R", local = TRUE)
+}
+
+# Decide whether we are currently "in window" for fetching
+# Window = [first_kick - buffer_before, last_kick + max_game_hours + buffer_after]
+.in_window_now <- function(tz = "America/Chicago",
                            buffer_before_mins = 20,
                            max_game_hours = 4.5,
-                           buffer_after_mins = 30,
-                           tz = "America/Chicago") {
+                           buffer_after_mins = 30) {
   Sys.setenv(TZ = tz)
 
-  # 1) Pull ESPN scoreboard and extract today's kickoffs
-  sb <- jsonlite::fromJSON("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard", flatten = FALSE)
-  evs <- sb$events %||% list()
-  if (!length(evs)) { message("[LiveToday] No events on scoreboard. Exiting."); return(invisible(0L)) }
+  # ESPN scoreboard (UTC ISO times per event)
+  sb <- tryCatch(
+    jsonlite::fromJSON("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard", flatten = FALSE),
+    error = function(e) NULL
+  )
+  if (is.null(sb) || is.null(sb$events) || !length(sb$events)) {
+    return(list(in_window = FALSE, reason = "[LiveToday] No events on scoreboard."))
+  }
 
-  # Each event has an ISO UTC `date` field
-  kicks_utc <- purrr::map_chr(evs, ~ .x$date %||% NA_character_)
-  kicks     <- lubridate::ymd_hms(kicks_utc, quiet = TRUE, tz = "UTC")
+  kicks_utc <- vapply(sb$events, function(e) e$date %||% NA_character_, character(1))
+  kicks     <- suppressWarnings(lubridate::ymd_hms(kicks_utc, tz = "UTC"))
   kicks_loc <- with_tz(kicks, tz)
   today     <- as_date(Sys.time(), tz = tz)
 
-  day_mask <- as_date(kicks_loc, tz) == today
+  day_mask  <- as_date(kicks_loc, tz) == today
   if (!any(day_mask, na.rm = TRUE)) {
-    message(glue("[LiveToday] No games today ({today}). Exiting."))
-    return(invisible(0L))
+    return(list(in_window = FALSE, reason = glue("[LiveToday] No games today ({today}).")))
   }
 
   first_kick <- min(kicks_loc[day_mask], na.rm = TRUE)
@@ -42,14 +57,67 @@ run_live_today <- function(poll_seconds = 20,
   end_at   <- last_kick + hours(max_game_hours) + minutes(buffer_after_mins)
 
   now <- Sys.time()
-  if (now < start_at) {
-    wait <- as.numeric(difftime(start_at, now, units = "secs"))
-    message(glue("[LiveToday] Sleeping {round(wait/60)} min until first kickoff window ({format(start_at, '%H:%M %Z')})."))
-    Sys.sleep(wait)
-  } else {
-    message(glue("[LiveToday] Window already open (start_at={format(start_at, '%H:%M')}, now={format(now, '%H:%M')})."))
+  list(
+    in_window = (now >= start_at && now <= end_at),
+    reason    = glue("[LiveToday] Window {format(start_at, '%H:%M')}–{format(end_at, '%H:%M')} local; now={format(now, '%H:%M')}"),
+    start_at  = start_at, end_at = end_at
+  )
+}
+
+run_live_today <- function(tz = "America/Chicago",
+                           buffer_before_mins = 20,
+                           max_game_hours = 4.5,
+                           buffer_after_mins = 30,
+                           quick_poll_count = as.integer(Sys.getenv("QUICK_POLL_COUNT", "1")),
+                           poll_seconds = as.integer(Sys.getenv("POLL_SECONDS", "20"))) {
+  .ensure_dir("R/bots/live_csv")
+  ts <- .now_stamp()
+  csv_path <- glue("R/bots/live_csv/plays_{ts}.csv")
+  log_path <- glue("R/bots/live_csv/run_{ts}.log")
+
+  # Only fetch/eval code — no posting
+  .source_fetch_stack()
+
+  window <- .in_window_now(
+    tz = tz,
+    buffer_before_mins = buffer_before_mins,
+    max_game_hours = max_game_hours,
+    buffer_after_mins = buffer_after_mins
+  )
+
+  # If outside window, write an empty CSV + informative log and exit
+  if (!isTRUE(window$in_window)) {
+    readr::write_csv(tibble(), csv_path)
+    readr::write_lines(paste0(window$reason, " (outside window; no fetch)."), log_path)
+    message(window$reason, " (outside window; no fetch).")
+    return(invisible(0L))
   }
 
-  run_live(poll_seconds = poll_seconds, end_at = end_at)
-  invisible(0L)
+  # We're inside the window — do a quick fetch cycle (default 1 poll)
+  out <- tibble()
+  err <- NULL
+  for (i in seq_len(max(1L, quick_poll_count))) {
+    res <- tryCatch(
+      run_fd_live_once(),   # this writes its own CSV+LOG too, but we also aggregate
+      error = function(e) { err <<- e; tibble() }
+    )
+    if (nrow(res)) out <- dplyr::bind_rows(out, res)
+    if (i < quick_poll_count) Sys.sleep(poll_seconds)
+  }
+
+  # De-dup if multiple polls ran
+  if (nrow(out)) {
+    # Prefer unique by (game_id, play_id) when available
+    uniq_cols <- intersect(c("game_id","play_id"), names(out))
+    if (length(uniq_cols) >= 2) {
+      out <- out |> dplyr::distinct(dplyr::across(all_of(uniq_cols)), .keep_all = TRUE)
+    }
+  }
+
+  readr::write_csv(out, csv_path)
+  msg <- paste0(window$reason, " fetched_rows=", nrow(out))
+  if (!is.null(err)) msg <- paste0(msg, " | last_error=", err$message)
+  readr::write_lines(msg, log_path)
+  message(msg)
+  invisible(nrow(out))
 }
