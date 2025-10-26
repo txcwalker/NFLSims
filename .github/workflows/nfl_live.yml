@@ -1,10 +1,9 @@
-# .github/workflows/live.yml
 name: NFL Live Poster
 
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "*/5 16-23 * * 0"  # Sun
+    - cron: "*/5 16-23 * * 0"  # Sun (UTC)
     - cron: "*/5 0-6 * * 1"    # Sun night spill
     - cron: "*/5 0-6 * * 2"    # Mon night
     - cron: "*/5 0-6 * * 5"    # Thu night
@@ -12,6 +11,8 @@ on:
 jobs:
   run-live:
     runs-on: ubuntu-latest
+    env:
+      LIVE_FETCHER: espn   # use ESPN adapter by default
 
     steps:
       - name: Checkout
@@ -37,19 +38,19 @@ jobs:
           need <- setdiff(pkgs, inst);
           if(length(need)) install.packages(need, repos="https://cran.r-project.org")'
 
-      - name: Run live poll (dry run)
-        env:
-          ESPN_EVENT_ID: ""    # blank = auto-pick a live game (see guard in code)
-          DRY_RUN: "1"         # safe mode; prints instead of posting
+      - name: Run live poll (writes CSV + LOG)
         run: |
-          Rscript -e "source('R/bots/run_fd_live_once.R'); run_fd_live_once()"
+          # ensure directory exists so upload never 404s
+          mkdir -p R/bots/live_csv
+          # source wrapper that ALWAYS writes artifacts
+          Rscript -e "source('R/bots/run_live_today.R'); run_live_today()"
 
-      - name: Upload outputs (optional)
+      - name: Upload outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: live-output
+          name: live-run-${{ github.run_id }}
           path: |
             R/bots/live_csv/*.csv
             R/bots/live_csv/*.log
-          if-no-files-found: ignore
+          if-no-files-found: warn

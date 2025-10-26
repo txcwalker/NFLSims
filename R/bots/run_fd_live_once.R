@@ -1,22 +1,26 @@
 # R/bots/run_fd_live_once.R
 # ------------------------------------------------------------------------------
 # One-shot “fetch → filter to 4th downs → simulate → policy row” generator.
-# - Agnostic to source (ESPN, nflreadr, custom) via `fetcher` function.
-# - Fixes model loader recursion, unifies sim call, and documents each step.
+# - Agnostic to source (ESPN, nflreadr, custom) via a public fetcher:
+#       fetch_live_plays()
+# - Writes artifacts (CSV + LOG) every run to R/bots/live_csv/.
 # ------------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
   library(dplyr); library(purrr); library(tibble); library(rlang); library(tidyr)
+  library(readr); library(glue)
 })
 
 `%||%` <- function(a, b) if (is.null(a) || length(a)==0 || (is.atomic(a) && all(is.na(a)))) b else a
+.ensure_dir <- function(p){ if (!dir.exists(p)) dir.create(p, recursive = TRUE, showWarnings = FALSE) }
+.now_stamp <- function(){ format(Sys.time(), "%Y%m%d-%H%M%S") }
 
 # --- Weather/context defaults (bot stability) ---------------------------------
 .apply_weather_defaults <- function(df){
   df %>%
     mutate(
-      roof    = as.character(roof %||% NA_character_),
-      surface = as.character(surface %||% NA_character_),
+      roof    = as.character(roof %||% "outdoors"),
+      surface = as.character(surface %||% "grass"),
       wind    = suppressWarnings(as.numeric(wind %||% NA_real_)),
       temp    = suppressWarnings(as.numeric(temp %||% NA_real_)),
       wind    = ifelse(is.na(wind), 0, wind),
@@ -94,12 +98,13 @@ suppressPackageStartupMessages({
 }
 
 # --- Derive quarter clock string from game-seconds-remaining ------------------
+# (bugfix) return quarter seconds, not total game seconds.
 .sec_and_clock <- function(qtr, gsr){
   q <- suppressWarnings(as.integer(qtr)); s <- suppressWarnings(as.numeric(gsr))
   if (is.na(q) || is.na(s)) return(list(sec_left = NA_integer_, clock = NA_character_))
-  q_seconds_left <- pmax(0L, ifelse(q <= 4, s - pmax(0, (4 - q) * 900), s))
+  q_seconds_left <- pmax(0, ifelse(q <= 4, s - pmax(0, (4 - q) * 900), s))
   mm <- floor(q_seconds_left / 60); ss <- round(q_seconds_left %% 60)
-  list(sec_left = as.integer(s), clock = sprintf("%d:%02d", mm, ss))
+  list(sec_left = as.integer(q_seconds_left), clock = sprintf("%d:%02d", mm, ss))
 }
 
 # --- Evaluate ONE 4th-down row to the posting-policy schema -------------------
@@ -131,7 +136,7 @@ suppressPackageStartupMessages({
     def_score = def_score,
     margin = ifelse(!is.na(off_score) && !is.na(def_score), abs(off_score - def_score), NA_real_),
     qtr = r$qtr,
-    sec_left = sc$sec_left,   # total game seconds remaining
+    sec_left = sc$sec_left,   # quarter seconds remaining
     clock = sc$clock,         # quarter clock string (MM:SS)
     down = 4L,
     ydstogo = r$ydstogo,
@@ -157,44 +162,66 @@ suppressPackageStartupMessages({
 }
 
 # ------------------------------ PUBLIC API -----------------------------------
-# run_fd_live_once(fetcher = NULL, ...)
-# - If `fetcher` is NULL, it will call a global `fetch_live_plays()` if present
-#   (ESPN default via R/bots/fetch_live_plays_espn.R).
-run_fd_live_once <- function(fetcher = NULL, ...) {
-  # 1) Pick a fetcher
+# run_fd_live_once(fetcher = NULL, write_artifacts = TRUE, ...)
+# - If `fetcher` is NULL, it will call a global `fetch_live_plays()` if present.
+# - Always writes CSV + LOG into R/bots/live_csv/ when write_artifacts = TRUE.
+run_fd_live_once <- function(fetcher = NULL, write_artifacts = TRUE, ...) {
+  out_dir <- "R/bots/live_csv"
+  if (isTRUE(write_artifacts)) .ensure_dir(out_dir)
+  ts <- .now_stamp()
+  csv_path <- file.path(out_dir, glue("plays_{ts}.csv"))
+  log_path <- file.path(out_dir, glue("run_{ts}.log"))
+
+  # 0) Resolve fetcher
   if (is.null(fetcher)) {
     if (exists("fetch_live_plays", mode = "function")) {
       fetcher <- fetch_live_plays
     } else {
-      if (!isTRUE(getOption("fd_live.fetcher_warned", FALSE))) {
-        message("[run_fd_live_once] No live fetcher found; returning empty tibble.")
-        options(fd_live.fetcher_warned = TRUE)
+      msg <- "[run_fd_live_once] No live fetcher found; returning empty tibble."
+      if (isTRUE(write_artifacts)) {
+        readr::write_lines(msg, log_path)
+        readr::write_csv(tibble(), csv_path)
       }
+      message(msg)
       return(tibble())
     }
   }
 
-  # 2) Fetch latest plays
+  # 1) Fetch latest plays
   df <- tryCatch(fetcher(...), error = function(e) {
-    if (!isTRUE(getOption("fd_live.fetch_error_warned", FALSE))) {
-      message("[run_fd_live_once] fetcher() error: ", conditionMessage(e))
-      options(fd_live.fetch_error_warned = TRUE)
+    msg <- paste0("[run_fd_live_once] fetcher() error: ", conditionMessage(e))
+    if (isTRUE(write_artifacts)) {
+      readr::write_lines(msg, log_path)
+      readr::write_csv(tibble(), csv_path)
     }
+    message(msg)
     tibble()
   })
 
-  # 3) Exit early if nothing usable
-  if (!is.data.frame(df) || !nrow(df)) return(tibble())
+  # 2) Exit early if nothing usable
+  if (!is.data.frame(df) || !nrow(df)) {
+    if (isTRUE(write_artifacts)) {
+      readr::write_lines("[run_fd_live_once] fetch returned 0 rows.", log_path)
+      readr::write_csv(tibble(), csv_path)
+    }
+    return(tibble())
+  }
 
-  # 4) Ensure a `down` column exists (belt-and-suspenders for sources)
+  # 3) Ensure a `down` column exists (belt-and-suspenders for sources)
   if (!"down" %in% names(df)) df$down <- NA_integer_
   if (all(is.na(df$down)) && "text" %in% names(df)) {
     df$down <- ifelse(grepl("\\b4th\\b", tolower(df$text %||% "")), 4L, NA_integer_)
   }
 
-  # 5) Keep only 4th downs, then evaluate
-  df <- tryCatch(dplyr::filter(df, .data$down == 4), error = function(e) tibble())
-  if (!nrow(df)) return(tibble())
+  # 4) Keep only 4th downs, then evaluate
+  df4 <- tryCatch(dplyr::filter(df, .data$down == 4), error = function(e) tibble())
+  res <- if (nrow(df4)) .evaluate_frame(df4) else tibble()
 
-  .evaluate_frame(df)
+  # 5) Artifacts
+  if (isTRUE(write_artifacts)) {
+    readr::write_csv(res, csv_path)
+    readr::write_lines(glue("[run_fd_live_once] wrote {nrow(res)} rows."), log_path)
+  }
+
+  res
 }
