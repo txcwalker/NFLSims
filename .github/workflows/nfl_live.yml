@@ -3,7 +3,7 @@ name: NFL Live Poster
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "*/5 16-23 * * 0"  # Sun (UTC)
+    - cron: "*/5 16-23 * * 0"  # Sun
     - cron: "*/5 0-6 * * 1"    # Sun night spill
     - cron: "*/5 0-6 * * 2"    # Mon night
     - cron: "*/5 0-6 * * 5"    # Thu night
@@ -12,7 +12,7 @@ jobs:
   run-live:
     runs-on: ubuntu-latest
     env:
-      LIVE_FETCHER: espn   # use ESPN adapter by default
+      LIVE_FETCHER: espn   # use ESPN adapter
 
     steps:
       - name: Checkout
@@ -32,7 +32,8 @@ jobs:
         run: |
           Rscript -e 'pkgs <- c(
             "httr","jsonlite","dplyr","purrr","stringr",
-            "tibble","lubridate","readr","glue","tidyr"
+            "tibble","lubridate","readr","glue","tidyr",
+            "rtoot"   # <-- prevents the crash you saw
           );
           inst <- rownames(installed.packages());
           need <- setdiff(pkgs, inst);
@@ -40,10 +41,8 @@ jobs:
 
       - name: Run live poll (writes CSV + LOG)
         run: |
-          # ensure directory exists so upload never 404s
           mkdir -p R/bots/live_csv
-          # source wrapper that ALWAYS writes artifacts
-          Rscript -e "source('R/bots/run_live_today.R'); run_live_today()"
+          Rscript --vanilla -e "source('R/bots/run_live_today.R'); run_live_today()"
 
       - name: Upload outputs
         if: always()
