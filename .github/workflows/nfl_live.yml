@@ -16,8 +16,8 @@ jobs:
   run-live:
     runs-on: ubuntu-latest
     env:
-      LIVE_FETCHER: espn           # use ESPN adapter in fetcher
-      BOT_ENABLE_POSTING: "0"      # disable any posting libs or side effects
+      LIVE_FETCHER: espn
+      BOT_ENABLE_POSTING: "0"
 
     steps:
       - name: Checkout
@@ -28,75 +28,26 @@ jobs:
         with:
           r-version: '4.4.2'
 
-      - name: Confirm R is installed
+      # Let r-lib handle package installation into the correct library
+      - name: Install R package deps
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: |
+            httr
+            jsonlite
+            dplyr
+            purrr
+            stringr
+            tibble
+            lubridate
+            readr
+            glue
+            tidyr
+            rtoot
+
+      - name: Sanity check httr
         run: |
-          R --version
-          Rscript --version
-
-      - name: Install deps (CRAN + rtoot fallback)
-        run: |
-          Rscript --vanilla -e '
-            options(repos = c(CRAN = "https://cloud.r-project.org"))
-            pkgs <- c(
-              "httr","jsonlite","dplyr","purrr","stringr",
-              "tibble","lubridate","readr","glue","tidyr"
-            )
-
-            need <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
-            if (length(need)) {
-              cat("Installing:", paste(need, collapse = ", "), "\n")
-              install.packages(need)
-            } else {
-              cat("All core pkgs already installed.\n")
-            }
-
-            if (!requireNamespace("rtoot", quietly = TRUE)) {
-              cat("Installing rtoot from r-universe fallback...\n")
-              install.packages(
-                "rtoot",
-                repos = c(
-                  "https://ropensci.r-universe.dev",
-                  "https://cloud.r-project.org"
-                )
-              )
-            }
-
-            if (!requireNamespace("rtoot", quietly = TRUE)) {
-              cat("WARNING: rtoot still missing; continuing without it.\n")
-            } else {
-              cat("rtoot OK:", as.character(utils::packageVersion("rtoot")), "\n")
-            }
-
-            cat("Install step .libPaths():\n")
-            print(.libPaths())
-          '
-
-      - name: "Preflight: ensure fetch deps are installed"
-        run: |
-          Rscript --vanilla -e '
-            options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
-            pkgs <- c(
-              "httr","jsonlite","dplyr","purrr","stringr",
-              "tibble","lubridate","readr","glue","tidyr"
-            )
-
-            need <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
-            if (length(need)) {
-              cat("Preflight installing:", paste(need, collapse = ", "), "\n")
-              install.packages(need)
-            } else {
-              cat("Preflight: all pkgs already available.\n")
-            }
-
-            cat("Preflight .libPaths():\n")
-            print(.libPaths())
-            cat("httr installed at:\n")
-            print(system.file(package = "httr"))
-          '
-
-      - name: R session info (debug)
-        run: |
-          Rscript --vanilla -e "sessionInfo()"
+          Rscript --vanilla -e "print(.libPaths()); library(httr); print(packageVersion('httr'))"
 
       - name: "Debug: find any top level library(rtoot)"
         run: |
@@ -108,7 +59,7 @@ jobs:
           mkdir -p R/bots/live_csv
           Rscript --vanilla -e "
             cat('Run step .libPaths():\n'); print(.libPaths());
-            cat('httr installed at:\n'); print(system.file(package = 'httr'));
+            library(httr);
             source('R/bots/run_live_today.R');
             run_live_today()
           "
