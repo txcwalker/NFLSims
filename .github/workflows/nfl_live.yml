@@ -28,43 +28,52 @@ jobs:
         with:
           r-version: '4.4.2'
 
-      # Let r-lib handle package installation into the correct library
-      - name: Install R package deps
-        uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          extra-packages: |
-            httr
-            jsonlite
-            dplyr
-            purrr
-            stringr
-            tibble
-            lubridate
-            readr
-            glue
-            tidyr
-            rtoot
-
-      - name: Sanity check httr
+      - name: Confirm R is installed
         run: |
-          Rscript --vanilla -e "print(.libPaths()); library(httr); print(packageVersion('httr'))"
+          R --version
+          Rscript --version
+
+      # Minimal, explicit install of only the packages you need
+      - name: "Install R deps (minimal)"
+        run: |
+          Rscript --vanilla -e "
+            options(repos = c(CRAN = 'https://cloud.r-project.org'))
+            pkgs <- c(
+              'httr','jsonlite','dplyr','purrr','stringr',
+              'tibble','lubridate','readr','glue','tidyr'
+            )
+            install.packages(pkgs)
+            cat('Install step .libPaths():\n')
+            print(.libPaths())
+            cat('httr installed at:\n')
+            print(system.file(package = 'httr'))
+          "
+
+      - name: "Sanity check httr"
+        run: |
+          Rscript --vanilla -e "
+            cat('Sanity .libPaths():\n'); print(.libPaths());
+            library(httr);
+            cat('httr path in sanity step:\n');
+            print(system.file(package = 'httr'))
+          "
 
       - name: "Debug: find any top level library(rtoot)"
         run: |
           echo "Scanning repo for unconditional library(rtoot) calls..."
           grep -R --line-number -E 'library\(\s*rtoot\s*\)' || true
 
-      - name: Run live poll (writes CSV + LOG)
+      - name: "Run live poll (writes CSV + LOG)"
         run: |
           mkdir -p R/bots/live_csv
           Rscript --vanilla -e "
             cat('Run step .libPaths():\n'); print(.libPaths());
-            library(httr);
+            cat('httr path in run step:\n'); print(system.file(package = 'httr'));
             source('R/bots/run_live_today.R');
             run_live_today()
           "
 
-      - name: Upload outputs
+      - name: "Upload outputs"
         if: always()
         uses: actions/upload-artifact@v4
         with:
