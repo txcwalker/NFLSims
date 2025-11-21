@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       LIVE_FETCHER: espn           # use ESPN adapter in fetcher
-      BOT_ENABLE_POSTING: "0"      # disable any posting libs/side-effects in this job
+      BOT_ENABLE_POSTING: "0"      # disable any posting libs or side effects
 
     steps:
       - name: Checkout
@@ -33,30 +33,23 @@ jobs:
           R --version
           Rscript --version
 
-      # Define R_LIBS_USER and create the directory
-      - name: Prepare R library directory
-        run: |
-          echo "R_LIBS_USER=${HOME}/R-lib" >> "$GITHUB_ENV"
-          mkdir -p "${HOME}/R-lib"
-          echo "R_LIBS_USER is set to ${HOME}/R-lib"
-
-      # Install core deps + resilient rtoot fallback
-      - name: "Install deps (CRAN + rtoot fallback)"
+      - name: Install deps (CRAN + rtoot fallback)
         run: |
           Rscript --vanilla -e '
-            dir.create(Sys.getenv("R_LIBS_USER"), showWarnings = FALSE, recursive = TRUE)
-            .libPaths(Sys.getenv("R_LIBS_USER"))
             options(repos = c(CRAN = "https://cloud.r-project.org"))
-            pkgs <- c("httr","jsonlite","dplyr","purrr","stringr",
-                      "tibble","lubridate","readr","glue","tidyr")
-            inst <- rownames(installed.packages())
-            need <- setdiff(pkgs, inst)
+            pkgs <- c(
+              "httr","jsonlite","dplyr","purrr","stringr",
+              "tibble","lubridate","readr","glue","tidyr"
+            )
+
+            need <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
             if (length(need)) {
               cat("Installing:", paste(need, collapse = ", "), "\n")
               install.packages(need)
             } else {
               cat("All core pkgs already installed.\n")
             }
+
             if (!requireNamespace("rtoot", quietly = TRUE)) {
               cat("Installing rtoot from r-universe fallback...\n")
               install.packages(
@@ -67,24 +60,26 @@ jobs:
                 )
               )
             }
+
             if (!requireNamespace("rtoot", quietly = TRUE)) {
               cat("WARNING: rtoot still missing; continuing without it.\n")
             } else {
-              cat("rtoot OK: ", as.character(utils::packageVersion("rtoot")), "\n")
+              cat("rtoot OK:", as.character(utils::packageVersion("rtoot")), "\n")
             }
-            cat("Final .libPaths():\n")
+
+            cat("Install step .libPaths():\n")
             print(.libPaths())
           '
 
-      # Belt-and-suspenders: verify fetch deps right before running
       - name: "Preflight: ensure fetch deps are installed"
         run: |
           Rscript --vanilla -e '
-            dir.create(Sys.getenv("R_LIBS_USER"), showWarnings = FALSE, recursive = TRUE)
-            .libPaths(Sys.getenv("R_LIBS_USER"))
             options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
-            pkgs <- c("httr","jsonlite","dplyr","purrr","stringr",
-                      "tibble","lubridate","readr","glue","tidyr")
+            pkgs <- c(
+              "httr","jsonlite","dplyr","purrr","stringr",
+              "tibble","lubridate","readr","glue","tidyr"
+            )
+
             need <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
             if (length(need)) {
               cat("Preflight installing:", paste(need, collapse = ", "), "\n")
@@ -92,30 +87,33 @@ jobs:
             } else {
               cat("Preflight: all pkgs already available.\n")
             }
-            cat("OK. Installed/available:", paste(pkgs, collapse = ", "), "\n")
+
             cat("Preflight .libPaths():\n")
             print(.libPaths())
+            cat("httr installed at:\n")
+            print(system.file(package = "httr"))
           '
 
-      - name: "R session info (debug)"
+      - name: R session info (debug)
         run: |
-          Rscript --vanilla -e '
-            dir.create(Sys.getenv("R_LIBS_USER"), showWarnings = FALSE, recursive = TRUE)
-            .libPaths(Sys.getenv("R_LIBS_USER"))
-            sessionInfo()
-          '
+          Rscript --vanilla -e "sessionInfo()"
 
-      - name: "Debug: find any top-level library(rtoot)"
+      - name: "Debug: find any top level library(rtoot)"
         run: |
           echo "Scanning repo for unconditional library(rtoot) calls..."
           grep -R --line-number -E 'library\(\s*rtoot\s*\)' || true
 
-      - name: "Run live poll (writes CSV + LOG)"
+      - name: Run live poll (writes CSV + LOG)
         run: |
           mkdir -p R/bots/live_csv
-          Rscript --vanilla -e "dir.create(Sys.getenv('R_LIBS_USER'), showWarnings = FALSE, recursive = TRUE); .libPaths(Sys.getenv('R_LIBS_USER')); cat('Run step .libPaths():\n'); print(.libPaths()); source('R/bots/run_live_today.R'); run_live_today()"
+          Rscript --vanilla -e "
+            cat('Run step .libPaths():\n'); print(.libPaths());
+            cat('httr installed at:\n'); print(system.file(package = 'httr'));
+            source('R/bots/run_live_today.R');
+            run_live_today()
+          "
 
-      - name: "Upload outputs"
+      - name: Upload outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
