@@ -114,7 +114,6 @@ jobs:
             )
             inst <- setdiff(needed, rownames(installed.packages()))
             if (length(inst)) install.packages(inst)
-          EOF
 
       - name: Sanity check libraries
         run: |
