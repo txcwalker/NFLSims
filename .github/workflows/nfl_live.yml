@@ -99,24 +99,22 @@ jobs:
 
       - name: Install R package dependencies
         run: |
-          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org"))' \
-                  -e 'needed <- c(
-                        "curl",
-                        "httr",
-                        "jsonlite",
-                        "dplyr",
-                        "purrr",
-                        "lubridate",
-                        "glue",
-                        "readr",
-                        "tibble"
-                        # plus any others used in:
-                        #   R/bots/run_live_today.R
-                        #   R/bots/run_fd_live_once.R
-                        #   R/bots/fetch_live_plays_espn.R
-                      )' \
-                  -e 'inst <- setdiff(needed, rownames(installed.packages())); \
-                      if (length(inst)) install.packages(inst)'
+          Rscript <<'EOF'
+            options(repos = c(CRAN = "https://cloud.r-project.org"))
+            needed <- c(
+              "curl",
+              "httr",
+              "jsonlite",
+              "dplyr",
+              "purrr",
+              "lubridate",
+              "glue",
+              "readr",
+              "tibble"
+            )
+            inst <- setdiff(needed, rownames(installed.packages()))
+            if (length(inst)) install.packages(inst)
+          EOF
 
       - name: Sanity check libraries
         run: |
