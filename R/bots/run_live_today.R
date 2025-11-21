@@ -1,11 +1,5 @@
 # R/bots/run_live_today.R
-# ------------------------------------------------------------------------------
-# CI-safe "fetch once" wrapper:
-# - No sleeping
-# - No posting deps
-# - Always writes CSV + LOG to R/bots/live_csv/
-# - Uses ESPN scoreboard to decide whether to fetch now or exit gracefully
-# ------------------------------------------------------------------------------
+# Modified to support FORCE_FETCH for testing outside game windows
 
 suppressPackageStartupMessages({
   library(dplyr); library(lubridate); library(glue); library(jsonlite); library(tibble)
@@ -78,6 +72,9 @@ run_live_today <- function(tz = "America/Chicago",
   # Only fetch/eval code — no posting
   .source_fetch_stack()
 
+  # NEW: Check for FORCE_FETCH environment variable
+  force_fetch <- identical(Sys.getenv("FORCE_FETCH", "false"), "true")
+
   window <- .in_window_now(
     tz = tz,
     buffer_before_mins = buffer_before_mins,
@@ -85,15 +82,24 @@ run_live_today <- function(tz = "America/Chicago",
     buffer_after_mins = buffer_after_mins
   )
 
-  # If outside window, write an empty CSV + informative log and exit
-  if (!isTRUE(window$in_window)) {
+  # If outside window AND not forcing, write empty and exit
+  if (!isTRUE(window$in_window) && !force_fetch) {
     readr::write_csv(tibble(), csv_path)
-    readr::write_lines(paste0(window$reason, " (outside window; no fetch)."), log_path)
-    message(window$reason, " (outside window; no fetch).")
+    msg <- paste0(window$reason, " (outside window; no fetch). Set FORCE_FETCH=true to override.")
+    readr::write_lines(msg, log_path)
+    message(msg)
     return(invisible(0L))
   }
 
-  # We're inside the window — do a quick fetch cycle (default 1 poll)
+  # NEW: Log when we're forcing
+  if (force_fetch && !isTRUE(window$in_window)) {
+    message("[LiveToday] FORCE_FETCH=true: overriding window check.")
+    message(window$reason)
+  } else if (isTRUE(window$in_window)) {
+    message("[LiveToday] Inside game window. Fetching...")
+  }
+
+  # We're inside the window (or forcing) — do a quick fetch cycle
   out <- tibble()
   err <- NULL
   for (i in seq_len(max(1L, quick_poll_count))) {
@@ -115,9 +121,14 @@ run_live_today <- function(tz = "America/Chicago",
   }
 
   readr::write_csv(out, csv_path)
-  msg <- paste0(window$reason, " fetched_rows=", nrow(out))
-  if (!is.null(err)) msg <- paste0(msg, " | last_error=", err$message)
+  msg <- paste0(window$reason, " | fetched_rows=", nrow(out))
+  if (!is.null(err)) msg <- paste0(msg, " | error=", err$message)
   readr::write_lines(msg, log_path)
   message(msg)
   invisible(nrow(out))
+}
+
+# Run if this file is executed directly
+if (sys.nframe() == 0) {
+  run_live_today()
 }

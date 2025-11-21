@@ -2,60 +2,31 @@ name: NFL live fourth down bot
 
 on:
   schedule:
-    # ------------------------------------------------------------
     # Regular Sunday slates (Weeks 12-17)
-    # Sundays roughly 11:00 to 24:00 Central
-    # This is 17:00 to 06:00 UTC (next day).
-    # ------------------------------------------------------------
     - cron: "*/10 17-23 * * 0"  # Sundays 11:00-17:59 CT (17-23 UTC)
     - cron: "*/10 0-6 * * 1"    # Sunday nights 18:00-23:59 CT (0-6 UTC Monday)
 
-    # ------------------------------------------------------------
     # Monday Night Football (Weeks 12-17)
-    # Kickoff 8:15 ET (7:15 CT).
-    # Cover Monday evenings 18:00-23:59 CT (0-6 UTC Tuesday).
-    # ------------------------------------------------------------
     - cron: "*/10 0-6 * * 2"    # Tuesday 0-6 UTC -> Monday evening CT
 
-    # ------------------------------------------------------------
     # Thursday Night Football (Weeks 13-16)
-    # Kickoff about 8:15 ET (7:15 CT).
-    # Cover Thursday evenings 18:00-23:59 CT (0-6 UTC Friday).
-    # ------------------------------------------------------------
     - cron: "*/10 0-6 * * 5"    # Friday 0-6 UTC -> Thursday evening CT
 
-    # ------------------------------------------------------------
     # Thanksgiving triple header (Thu Nov 27 2025)
-    # Early, middle, and night games.
-    # All November Thursdays 11:00-23:59 CT plus spillover.
-    # ------------------------------------------------------------
     - cron: "*/10 17-23 * 11 4" # Thursdays in November, 11:00-17:59 CT (17-23 UTC)
     - cron: "*/10 0-6 * 11 5"   # Early Friday UTC for late Thanksgiving game
 
-    # ------------------------------------------------------------
     # Black Friday game (Fri Nov 28 2025)
-    # Bears at Eagles at 3:00 ET (2:00 CT).
-    # All November Fridays 11:00-23:59 CT.
-    # ------------------------------------------------------------
     - cron: "*/10 17-23 * 11 5" # Fridays in November, 11:00-17:59 CT (17-23 UTC)
 
-    # ------------------------------------------------------------
     # December Saturday games
-    # Week 16 (Dec 20) and Week 17 (Dec 27) TBD Saturday games.
-    # Cover Saturdays 11:00-23:59 CT plus overnight spillover.
-    # ------------------------------------------------------------
     - cron: "*/10 17-23 * 12 6" # Saturdays in December, 11:00-17:59 CT (17-23 UTC)
     - cron: "*/10 0-6 * 12 0"   # Early Sunday UTC for late Saturday games
 
-    # ------------------------------------------------------------
     # Christmas triple header (Thu Dec 25 2025)
-    # 1:00 ET, 4:30 ET, 8:15 ET.
-    # Cover afternoon and evening CT plus spillover.
-    # ------------------------------------------------------------
     - cron: "*/10 17-23 25 12 *" # Dec 25, 11:00-17:59 CT (17-23 UTC)
     - cron: "*/10 0-6 26 12 *"   # Early hours after Christmas games
 
-  # Manual trigger from Actions tab
   workflow_dispatch:
 
 jobs:
@@ -74,6 +45,7 @@ jobs:
       # BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
       # BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
       # MASTODON_TOKEN: ${{ secrets.MASTODON_TOKEN }}
+      # MASTO_SERVER: ${{ secrets.MASTO_SERVER }}
 
     steps:
       - name: Checkout repo
@@ -83,14 +55,7 @@ jobs:
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: "4.4.2"
-
-      - name: Install system libraries for curl and SSL
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libcurl4-openssl-dev \
-            libssl-dev \
-            libxml2-dev
+          use-public-rspm: true
 
       - name: Install and cache R package dependencies
         uses: r-lib/actions/setup-r-dependencies@v2
@@ -106,16 +71,31 @@ jobs:
             any::glue
             any::readr
             any::tibble
-          # If you add a DESCRIPTION or renv.lock later, this action
-          # will also install dependencies from there and cache them.
+            any::stringr
+            any::data.table
 
       - name: Sanity check libraries
         run: |
           Rscript -e "print(.libPaths());
-                      pkgs <- c('curl','httr');
+                      pkgs <- c('curl','httr','jsonlite','dplyr');
                       cat('Package locations:\n');
                       for (p in pkgs) cat(p, '->', system.file(package = p), '\n')"
 
       - name: Run live today wrapper
         run: |
           Rscript --vanilla R/bots/run_live_today.R
+
+      - name: Check for output files
+        if: always()
+        run: |
+          if [ -d "R/bots/live_csv" ]; then
+            echo "=== Output files ===" 
+            ls -lh R/bots/live_csv/
+            echo "=== Latest log ===" 
+            tail -20 $(ls -t R/bots/live_csv/*.log 2>/dev/null | head -1) 2>/dev/null || echo "No logs yet"
+            echo "=== Latest CSV (first 10 rows) ===" 
+            head -10 $(ls -t R/bots/live_csv/*.csv 2>/dev/null | head -1) 2>/dev/null || echo "No CSVs yet"
+          else
+            echo "No output directory created"
+          fi
+

@@ -1,0 +1,125 @@
+name: NFL bot test (manual trigger)
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_fetch:
+        description: 'Force fetch even if outside game window'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      event_id:
+        description: 'Optional: specific ESPN event ID to test (leave blank for latest)'
+        required: false
+        type: string
+
+jobs:
+  test-fetch:
+    runs-on: ubuntu-latest
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      TZ: America/Chicago
+      FORCE_FETCH: ${{ github.event.inputs.force_fetch }}
+      ESPN_EVENT_ID: ${{ github.event.inputs.event_id }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install and cache R package dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          cache-version: 1
+          extra-packages: |
+            any::curl
+            any::httr
+            any::jsonlite
+            any::dplyr
+            any::purrr
+            any::lubridate
+            any::glue
+            any::readr
+            any::tibble
+            any::stringr
+            any::data.table
+
+      - name: Run ESPN adapter test
+        run: |
+          Rscript --vanilla R/live/test_espn_fetch.R
+
+      - name: Run FD evaluator on ESPN data
+        run: |
+          Rscript --vanilla -e "
+            source('R/bots/fetch_live_plays_espn.R')
+            source('R/bots/run_fd_live_once.R')
+            
+            cat('\\n=== Testing ESPN fetcher ===\\n')
+            plays <- fetch_live_plays_espn(only_in_progress = FALSE)
+            cat('Fetched', nrow(plays), 'total plays\\n')
+            
+            if (nrow(plays) > 0) {
+              cat('\\n=== Sample of fetched plays ===\\n')
+              print(head(plays, 10))
+              
+              df4 <- plays[plays\$down == 4, ]
+              cat('\\n=== Found', nrow(df4), '4th down plays ===\\n')
+              
+              if (nrow(df4) > 0) {
+                cat('\\nRunning evaluator on 4th downs...\\n')
+                result <- run_fd_live_once(fetcher = fetch_live_plays_espn, write_artifacts = TRUE)
+                cat('\\nEvaluated', nrow(result), 'rows\\n')
+                if (nrow(result) > 0) {
+                  print(result[, c('game_id', 'off', 'def', 'down', 'ydstogo', 'best_action', 'called_action')])
+                }
+              }
+            } else {
+              cat('No active games found.\\n')
+            }
+          "
+
+      - name: Display output files
+        if: always()
+        run: |
+          echo "=== Checking for output files ==="
+          if [ -d "R/bots/live_csv" ]; then
+            echo "Output directory exists"
+            ls -lh R/bots/live_csv/ || echo "Directory is empty"
+            echo ""
+            echo "=== Latest log content ==="
+            if ls R/bots/live_csv/*.log 1> /dev/null 2>&1; then
+              tail -50 $(ls -t R/bots/live_csv/*.log | head -1)
+            else
+              echo "No log files"
+            fi
+            echo ""
+            echo "=== Latest CSV (first 15 rows) ==="
+            if ls R/bots/live_csv/*.csv 1> /dev/null 2>&1; then
+              head -15 $(ls -t R/bots/live_csv/*.csv | head -1)
+            else
+              echo "No CSV files"
+            fi
+          else
+            echo "No output directory created"
+          fi
+          
+          echo ""
+          echo "=== Data directory structure ==="
+          find data -type f -mtime -1 2>/dev/null | head -20 || echo "No recent files in data/"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfl-bot-test-output
+          path: R/bots/live_csv/
+          retention-days: 7
