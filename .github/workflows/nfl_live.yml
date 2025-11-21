@@ -18,7 +18,6 @@ jobs:
     env:
       LIVE_FETCHER: espn           # use ESPN adapter in fetcher
       BOT_ENABLE_POSTING: "0"      # disable any posting libs/side-effects in this job
-      R_LIBS_USER: ${{ runner.temp }}/R-lib
 
     steps:
       - name: Checkout
@@ -34,12 +33,14 @@ jobs:
           R --version
           Rscript --version
 
+      # Define R_LIBS_USER and create the directory
       - name: Prepare R library directory
         run: |
-          mkdir -p "$R_LIBS_USER"
-          echo "R_LIBS_USER is $R_LIBS_USER"
+          echo "R_LIBS_USER=${HOME}/R-lib" >> "$GITHUB_ENV"
+          mkdir -p "${HOME}/R-lib"
+          echo "R_LIBS_USER is set to ${HOME}/R-lib"
 
-      # Install core deps + resilient rtoot fallback (from ropensci r-universe if needed)
+      # Install core deps + resilient rtoot fallback
       - name: "Install deps (CRAN + rtoot fallback)"
         run: |
           Rscript --vanilla -e '
@@ -112,7 +113,6 @@ jobs:
       - name: "Run live poll (writes CSV + LOG)"
         run: |
           mkdir -p R/bots/live_csv
-          # Use same library path here as in install steps
           Rscript --vanilla -e "dir.create(Sys.getenv('R_LIBS_USER'), showWarnings = FALSE, recursive = TRUE); .libPaths(Sys.getenv('R_LIBS_USER')); cat('Run step .libPaths():\n'); print(.libPaths()); source('R/bots/run_live_today.R'); run_live_today()"
 
       - name: "Upload outputs"
