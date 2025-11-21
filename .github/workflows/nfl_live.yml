@@ -99,21 +99,10 @@ jobs:
 
       - name: Install R package dependencies
         run: |
-          Rscript <<'EOF'
-            options(repos = c(CRAN = "https://cloud.r-project.org"))
-            needed <- c(
-              "curl",
-              "httr",
-              "jsonlite",
-              "dplyr",
-              "purrr",
-              "lubridate",
-              "glue",
-              "readr",
-              "tibble"
-            )
-            inst <- setdiff(needed, rownames(installed.packages()))
-            if (length(inst)) install.packages(inst)
+          Rscript -e "options(repos=c(CRAN='https://cloud.r-project.org'));
+                      needed <- c('curl','httr','jsonlite','dplyr','purrr','lubridate','glue','readr','tibble');
+                      inst <- setdiff(needed, rownames(installed.packages()));
+                      if(length(inst)) install.packages(inst)"
 
       - name: Sanity check libraries
         run: |
