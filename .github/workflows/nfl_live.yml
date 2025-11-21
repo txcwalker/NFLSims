@@ -1,26 +1,87 @@
-name: NFL Live Poster
+name: NFL live fourth down bot
 
 on:
-  workflow_dispatch: {}
   schedule:
-    - cron: "*/5 16-23 * * 0"  # Sun
-    - cron: "*/5 0-6 * * 1"    # Sun night spill
-    - cron: "*/5 0-6 * * 2"    # Mon night
-    - cron: "*/5 0-6 * * 5"    # Thu night
+    # ------------------------------------------------------------
+    # Regular Sunday slates (Weeks 12-17)
+    # All remaining Sundays have noon CT / 1 ET early games,
+    # late afternoon games, and most have SNF at 8:20 ET.
+    # Window: roughly 11:00 to 24:00 Central.
+    # This is 17:00 to 06:00 UTC (next day).
+    # ------------------------------------------------------------
+    - cron: "*/10 17-23 * * 0"  # Sundays 11:00-17:59 CT
+    - cron: "*/10 0-6 * * 1"    # Sunday nights 18:00-23:59 CT
 
-concurrency:
-  group: nfl-live-${{ github.ref }}
-  cancel-in-progress: true
+    # ------------------------------------------------------------
+    # Monday Night Football (Weeks 12-17)
+    # All remaining MNF games kick at 8:15 ET (7:15 CT).
+    # We cover Monday evening 18:00-23:59 CT,
+    # which is 00:00-06:00 UTC Tuesday.
+    # ------------------------------------------------------------
+    - cron: "*/10 0-6 * * 2"    # Tuesday 00:00-06:59 UTC -> Monday evening CT
+
+    # ------------------------------------------------------------
+    # Thursday Night Football (Weeks 13-16)
+    # All remaining TNF games kick around 8:15 ET (7:15 CT).
+    # Same idea: cover Thursday evening 18:00-23:59 CT,
+    # which is 00:00-06:00 UTC Friday.
+    # ------------------------------------------------------------
+    - cron: "*/10 0-6 * * 5"    # Friday 00:00-06:59 UTC -> Thursday evening CT
+
+    # ------------------------------------------------------------
+    # Thanksgiving triple-header (Thu Nov 27)
+    # Early game 1:00 ET (12:00 CT), second at 3:30 CT,
+    # night game 8:20 ET (7:20 CT).
+    # Cover Thursday from 11:00-23:59 CT and the night game spillover.
+    # ------------------------------------------------------------
+    - cron: "*/10 17-23 * 11 4" # All November Thursdays 11:00-17:59 CT (17-23 UTC)
+    - cron: "*/10 0-6 * 11 5"   # Early Friday UTC to catch late Thanksgiving game
+
+    # ------------------------------------------------------------
+    # Black Friday game (Fri Nov 28)
+    # Bears at Eagles at 3:00 ET (2:00 CT).
+    # Cover Friday afternoon/evening in November.
+    # ------------------------------------------------------------
+    - cron: "*/10 17-23 * 11 5" # All November Fridays 11:00-17:59 CT (17-23 UTC)
+
+    # ------------------------------------------------------------
+    # December Saturday games
+    # Week 16: Sat Dec 20, two TBD FOX games.
+    # Week 17: Sat Dec 27, five TBD games.
+    # These will be afternoon or evening local, so:
+    # cover Saturdays 11:00-23:59 CT and early overnight.
+    # ------------------------------------------------------------
+    - cron: "*/10 17-23 * 12 6" # All December Saturdays 11:00-17:59 CT (17-23 UTC)
+    - cron: "*/10 0-6 * 12 0"   # Early Sunday UTC to catch late Saturday games
+
+    # ------------------------------------------------------------
+    # Christmas triple-header (Thu Dec 25)
+    # 1:00 ET, 4:30 ET, 8:15 ET
+    # Cover afternoon and evening CT plus spillover.
+    # ------------------------------------------------------------
+    - cron: "*/10 17-23 25 12 *" # Dec 25, 11:00-17:59 CT (17-23 UTC)
+    - cron: "*/10 0-6 26 12 *"   # Early hours after Christmas games
+
+  workflow_dispatch:
 
 jobs:
-  run-live:
+  run-live-today:
     runs-on: ubuntu-latest
+
     env:
-      LIVE_FETCHER: espn           # use ESPN adapter in fetcher
-      BOT_ENABLE_POSTING: "0"      # disable posting in this job
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      TZ: America/Chicago
+
+      QUICK_POLL_COUNT: 1
+      POLL_SECONDS: 20
+
+      # Posting secrets if needed by downstream scripts:
+      # BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+      # BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+      # MASTODON_TOKEN: ${{ secrets.MASTODON_TOKEN }}
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Set up R
@@ -28,68 +89,42 @@ jobs:
         with:
           r-version: "4.4.2"
 
-      - name: Confirm R is installed
+      - name: Install system libraries for curl and SSL
         run: |
-          R --version
-          Rscript --version
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev
 
-      - name: Install R deps (minimal)
+      - name: Install R package dependencies
         run: |
-          Rscript --vanilla -e '
-            options(repos = c(CRAN = "https://cloud.r-project.org"))
+          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org"))' \
+                  -e 'needed <- c(
+                        "curl",
+                        "httr",
+                        "jsonlite",
+                        "dplyr",
+                        "purrr",
+                        "lubridate",
+                        "glue",
+                        "readr",
+                        "tibble"
+                        # plus any others used in:
+                        #   R/bots/run_live_today.R
+                        #   R/bots/run_fd_live_once.R
+                        #   R/bots/fetch_live_plays_espn.R
+                      )' \
+                  -e 'inst <- setdiff(needed, rownames(installed.packages())); \
+                      if (length(inst)) install.packages(inst)'
 
-            pkgs <- c(
-              "curl",                      # required for httr
-              "httr","jsonlite","dplyr","purrr","stringr",
-              "tibble","lubridate","readr","glue","tidyr"
-            )
-
-            need <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
-            if (length(need)) {
-              cat("Installing:", paste(need, collapse = ", "), "\n")
-              install.packages(need)
-            } else {
-              cat("All core pkgs already installed.\n")
-            }
-
-            cat("Install step .libPaths():\n")
-            print(.libPaths())
-            cat("curl installed at:\n")
-            print(system.file(package = "curl"))
-            cat("httr installed at:\n")
-            print(system.file(package = "httr"))
-          '
-
-      - name: Sanity check httr
+      - name: Sanity check libraries
         run: |
-          Rscript --vanilla -e '
-            cat("Sanity .libPaths():\n"); print(.libPaths())
-            library(httr)
-            cat("httr in sanity step at:\n")
-            print(system.file(package = "httr"))
-          '
+          Rscript -e 'print(.libPaths())' \
+                  -e 'pkgs <- c("curl","httr"); \
+                      cat("Package locations:\n"); \
+                      for (p in pkgs) cat(p, "->", system.file(package = p), "\n")'
 
-      - name: "Debug: find any top level library(rtoot)"
+      - name: Run live today wrapper
         run: |
-          echo "Scanning repo for unconditional library(rtoot) calls..."
-          grep -R --line-number -E 'library\(\s*rtoot\s*\)' || true
-
-      - name: Run live poll (writes CSV + LOG)
-        run: |
-          mkdir -p R/bots/live_csv
-          Rscript --vanilla -e "
-            cat('Run step .libPaths():\n'); print(.libPaths());
-            cat('httr in run step at:\n'); print(system.file(package = 'httr'));
-            source('R/bots/run_live_today.R');
-            run_live_today()
-          "
-
-      - name: Upload outputs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: live-run-${{ github.run_id }}
-          path: |
-            R/bots/live_csv/*.csv
-            R/bots/live_csv/*.log
-          if-no-files-found: warn
+          Rscript --vanilla R/bots/run_live_today.R
