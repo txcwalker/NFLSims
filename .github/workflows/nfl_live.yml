@@ -16,8 +16,8 @@ jobs:
   run-live:
     runs-on: ubuntu-latest
     env:
-      LIVE_FETCHER: espn
-      BOT_ENABLE_POSTING: "0"
+      LIVE_FETCHER: espn           # use ESPN adapter in fetcher
+      BOT_ENABLE_POSTING: "0"      # disable posting in this job
 
     steps:
       - name: Checkout
@@ -26,54 +26,65 @@ jobs:
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: '4.4.2'
+          r-version: "4.4.2"
 
       - name: Confirm R is installed
         run: |
           R --version
           Rscript --version
 
-      # Minimal, explicit install of only the packages you need
-      - name: "Install R deps (minimal)"
+      - name: Install R deps (minimal)
         run: |
-          Rscript --vanilla -e "
-            options(repos = c(CRAN = 'https://cloud.r-project.org'))
-            pkgs <- c(
-              'httr','jsonlite','dplyr','purrr','stringr',
-              'tibble','lubridate','readr','glue','tidyr'
-            )
-            install.packages(pkgs)
-            cat('Install step .libPaths():\n')
-            print(.libPaths())
-            cat('httr installed at:\n')
-            print(system.file(package = 'httr'))
-          "
+          Rscript --vanilla -e '
+            options(repos = c(CRAN = "https://cloud.r-project.org"))
 
-      - name: "Sanity check httr"
+            pkgs <- c(
+              "curl",                      # required for httr
+              "httr","jsonlite","dplyr","purrr","stringr",
+              "tibble","lubridate","readr","glue","tidyr"
+            )
+
+            need <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+            if (length(need)) {
+              cat("Installing:", paste(need, collapse = ", "), "\n")
+              install.packages(need)
+            } else {
+              cat("All core pkgs already installed.\n")
+            }
+
+            cat("Install step .libPaths():\n")
+            print(.libPaths())
+            cat("curl installed at:\n")
+            print(system.file(package = "curl"))
+            cat("httr installed at:\n")
+            print(system.file(package = "httr"))
+          '
+
+      - name: Sanity check httr
         run: |
-          Rscript --vanilla -e "
-            cat('Sanity .libPaths():\n'); print(.libPaths());
-            library(httr);
-            cat('httr path in sanity step:\n');
-            print(system.file(package = 'httr'))
-          "
+          Rscript --vanilla -e '
+            cat("Sanity .libPaths():\n"); print(.libPaths())
+            library(httr)
+            cat("httr in sanity step at:\n")
+            print(system.file(package = "httr"))
+          '
 
       - name: "Debug: find any top level library(rtoot)"
         run: |
           echo "Scanning repo for unconditional library(rtoot) calls..."
           grep -R --line-number -E 'library\(\s*rtoot\s*\)' || true
 
-      - name: "Run live poll (writes CSV + LOG)"
+      - name: Run live poll (writes CSV + LOG)
         run: |
           mkdir -p R/bots/live_csv
           Rscript --vanilla -e "
             cat('Run step .libPaths():\n'); print(.libPaths());
-            cat('httr path in run step:\n'); print(system.file(package = 'httr'));
+            cat('httr in run step at:\n'); print(system.file(package = 'httr'));
             source('R/bots/run_live_today.R');
             run_live_today()
           "
 
-      - name: "Upload outputs"
+      - name: Upload outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
