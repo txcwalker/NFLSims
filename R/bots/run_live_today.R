@@ -27,16 +27,35 @@ suppressPackageStartupMessages({
 
   # ESPN scoreboard (UTC ISO times per event)
   sb <- tryCatch(
-    jsonlite::fromJSON("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard", flatten = FALSE),
+    jsonlite::fromJSON("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard", flatten = TRUE),
     error = function(e) NULL
   )
   if (is.null(sb) || is.null(sb$events) || !length(sb$events)) {
     return(list(in_window = FALSE, reason = "[LiveToday] No events on scoreboard."))
   }
 
-  kicks_utc <- vapply(sb$events, function(e) {
-  if (is.list(e)) e$date %||% NA_character_ else NA_character_
-  }, character(1))
+  # Extract dates safely - handle both list and data.frame structures
+  kicks_utc <- tryCatch({
+    if (is.data.frame(sb$events)) {
+      sb$events$date
+    } else if (is.list(sb$events)) {
+      vapply(sb$events, function(e) {
+        if (is.list(e) && !is.null(e$date)) {
+          as.character(e$date)
+        } else if (is.character(e$date)) {
+          e$date
+        } else {
+          NA_character_
+        }
+      }, character(1))
+    } else {
+      NA_character_
+    }
+  }, error = function(e) {
+    warning("Error extracting dates from scoreboard: ", e$message)
+    NA_character_
+  })
+
   kicks     <- suppressWarnings(lubridate::ymd_hms(kicks_utc, tz = "UTC"))
   kicks_loc <- with_tz(kicks, tz)
   today     <- as_date(Sys.time(), tz = tz)
