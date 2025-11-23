@@ -34,7 +34,9 @@ suppressPackageStartupMessages({
     return(list(in_window = FALSE, reason = "[LiveToday] No events on scoreboard."))
   }
 
-  kicks_utc <- vapply(sb$events, function(e) e$date %||% NA_character_, character(1))
+  kicks_utc <- vapply(sb$events, function(e) {
+  if (is.list(e)) e$date %||% NA_character_ else NA_character_
+  }, character(1))
   kicks     <- suppressWarnings(lubridate::ymd_hms(kicks_utc, tz = "UTC"))
   kicks_loc <- with_tz(kicks, tz)
   today     <- as_date(Sys.time(), tz = tz)
