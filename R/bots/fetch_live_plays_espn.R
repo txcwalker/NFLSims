@@ -1,9 +1,11 @@
 # R/bots/fetch_live_plays_espn.R
 # ------------------------------------------------------------------------------
-# ESPN live fetcher:
-# - Enumerates active events (optionally filter to in-progress)
-# - Fetches PBP + team map, normalizes to FD rows (guaranteed `down` column)
-# - Dedups per-event via adapter's state file
+# ESPN live fetcher (updated for core plays endpoint):
+# - Enumerates active events from scoreboard
+# - For each event, fetches plays from core API endpoint
+# - Normalizes to FD rows (guaranteed `down` column)
+# - Dedups per-event via adapter's enhanced state file
+# - Returns only NEW plays since last fetch
 # ------------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
@@ -15,35 +17,71 @@ source("R/live/espn_adapter.R")
 .get_season_week <- function(){ list(season = NA_integer_, week = NA_integer_) }
 
 fetch_live_plays_espn <- function(only_in_progress = TRUE){
-  # Pull scoreboard once to optionally filter to "in" games
-  ids <- tryCatch(espn_active_event_ids(), error = function(e) character())
-  if (!length(ids)) return(tibble())
+  cat("[ESPN] Starting fetch_live_plays_espn...\n")
+
+  ids <- tryCatch(
+    espn_active_event_ids(),
+    error = function(e) {
+      cat("[ESPN] ERROR in espn_active_event_ids():", conditionMessage(e), "\n")
+      character()
+    }
+  )
+
+  cat("[ESPN] Found", length(ids), "active event IDs:", paste(ids, collapse=", "), "\n")
+  if (!length(ids)) {
+    cat("[ESPN] No active events found, returning empty tibble\n")
+    return(tibble())
+  }
 
   sw <- .get_season_week()
 
-  # Optional in-progress filter using summary$status.type.state
-  if (isTRUE(only_in_progress)) {
-    states <- purrr::map_chr(ids, function(id){
-      sm <- tryCatch(espn_event(id), error = function(e) NULL)
-      if (is.null(sm)) return(NA_character_)
-      sm[["status"]][["type"]][["state"]] %||% NA_character_
-    })
-    ids <- ids[tolower(states) == "in"]
-  }
-
-  if (!length(ids)) return(tibble())
-
   rows <- purrr::map_dfr(ids, function(eid){
-    pbp  <- tryCatch(espn_fetch_pbp(eid), error = function(e) NULL)
-    if (is.null(pbp)) return(tibble())
-    tmap <- tryCatch(espn_team_map(eid), error = function(e) NULL)
-    if (is.null(tmap) || !nrow(tmap)) return(tibble())
+    cat("[ESPN] Processing event", eid, "\n")
 
-    raw <- espn_plays_to_fd_rows(eid, pbp$plays, tmap, season = sw$season, week = sw$week)
-    if (!nrow(raw)) return(tibble())
+    pbp  <- tryCatch(
+      espn_fetch_pbp(eid),
+      error = function(e) {
+        cat("[ESPN] ERROR fetching PBP for", eid, ":", conditionMessage(e), "\n")
+        NULL
+      }
+    )
+    if (is.null(pbp)) {
+      cat("[ESPN] PBP is NULL for event", eid, "\n")
+      return(tibble())
+    }
+
+    cat("[ESPN] Got", nrow(pbp$plays %||% tibble()), "plays for event", eid, "\n")
+
+    tmap <- tryCatch(
+      espn_team_map(eid),
+      error = function(e) {
+        cat("[ESPN] ERROR fetching team map for", eid, ":", conditionMessage(e), "\n")
+        NULL
+      }
+    )
+    if (is.null(tmap) || !nrow(tmap)) {
+      cat("[ESPN] Team map is NULL or empty for event", eid, "\n")
+      return(tibble())
+    }
+
+    cat("[ESPN] Converting", nrow(pbp$plays), "plays to FD rows for event", eid, "\n")
+    raw <- tryCatch(
+      espn_plays_to_fd_rows(eid, pbp$plays, tmap, season = sw$season, week = sw$week),
+      error = function(e) {
+        cat("[ESPN] ERROR converting to FD rows for", eid, ":", conditionMessage(e), "\n")
+        tibble()
+      }
+    )
+
+    cat("[ESPN] Got", nrow(raw), "FD rows for event", eid, "\n")
+    if (!nrow(raw)) {
+      cat("[ESPN] No FD rows for event", eid, "\n")
+      return(tibble())
+    }
 
     # Guarantee `down` exists (adapter should have it; this is belt-and-suspenders)
     if (!("down" %in% names(raw))) {
+      cat("[ESPN] Adding down column for event", eid, "\n")
       down_map <- tibble(
         play_id = pbp$plays$play_id,
         down    = suppressWarnings(as.integer(pbp$plays$start_down))
@@ -51,11 +89,25 @@ fetch_live_plays_espn <- function(only_in_progress = TRUE){
       raw <- dplyr::left_join(raw, down_map, by = "play_id")
     }
 
-    filter_new_plays(eid, raw)
+    cat("[ESPN] Filtering new plays for event", eid, "\n")
+    filtered <- tryCatch(
+      filter_new_plays(eid, raw),
+      error = function(e) {
+        cat("[ESPN] ERROR in filter_new_plays for", eid, ":", conditionMessage(e), "\n")
+        raw
+      }
+    )
+
+    cat("[ESPN] After filtering new plays:", nrow(filtered), "rows for event", eid, "\n")
+    filtered
   })
 
+  cat("[ESPN] Total rows returned:", nrow(rows), "\n")
   rows
 }
 
 # Alias so run_live() will default to ESPN when no fetcher is passed
-fetch_live_plays <- function(){ fetch_live_plays_espn() }
+fetch_live_plays <- function(){
+  cat("[fetch_live_plays] Calling fetch_live_plays_espn()\n")
+  fetch_live_plays_espn()
+}

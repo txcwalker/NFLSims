@@ -2,7 +2,8 @@
 # ------------------------------------------------------------------------------
 # ESPN (unofficial) adapter: fetches scoreboard/summary/pbp and normalizes plays
 # to a stable schema for the 4th-down bot. ALWAYS returns a `down` column.
-# Includes light retry/backoff, one %||% helper, and a small stateful dedup.
+#
+# VECTORIZED VERSION - All helper functions now work with vectors (157+ plays)
 #
 # Key points:
 # - Keep JSON as lists (no unwanted data.frame simplification).
@@ -13,9 +14,6 @@
 # - espn_plays_to_fd_rows(...) expects that tibble, so dplyr never mutates a raw list.
 # - filter_new_plays(event_id, plays_df) only operates on plays (not meta).
 # ------------------------------------------------------------------------------
-
-# R/live/espn_adapter.R (FIXED)
-# Updated to handle ESPN's actual JSON structure
 
 suppressPackageStartupMessages({
   library(httr); library(jsonlite); library(dplyr); library(purrr)
@@ -40,49 +38,112 @@ suppressPackageStartupMessages({
   stop("ESPN request failed after retries.")
 }
 
-# --- Time & yardline helpers
+# --- Time & yardline helpers (ALL VECTORIZED) ---
+
 .parse_clock_secs <- function(display){
-  if (is.null(display) || is.na(display) || !nzchar(display)) return(0L)
+  display <- as.character(display)
+  is_empty <- is.na(display) | !nzchar(display)
+
   mm <- suppressWarnings(as.integer(sub(":.*$", "", display)))
   ss <- suppressWarnings(as.integer(sub("^.*:", "", display)))
-  mm*60L + ss
+  result <- mm * 60L + ss
+
+  result[is_empty] <- 0L
+  as.integer(result)
 }
 
 .game_seconds_remaining <- function(period_number, clock_display){
   sec_left_qtr <- .parse_clock_secs(clock_display)
-  if (is.na(period_number)) return(NA_integer_)
-  if (period_number <= 4L) (4L - period_number) * 900L + sec_left_qtr else sec_left_qtr
+  period_number <- as.integer(period_number)
+
+  result <- ifelse(
+    is.na(period_number),
+    NA_integer_,
+    ifelse(
+      period_number <= 4L,
+      (4L - period_number) * 900L + sec_left_qtr,
+      sec_left_qtr
+    )
+  )
+  as.integer(result)
 }
 
 .parse_possession_text <- function(txt){
-  if (is.null(txt) || is.na(txt) || !nzchar(txt)) return(list(team = NA_character_, yard = NA_integer_))
-  parts <- str_split(txt, "\\s+", n = 2)[[1]]
-  if (length(parts) < 2) return(list(team = NA_character_, yard = NA_integer_))
-  yd <- gsub("[^0-9]", "", parts[2])
-  list(team = toupper(parts[1]), yard = suppressWarnings(as.integer(yd)))
+  txt <- as.character(txt)
+  is_empty <- is.na(txt) | !nzchar(txt)
+
+  # Initialize result vectors
+  teams <- character(length(txt))
+  yards <- integer(length(txt))
+
+  # Process non-empty entries
+  if (any(!is_empty)) {
+    idx <- which(!is_empty)
+    for (i in idx) {
+      parts <- stringr::str_split(txt[i], "\\s+", n = 2)[[1]]
+      if (length(parts) >= 2) {
+        teams[i] <- toupper(parts[1])
+        yd <- as.integer(gsub("[^0-9]", "", parts[2]))
+        yards[i] <- if (is.na(yd)) NA_integer_ else yd
+      } else {
+        teams[i] <- NA_character_
+        yards[i] <- NA_integer_
+      }
+    }
+  }
+
+  # Set empty entries to NA
+  teams[is_empty] <- NA_character_
+  yards[is_empty] <- NA_integer_
+
+  list(team = teams, yard = yards)
 }
 
-.compute_yardline_100 <- function(posteam, mark_team, yard){
-  if (is.na(yard)) return(NA_real_)
-  if (isTRUE(toupper(posteam) == toupper(mark_team))) 100 - yard else yard
-}
-
-# --- Down inference
 .infer_down_from_text <- function(x){
-  xx <- tolower(x %||% "")
-  if (grepl("\\b1st\\b", xx)) return(1L)
-  if (grepl("\\b2nd\\b", xx)) return(2L)
-  if (grepl("\\b3rd\\b", xx)) return(3L)
-  if (grepl("\\b4th\\b", xx)) return(4L)
-  NA_integer_
+  x <- tolower(as.character(x))
+  result <- rep(NA_integer_, length(x))
+
+  result[grepl("\\b1st\\b", x)] <- 1L
+  result[grepl("\\b2nd\\b", x)] <- 2L
+  result[grepl("\\b3rd\\b", x)] <- 3L
+  result[grepl("\\b4th\\b", x)] <- 4L
+
+  result
 }
 
 .infer_down_coalesce <- function(start_down, sddt, text){
+  # Try start_down first
   d1 <- suppressWarnings(as.integer(start_down))
-  if (!is.na(d1)) return(d1)
-  d2 <- suppressWarnings(as.integer(str_extract(sddt %||% "", "^[1234](?=\\s*&\\s*)")))
-  if (!is.na(d2)) return(d2)
-  .infer_down_from_text(text)
+  result <- d1
+
+  # Where d1 is NA, try sddt extraction
+  na_idx <- is.na(result)
+  if (any(na_idx)) {
+    d2 <- suppressWarnings(as.integer(stringr::str_extract(sddt[na_idx], "^[1234](?=\\s*&\\s*)")))
+    result[na_idx] <- d2
+  }
+
+  # Where still NA, infer from text
+  na_idx <- is.na(result)
+  if (any(na_idx)) {
+    d3 <- .infer_down_from_text(text[na_idx])
+    result[na_idx] <- d3
+  }
+
+  as.integer(result)
+}
+
+.compute_yardline_100 <- function(posteam, mark_team, yard){
+  result <- ifelse(
+    is.na(yard),
+    NA_real_,
+    ifelse(
+      toupper(posteam) == toupper(mark_team),
+      100 - yard,
+      yard
+    )
+  )
+  as.numeric(result)
 }
 
 # --- Scoreboard fetcher

@@ -1,5 +1,6 @@
 # R/bots/run_live_today.R
 # Modified to support FORCE_FETCH for testing outside game windows
+# Updated to work with new core plays endpoint via fetch_live_plays_espn
 
 suppressPackageStartupMessages({
   library(dplyr); library(lubridate); library(glue); library(jsonlite); library(tibble)
@@ -12,9 +13,10 @@ suppressPackageStartupMessages({
 
 # IMPORTANT: Only source fetch/eval code (no posting files here)
 .source_fetch_stack <- function(){
-  source("R/bots/run_fd_live_once.R")        # returns tibble and can write artifacts
-  # this file must define fetch_live_plays() for the ESPN path
-  source("R/bots/fetch_live_plays_espn.R", local = TRUE)
+  # Source fetcher FIRST to global environment so it's available for run_fd_live_once
+  source("R/bots/fetch_live_plays_espn.R", local = FALSE)
+  # Now source the evaluator which will look for fetch_live_plays() globally
+  source("R/bots/run_fd_live_once.R", local = FALSE)
 }
 
 # Decide whether we are currently "in window" for fetching
@@ -23,6 +25,12 @@ suppressPackageStartupMessages({
                            buffer_before_mins = 20,
                            max_game_hours = 4.5,
                            buffer_after_mins = 30) {
+  # Ensure all parameters are the correct type
+  tz <- as.character(tz)
+  buffer_before_mins <- as.numeric(buffer_before_mins)
+  max_game_hours <- as.numeric(max_game_hours)
+  buffer_after_mins <- as.numeric(buffer_after_mins)
+
   Sys.setenv(TZ = tz)
 
   # ESPN scoreboard (UTC ISO times per event)
@@ -37,7 +45,12 @@ suppressPackageStartupMessages({
   # Extract dates safely - handle both list and data.frame structures
   kicks_utc <- tryCatch({
     if (is.data.frame(sb$events)) {
-      sb$events$date
+      if ("date" %in% names(sb$events)) {
+        date_col <- sb$events$date
+        as.character(date_col)
+      } else {
+        NA_character_
+      }
     } else if (is.list(sb$events)) {
       vapply(sb$events, function(e) {
         if (is.list(e) && !is.null(e$date)) {
@@ -56,11 +69,14 @@ suppressPackageStartupMessages({
     NA_character_
   })
 
-  kicks     <- suppressWarnings(lubridate::ymd_hms(kicks_utc, tz = "UTC"))
-  kicks_loc <- with_tz(kicks, tz)
-  today     <- as_date(Sys.time(), tz = tz)
+  # Parse ISO 8601 datetime strings - remove Z and parse with lubridate
+  kicks_clean <- sub("Z$", "", kicks_utc)  # Remove trailing Z
+  kicks <- suppressWarnings(lubridate::ymd_hm(kicks_clean, tz = "UTC"))
 
-  day_mask  <- as_date(kicks_loc, tz) == today
+  kicks_loc <- lubridate::with_tz(kicks, tz)
+  today     <- lubridate::as_date(Sys.time(), tz = tz)
+
+  day_mask  <- lubridate::as_date(kicks_loc, tz) == today
   if (!any(day_mask, na.rm = TRUE)) {
     return(list(in_window = FALSE, reason = glue("[LiveToday] No games today ({today}).")))
   }
@@ -68,8 +84,8 @@ suppressPackageStartupMessages({
   first_kick <- min(kicks_loc[day_mask], na.rm = TRUE)
   last_kick  <- max(kicks_loc[day_mask], na.rm = TRUE)
 
-  start_at <- first_kick - minutes(buffer_before_mins)
-  end_at   <- last_kick + hours(max_game_hours) + minutes(buffer_after_mins)
+  start_at <- first_kick - lubridate::minutes(as.integer(buffer_before_mins))
+  end_at   <- last_kick + lubridate::hours(as.integer(max_game_hours)) + lubridate::minutes(as.integer(buffer_after_mins))
 
   now <- Sys.time()
   list(
@@ -93,7 +109,7 @@ run_live_today <- function(tz = "America/Chicago",
   # Only fetch/eval code — no posting
   .source_fetch_stack()
 
-  # NEW: Check for FORCE_FETCH environment variable
+  # Check for FORCE_FETCH environment variable
   force_fetch <- identical(Sys.getenv("FORCE_FETCH", "false"), "true")
 
   window <- .in_window_now(
@@ -112,7 +128,7 @@ run_live_today <- function(tz = "America/Chicago",
     return(invisible(0L))
   }
 
-  # NEW: Log when we're forcing
+  # Log when we're forcing
   if (force_fetch && !isTRUE(window$in_window)) {
     message("[LiveToday] FORCE_FETCH=true: overriding window check.")
     message(window$reason)
