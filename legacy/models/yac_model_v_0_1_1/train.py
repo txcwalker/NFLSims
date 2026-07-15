@@ -1,3 +1,10 @@
+# RETIRED — superseded by src/nfl_sim/models/yac_model_v_0_1_1/train_zone_split.py.
+# DO NOT RUN. This is the old single-model (non-zone-split) YAC trainer; its
+# output has a different feature set/shape than the deployed
+# {primary,redzone,goalline} artifacts, so running it would silently replace the
+# live model with an incompatible one. Kept for historical reference only.
+# See AGENTS.md §11.7.
+
 import os
 import json
 import joblib

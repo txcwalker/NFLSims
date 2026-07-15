@@ -37,11 +37,6 @@ class NFLGameEngine:
             'trench': self._load_json('data/dna/trench_dna.json')
         }
         
-        # Dynamically inject V.0.2.0 player DNA into loaded YAC model
-        if hasattr(self.registry, 'yac_model') and self.registry.yac_model is not None:
-            self.registry.yac_model.receiver_dna = self.dna['skill']
-            self.registry.yac_model.qb_dna = self.dna['qb']
-        
         self.team_coaches = team_coaches if team_coaches is not None else self._load_json('data/dna/team_to_coach_2025.json')
         self.rosters = rosters if rosters is not None else {
             away_team: self._load_json(f"data/current_rosters/{away_team}_traits_{self.year}.json").get('traits', {}),
