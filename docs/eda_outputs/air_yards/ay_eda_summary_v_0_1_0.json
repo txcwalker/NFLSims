@@ -1,0 +1,30 @@
+{
+  "version": "V.0.1.0",
+  "generated": "2026-05-15 15:48:07.025555",
+  "seasons_analyzed": "2015-2024",
+  "n_plays": 188272,
+  "distribution": {
+    "mean_ay": 8.05,
+    "median_ay": 5,
+    "sd_ay": 10.12,
+    "pct_screen": 0.2476,
+    "pct_intermediate": 0.2137,
+    "pct_deep_shot": 0.118,
+    "pct_negative": 0.1537
+  },
+  "multimodality": {
+    "zero_inflated_pct": 0.2058,
+    "deep_shot_cluster_start_yds": 20,
+    "is_zero_inflated": true
+  },
+  "ngs_join_required": true,
+  "key_correlations": {
+    "yardline_100": 0.067,
+    "game_seconds_remaining": -0.042,
+    "down": 0.039,
+    "qtr": 0.036,
+    "ydstogo": 0.034,
+    "score_differential": -0.013,
+    "cpoe": 0
+  }
+}
