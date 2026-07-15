@@ -1,0 +1,42 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wp-quiz",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-l", "5175", "."],
+      "port": 5175,
+      "autoPort": false
+    },
+    {
+      "name": "analytics-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "frontend_analysis",
+      "port": 5174,
+      "autoPort": false
+    },
+    {
+      "name": "dfs-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "frontend",
+      "port": 5173,
+      "autoPort": false
+    },
+    {
+      "name": "backend-api-dfs",
+      "runtimeExecutable": "venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "src.api.app:app", "--reload", "--port", "8002"],
+      "port": 8002,
+      "autoPort": false
+    },
+    {
+      "name": "backend-api-analytics",
+      "runtimeExecutable": "venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "src.api.app:app", "--reload", "--port", "8000"],
+      "port": 8000,
+      "autoPort": false
+    }
+  ]
+}

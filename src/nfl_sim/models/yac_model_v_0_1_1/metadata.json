@@ -1,0 +1,94 @@
+{
+  "version": "V.0.3.0",
+  "trained_by": "train_zone_split.py (clock_physics_v020 Round 8/9)",
+  "seasons": [
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "split": "GroupShuffleSplit by game_id, 70/15/15 train/val/test",
+  "objective": "reg:squarederror",
+  "features": [
+    "air_yards",
+    "yardline_100",
+    "ydstogo",
+    "score_differential",
+    "game_seconds_remaining",
+    "cpoe_by_filter",
+    "target_share_by_filter",
+    "carry_share_by_filter",
+    "room_after_catch"
+  ],
+  "zone_metrics": {
+    "primary": {
+      "n_train": 43052,
+      "n_val": 9393,
+      "n_test": 9353,
+      "test_mae": 4.233466625213623,
+      "test_rmse": 6.584541320800781,
+      "baseline_test_mae": 4.772658824920654,
+      "test_pred_mean": 5.448027610778809,
+      "test_real_mean": 5.487009525299072,
+      "objective": "reg:squarederror",
+      "feature_importance": {
+        "air_yards": 0.45252564549446106,
+        "yardline_100": 0.06819391250610352,
+        "ydstogo": 0.05575353279709816,
+        "score_differential": 0.06200561672449112,
+        "game_seconds_remaining": 0.06116291880607605,
+        "cpoe_by_filter": 0.0602286197245121,
+        "target_share_by_filter": 0.058193955570459366,
+        "carry_share_by_filter": 0.07823923230171204,
+        "room_after_catch": 0.1036965623497963
+      }
+    },
+    "redzone": {
+      "n_train": 4675,
+      "n_val": 970,
+      "n_test": 1006,
+      "test_mae": 2.3143415451049805,
+      "test_rmse": 3.234778881072998,
+      "baseline_test_mae": 3.322791814804077,
+      "test_pred_mean": 3.645190954208374,
+      "test_real_mean": 3.4025845527648926,
+      "objective": "reg:squarederror",
+      "feature_importance": {
+        "air_yards": 0.471612811088562,
+        "yardline_100": 0.05381285026669502,
+        "ydstogo": 0.0453299954533577,
+        "score_differential": 0.0518457256257534,
+        "game_seconds_remaining": 0.05630636587738991,
+        "cpoe_by_filter": 0.05002922564744949,
+        "target_share_by_filter": 0.0590997189283371,
+        "carry_share_by_filter": 0.06105636805295944,
+        "room_after_catch": 0.15090692043304443
+      }
+    },
+    "goalline": {
+      "n_train": 1197,
+      "n_val": 242,
+      "n_test": 245,
+      "test_mae": 0.6457291841506958,
+      "test_rmse": 1.2113181352615356,
+      "baseline_test_mae": 1.2941094636917114,
+      "test_pred_mean": 0.9227632284164429,
+      "test_real_mean": 0.9020408391952515,
+      "objective": "reg:squarederror",
+      "feature_importance": {
+        "air_yards": 0.03857703134417534,
+        "yardline_100": 0.024044755846261978,
+        "ydstogo": 0.0444064661860466,
+        "score_differential": 0.03051815554499626,
+        "game_seconds_remaining": 0.03575520217418671,
+        "cpoe_by_filter": 0.0364617258310318,
+        "target_share_by_filter": 0.0332673117518425,
+        "carry_share_by_filter": 0.0519796684384346,
+        "room_after_catch": 0.7049897313117981
+      }
+    }
+  },
+  "notes": "room_after_catch is experimental \u2014 see Round 8/9 validation before keeping."
+}

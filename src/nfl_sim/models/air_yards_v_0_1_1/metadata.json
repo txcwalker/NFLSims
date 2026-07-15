@@ -1,0 +1,126 @@
+{
+  "version": "V.0.3.0",
+  "trained_by": "train_zone_split.py (clock_physics_v020 Round 11)",
+  "seasons": [
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "split": "GroupShuffleSplit by game_id, 70/15/15 train/val/test",
+  "features": [
+    "down",
+    "ydstogo",
+    "yardline_100",
+    "score_differential",
+    "game_seconds_remaining",
+    "cpoe_by_filter",
+    "target_share_by_filter",
+    "carry_share_by_filter",
+    "play_ttt",
+    "avg_air_yards_per_att",
+    "deep_target_rate"
+  ],
+  "screen_max": 0,
+  "deep_min": 20,
+  "zone_metrics": {
+    "primary": {
+      "gate_test_accuracy": 0.6826419368540281,
+      "gate_missing": false,
+      "n_train": 65124,
+      "n_val": 14072,
+      "n_test": 14126,
+      "regressors": {
+        "screen": {
+          "n_train": 14092,
+          "n_test": 3068,
+          "test_mae": 1.7611572742462158,
+          "test_rmse": 2.169226884841919,
+          "test_pred_mean": -2.776813507080078,
+          "test_real_mean": -2.7786831855773926
+        },
+        "std": {
+          "n_train": 42369,
+          "n_test": 9274,
+          "test_mae": 3.7784852981567383,
+          "test_rmse": 4.599966526031494,
+          "test_pred_mean": 7.652037143707275,
+          "test_real_mean": 7.594242095947266
+        },
+        "deep": {
+          "n_train": 8663,
+          "n_test": 1784,
+          "test_mae": 6.180657386779785,
+          "test_rmse": 7.761250972747803,
+          "test_pred_mean": 29.366456985473633,
+          "test_real_mean": 29.256166458129883
+        }
+      },
+      "missing_levels": []
+    },
+    "redzone": {
+      "gate_test_accuracy": 0.7862029646522235,
+      "gate_missing": false,
+      "n_train": 8014,
+      "n_val": 1619,
+      "n_test": 1754,
+      "regressors": {
+        "screen": {
+          "n_train": 1810,
+          "n_test": 365,
+          "test_mae": 1.7588680982589722,
+          "test_rmse": 2.100430488586426,
+          "test_pred_mean": -2.710742950439453,
+          "test_real_mean": -2.7095890045166016
+        },
+        "std": {
+          "n_train": 6109,
+          "n_test": 1360,
+          "test_mae": 3.5637028217315674,
+          "test_rmse": 4.288414478302002,
+          "test_pred_mean": 7.97837495803833,
+          "test_real_mean": 7.825735092163086
+        },
+        "deep": {
+          "n_train": 95,
+          "n_test": 29,
+          "test_mae": 0.0,
+          "test_rmse": 0.0,
+          "test_pred_mean": 20.0,
+          "test_real_mean": 20.0
+        }
+      },
+      "missing_levels": []
+    },
+    "goalline": {
+      "gate_test_accuracy": null,
+      "gate_missing": true,
+      "n_train": 2270,
+      "n_val": 473,
+      "n_test": 465,
+      "regressors": {
+        "screen": {
+          "n_train": 340,
+          "n_test": 69,
+          "test_mae": 1.6210947036743164,
+          "test_rmse": 1.940299391746521,
+          "test_pred_mean": -1.9298657178878784,
+          "test_real_mean": -1.7826087474822998
+        },
+        "std": {
+          "n_train": 1930,
+          "n_test": 396,
+          "test_mae": 0.38460657000541687,
+          "test_rmse": 0.6445068120956421,
+          "test_pred_mean": 2.887359380722046,
+          "test_real_mean": 2.9141414165496826
+        }
+      },
+      "missing_levels": [
+        "deep"
+      ]
+    }
+  }
+}

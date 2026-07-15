@@ -1,0 +1,1029 @@
+{
+    "team": "KC",
+    "year": 2025,
+    "max_week": 1,
+    "traits": {
+        "Patrick Mahomes": {
+            "pos": "QB",
+            "target_share": 0.001,
+            "carry_share": 0.11,
+            "status": "active",
+            "cpoe": 3.4024,
+            "avg_air_yards_per_att": 6.807,
+            "deep_ball_rate": 0.0907,
+            "scramble_rate": 0.0,
+            "sack_rate": 0.0448,
+            "play_action_rate": 0.0,
+            "under_pressure_cpoe": 4.6255,
+            "pressure_rate": 0.2762,
+            "avg_time_to_throw_sec": 2.87,
+            "ngs_aggressiveness_index": 9.85,
+            "splits": {
+                "primary": {
+                    "cpoe": 3.2731,
+                    "sack_rate": 0.0434,
+                    "play_action_rate": 0.0
+                },
+                "redzone": {
+                    "cpoe": 0.9537,
+                    "sack_rate": 0.0519,
+                    "play_action_rate": 0.0
+                },
+                "goalline": {
+                    "cpoe": 14.044,
+                    "sack_rate": 0.049,
+                    "play_action_rate": 0.0
+                }
+            }
+        },
+        "C.Wentz": {
+            "pos": "QB",
+            "target_share": 0.0,
+            "carry_share": 0.002,
+            "status": "active",
+            "cpoe": 0.0,
+            "avg_air_yards_per_att": 8.0,
+            "deep_ball_rate": 0.12,
+            "scramble_rate": 0.05,
+            "sack_rate": 0.06,
+            "play_action_rate": 0.2,
+            "under_pressure_cpoe": -2.5,
+            "pressure_rate": 0.2,
+            "avg_time_to_throw_sec": 2.7,
+            "ngs_aggressiveness_index": 15.0,
+            "splits": {
+                "primary": {
+                    "cpoe": 0.0,
+                    "sack_rate": 0.06,
+                    "play_action_rate": 0.2
+                },
+                "redzone": {
+                    "cpoe": 0.0,
+                    "sack_rate": 0.06,
+                    "play_action_rate": 0.2
+                },
+                "goalline": {
+                    "cpoe": 0.0,
+                    "sack_rate": 0.06,
+                    "play_action_rate": 0.2
+                }
+            }
+        },
+        "Kareem Hunt": {
+            "pos": "RB",
+            "target_share": 0.047,
+            "carry_share": 0.465,
+            "status": "active",
+            "adot": -0.624,
+            "yac_per_rec": 7.33,
+            "elusiveness": -0.2732,
+            "broken_tackle_rate": 0.2745,
+            "ypc": 3.85,
+            "efficiency": 4.006,
+            "percent_attempts_gte_eight_defenders": 0.2501,
+            "avg_time_to_los": 2.834,
+            "rush_yards_over_expected_per_att": -0.203,
+            "rush_pct_over_expected": 0.0039,
+            "catch_rate": 0.7744,
+            "top_speed_mph": 20.31,
+            "contested_catch_rate": 0.3727,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0477,
+                    "carry_share": 0.2772,
+                    "catch_rate": 0.8073,
+                    "yac_per_reception": 7.841
+                },
+                "redzone": {
+                    "target_share": 0.0861,
+                    "carry_share": 0.3963,
+                    "catch_rate": 0.619,
+                    "yac_per_reception": 4.769
+                },
+                "goalline": {
+                    "target_share": 0.0435,
+                    "carry_share": 0.4659,
+                    "catch_rate": 0.6667,
+                    "yac_per_reception": 1.5
+                }
+            }
+        },
+        "Isiah Pacheco": {
+            "pos": "RB",
+            "target_share": 0.08,
+            "carry_share": 0.196,
+            "status": "active",
+            "adot": -1.757,
+            "yac_per_rec": 9.089,
+            "elusiveness": 0.471,
+            "broken_tackle_rate": 0.2921,
+            "ypc": 3.79,
+            "efficiency": 3.818,
+            "percent_attempts_gte_eight_defenders": 0.1567,
+            "avg_time_to_los": 2.78,
+            "rush_yards_over_expected_per_att": 0.373,
+            "rush_pct_over_expected": 0.0041,
+            "catch_rate": 0.8738,
+            "top_speed_mph": 20.52,
+            "contested_catch_rate": 0.384,
+            "splits": {
+                "primary": {
+                    "target_share": 0.034,
+                    "carry_share": 0.3026,
+                    "catch_rate": 0.8764,
+                    "yac_per_reception": 9.372
+                },
+                "redzone": {
+                    "target_share": 0.0261,
+                    "carry_share": 0.2982,
+                    "catch_rate": 0.9091,
+                    "yac_per_reception": 7.7
+                },
+                "goalline": {
+                    "target_share": 0.0214,
+                    "carry_share": 0.2883,
+                    "catch_rate": 0.6667,
+                    "yac_per_reception": 5.0
+                }
+            }
+        },
+        "Carson Steele": {
+            "pos": "RB",
+            "target_share": 0.015,
+            "carry_share": 0.114,
+            "status": "active",
+            "adot": -1.545,
+            "yac_per_rec": 6.143,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 3.55,
+            "efficiency": 2.927,
+            "percent_attempts_gte_eight_defenders": 0.1765,
+            "avg_time_to_los": 2.426,
+            "rush_yards_over_expected_per_att": 0.221,
+            "rush_pct_over_expected": 0.0041,
+            "catch_rate": 0.6364,
+            "top_speed_mph": 20.37,
+            "contested_catch_rate": 0.3222,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0034,
+                    "carry_share": 0.0292,
+                    "catch_rate": 0.6667,
+                    "yac_per_reception": 5.833
+                },
+                "redzone": {
+                    "target_share": 0.0048,
+                    "carry_share": 0.0218,
+                    "catch_rate": 0.5,
+                    "yac_per_reception": 8.0
+                },
+                "goalline": {
+                    "target_share": 0.0149,
+                    "carry_share": 0.036,
+                    "catch_rate": 0.6364,
+                    "yac_per_reception": 6.143
+                }
+            }
+        },
+        "Chris Oladokun": {
+            "pos": "RB",
+            "target_share": 0.0,
+            "carry_share": 0.002,
+            "status": "active",
+            "adot": 1.0,
+            "yac_per_rec": 6.5,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.76,
+            "efficiency": 3.8,
+            "percent_attempts_gte_eight_defenders": 0.22,
+            "avg_time_to_los": 2.75,
+            "rush_yards_over_expected_per_att": 0.0,
+            "rush_pct_over_expected": 0.35,
+            "catch_rate": 0.75,
+            "top_speed_mph": 20.3,
+            "contested_catch_rate": 0.38,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.002,
+                    "catch_rate": 0.75,
+                    "yac_per_reception": 6.5
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.002,
+                    "catch_rate": 0.75,
+                    "yac_per_reception": 6.5
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.002,
+                    "catch_rate": 0.75,
+                    "yac_per_reception": 6.5
+                }
+            }
+        },
+        "Jaden Hicks": {
+            "pos": "RB",
+            "target_share": 0.0,
+            "carry_share": 0.002,
+            "status": "active",
+            "adot": 1.0,
+            "yac_per_rec": 6.5,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 1.96,
+            "efficiency": 3.8,
+            "percent_attempts_gte_eight_defenders": 0.22,
+            "avg_time_to_los": 2.75,
+            "rush_yards_over_expected_per_att": 0.0,
+            "rush_pct_over_expected": 0.35,
+            "catch_rate": 0.75,
+            "top_speed_mph": 20.3,
+            "contested_catch_rate": 0.38,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.002,
+                    "catch_rate": 0.75,
+                    "yac_per_reception": 6.5
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.002,
+                    "catch_rate": 0.75,
+                    "yac_per_reception": 6.5
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.002,
+                    "catch_rate": 0.75,
+                    "yac_per_reception": 6.5
+                }
+            }
+        },
+        "Matt Araiza": {
+            "pos": "RB",
+            "target_share": 0.0,
+            "carry_share": 0.002,
+            "status": "active",
+            "adot": 1.0,
+            "yac_per_rec": 6.5,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": -11.34,
+            "efficiency": 3.8,
+            "percent_attempts_gte_eight_defenders": 0.22,
+            "avg_time_to_los": 2.75,
+            "rush_yards_over_expected_per_att": 0.0,
+            "rush_pct_over_expected": 0.35,
+            "catch_rate": 0.75,
+            "top_speed_mph": 20.3,
+            "contested_catch_rate": 0.38,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.002,
+                    "catch_rate": 0.75,
+                    "yac_per_reception": 6.5
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.002,
+                    "catch_rate": 0.75,
+                    "yac_per_reception": 6.5
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.002,
+                    "catch_rate": 0.75,
+                    "yac_per_reception": 6.5
+                }
+            }
+        },
+        "Xavier Worthy": {
+            "pos": "WR",
+            "target_share": 0.163,
+            "carry_share": 0.047,
+            "status": "active",
+            "adot": 9.017,
+            "yac_per_rec": 6.654,
+            "elusiveness": 1.0791,
+            "broken_tackle_rate": 0.32,
+            "ypc": 4.67,
+            "avg_separation_yds": 3.96,
+            "avg_cushion_yds": 6.515,
+            "catch_rate": 0.65,
+            "route_profile": "intermediate",
+            "top_speed_mph": 22.7,
+            "deep_target_rate": 0.175,
+            "contested_catch_rate": 0.4139,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0363,
+                    "carry_share": 0.0095,
+                    "catch_rate": 0.6632,
+                    "yac_per_reception": 6.603
+                },
+                "redzone": {
+                    "target_share": 0.0523,
+                    "carry_share": 0.0255,
+                    "catch_rate": 0.6364,
+                    "yac_per_reception": 6.929
+                },
+                "goalline": {
+                    "target_share": 0.0214,
+                    "carry_share": 0.009,
+                    "catch_rate": 0.3333,
+                    "yac_per_reception": 6.0
+                }
+            }
+        },
+        "D.Hopkins": {
+            "pos": "WR",
+            "target_share": 0.092,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.092,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.092,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.092,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "S.Perine": {
+            "pos": "WR",
+            "target_share": 0.051,
+            "carry_share": 0.043,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.59,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.051,
+                    "carry_share": 0.043,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.051,
+                    "carry_share": 0.043,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.051,
+                    "carry_share": 0.043,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "Ju.Watson": {
+            "pos": "WR",
+            "target_share": 0.045,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.045,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.045,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.045,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "JuJu Smith-Schuster": {
+            "pos": "WR",
+            "target_share": 0.043,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 6.943,
+            "yac_per_rec": 5.384,
+            "elusiveness": 0.6045,
+            "broken_tackle_rate": 0.2038,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.859,
+            "avg_cushion_yds": 6.123,
+            "catch_rate": 0.6943,
+            "route_profile": "short",
+            "top_speed_mph": 21.05,
+            "deep_target_rate": 0.0349,
+            "contested_catch_rate": 0.535,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0914,
+                    "carry_share": 0.0012,
+                    "catch_rate": 0.6915,
+                    "yac_per_reception": 5.576
+                },
+                "redzone": {
+                    "target_share": 0.0523,
+                    "carry_share": 0.0072,
+                    "catch_rate": 0.7727,
+                    "yac_per_reception": 4.706
+                },
+                "goalline": {
+                    "target_share": 0.0429,
+                    "carry_share": 0.0109,
+                    "catch_rate": 0.5,
+                    "yac_per_reception": 0.333
+                }
+            }
+        },
+        "Rashee Rice": {
+            "pos": "WR",
+            "target_share": 0.039,
+            "carry_share": 0.002,
+            "status": "active",
+            "adot": 4.677,
+            "yac_per_rec": 8.023,
+            "elusiveness": 2.463,
+            "broken_tackle_rate": 0.3175,
+            "ypc": 1.96,
+            "avg_separation_yds": 4.168,
+            "avg_cushion_yds": 6.258,
+            "catch_rate": 0.7866,
+            "route_profile": "short",
+            "top_speed_mph": 20.06,
+            "deep_target_rate": 0.0488,
+            "contested_catch_rate": 0.5183,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0512,
+                    "carry_share": 0.0019,
+                    "catch_rate": 0.7985,
+                    "yac_per_reception": 8.673
+                },
+                "redzone": {
+                    "target_share": 0.057,
+                    "carry_share": 0.0036,
+                    "catch_rate": 0.7083,
+                    "yac_per_reception": 5.471
+                },
+                "goalline": {
+                    "target_share": 0.0429,
+                    "carry_share": 0.004,
+                    "catch_rate": 0.8333,
+                    "yac_per_reception": 2.8
+                }
+            }
+        },
+        "Marquise Brown": {
+            "pos": "WR",
+            "target_share": 0.038,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 11.264,
+            "yac_per_rec": 3.857,
+            "elusiveness": -1.141,
+            "broken_tackle_rate": 0.1581,
+            "ypc": 4.2,
+            "avg_separation_yds": 3.225,
+            "avg_cushion_yds": 6.827,
+            "catch_rate": 0.5777,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.24,
+            "deep_target_rate": 0.2047,
+            "contested_catch_rate": 0.5057,
+            "splits": {
+                "primary": {
+                    "target_share": 0.1683,
+                    "carry_share": 0.0021,
+                    "catch_rate": 0.5941,
+                    "yac_per_reception": 4.064
+                },
+                "redzone": {
+                    "target_share": 0.1241,
+                    "carry_share": 0.0029,
+                    "catch_rate": 0.4706,
+                    "yac_per_reception": 2.375
+                },
+                "goalline": {
+                    "target_share": 0.1579,
+                    "carry_share": 0.0029,
+                    "catch_rate": 0.4167,
+                    "yac_per_reception": 0.2
+                }
+            }
+        },
+        "M.Hardman": {
+            "pos": "WR",
+            "target_share": 0.019,
+            "carry_share": 0.01,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 9.94,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.019,
+                    "carry_share": 0.01,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.019,
+                    "carry_share": 0.01,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.019,
+                    "carry_share": 0.01,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "Nikko Remigio": {
+            "pos": "WR",
+            "target_share": 0.008,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.008,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.008,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.008,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "P.Hendershot": {
+            "pos": "WR",
+            "target_share": 0.007,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.007,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.007,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.007,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "S.Moore": {
+            "pos": "WR",
+            "target_share": 0.004,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.004,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.004,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.004,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "J.Fortson": {
+            "pos": "WR",
+            "target_share": 0.004,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.004,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.004,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.004,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "Wanya Morris": {
+            "pos": "WR",
+            "target_share": 0.001,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "Jared Wiley": {
+            "pos": "WR",
+            "target_share": 0.001,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "J.Ross": {
+            "pos": "WR",
+            "target_share": 0.001,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "Mike Caliendo": {
+            "pos": "WR",
+            "target_share": 0.001,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "B.Cupp": {
+            "pos": "WR",
+            "target_share": 0.001,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "redzone": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.001,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            }
+        },
+        "Travis Kelce": {
+            "pos": "TE",
+            "target_share": 0.207,
+            "carry_share": 0.002,
+            "status": "active",
+            "adot": 6.914,
+            "yac_per_rec": 5.154,
+            "elusiveness": 0.5814,
+            "broken_tackle_rate": 0.2132,
+            "ypc": 1.96,
+            "avg_separation_yds": 3.388,
+            "avg_cushion_yds": 6.244,
+            "catch_rate": 0.7424,
+            "route_profile": "short",
+            "top_speed_mph": 19.61,
+            "deep_target_rate": 0.0518,
+            "contested_catch_rate": 0.4851,
+            "splits": {
+                "primary": {
+                    "target_share": 0.2063,
+                    "carry_share": 0.0006,
+                    "catch_rate": 0.7519,
+                    "yac_per_reception": 5.638
+                },
+                "redzone": {
+                    "target_share": 0.1995,
+                    "carry_share": 0.0036,
+                    "catch_rate": 0.6786,
+                    "yac_per_reception": 3.158
+                },
+                "goalline": {
+                    "target_share": 0.2286,
+                    "carry_share": 0.036,
+                    "catch_rate": 0.75,
+                    "yac_per_reception": 1.708
+                }
+            }
+        },
+        "Noah Gray": {
+            "pos": "TE",
+            "target_share": 0.072,
+            "carry_share": 0.002,
+            "status": "active",
+            "adot": 5.777,
+            "yac_per_rec": 5.0,
+            "elusiveness": -0.1457,
+            "broken_tackle_rate": 0.2478,
+            "ypc": -1.54,
+            "avg_separation_yds": 3.619,
+            "avg_cushion_yds": 6.214,
+            "catch_rate": 0.7643,
+            "route_profile": "short",
+            "top_speed_mph": 19.34,
+            "deep_target_rate": 0.051,
+            "contested_catch_rate": 0.5479,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0512,
+                    "carry_share": 0.0013,
+                    "catch_rate": 0.7761,
+                    "yac_per_reception": 5.269
+                },
+                "redzone": {
+                    "target_share": 0.0451,
+                    "carry_share": 0.0036,
+                    "catch_rate": 0.6316,
+                    "yac_per_reception": 4.333
+                },
+                "goalline": {
+                    "target_share": 0.0286,
+                    "carry_share": 0.009,
+                    "catch_rate": 1.0,
+                    "yac_per_reception": 0.0
+                }
+            }
+        }
+    }
+}

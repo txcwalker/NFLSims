@@ -1,0 +1,3234 @@
+{
+  "_metadata": {
+    "version": "V.0.1.0",
+    "created": "2026-05-15",
+    "source": "nflfastR PBP 2015-2024",
+    "structure": "season > team_abbreviation > metrics",
+    "ngs_fields_null": [
+      "off_pass_block_win_rate",
+      "times_to_pressure_sec"
+    ],
+    "blitz_note": "blitz_rate is NA if nflfastR version does not include blitz column",
+    "deprecation_notice": "trench_tiers_2025.json (1-5 tier grades) remains active for play_selection. This file supersedes it for Air Yards modeling with continuous metrics."
+  },
+  "2015": {
+    "ARI": {
+      "sack_rate_allowed": 0.0469,
+      "avg_air_yards": 10.901,
+      "def_pressure_rate": 0.1557,
+      "def_sack_rate": 0.0524,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.53,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "ATL": {
+      "sack_rate_allowed": 0.0467,
+      "avg_air_yards": 7.721,
+      "def_pressure_rate": 0.1274,
+      "def_sack_rate": 0.0317,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.261,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BAL": {
+      "sack_rate_allowed": 0.0333,
+      "avg_air_yards": 7.609,
+      "def_pressure_rate": 0.1538,
+      "def_sack_rate": 0.0595,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.959,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BUF": {
+      "sack_rate_allowed": 0.0764,
+      "avg_air_yards": 10.231,
+      "def_pressure_rate": 0.1198,
+      "def_sack_rate": 0.0325,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.249,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CAR": {
+      "sack_rate_allowed": 0.0622,
+      "avg_air_yards": 10.366,
+      "def_pressure_rate": 0.1632,
+      "def_sack_rate": 0.0654,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.315,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CHI": {
+      "sack_rate_allowed": 0.0573,
+      "avg_air_yards": 8.289,
+      "def_pressure_rate": 0.1667,
+      "def_sack_rate": 0.0602,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.64,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CIN": {
+      "sack_rate_allowed": 0.057,
+      "avg_air_yards": 8.697,
+      "def_pressure_rate": 0.1568,
+      "def_sack_rate": 0.0595,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.692,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CLE": {
+      "sack_rate_allowed": 0.0738,
+      "avg_air_yards": 8.025,
+      "def_pressure_rate": 0.1257,
+      "def_sack_rate": 0.0509,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.012,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DAL": {
+      "sack_rate_allowed": 0.0557,
+      "avg_air_yards": 7.697,
+      "def_pressure_rate": 0.1397,
+      "def_sack_rate": 0.0546,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.123,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DEN": {
+      "sack_rate_allowed": 0.0604,
+      "avg_air_yards": 9.178,
+      "def_pressure_rate": 0.1938,
+      "def_sack_rate": 0.0786,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.919,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DET": {
+      "sack_rate_allowed": 0.0611,
+      "avg_air_yards": 6.571,
+      "def_pressure_rate": 0.1751,
+      "def_sack_rate": 0.07,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.601,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "GB": {
+      "sack_rate_allowed": 0.0649,
+      "avg_air_yards": 8.491,
+      "def_pressure_rate": 0.1524,
+      "def_sack_rate": 0.0702,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.775,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "HOU": {
+      "sack_rate_allowed": 0.0533,
+      "avg_air_yards": 9.624,
+      "def_pressure_rate": 0.1672,
+      "def_sack_rate": 0.0703,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.629,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "IND": {
+      "sack_rate_allowed": 0.0534,
+      "avg_air_yards": 8.566,
+      "def_pressure_rate": 0.1373,
+      "def_sack_rate": 0.0535,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.607,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "JAX": {
+      "sack_rate_allowed": 0.0705,
+      "avg_air_yards": 9.248,
+      "def_pressure_rate": 0.1116,
+      "def_sack_rate": 0.0536,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.134,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "KC": {
+      "sack_rate_allowed": 0.0772,
+      "avg_air_yards": 6.871,
+      "def_pressure_rate": 0.1201,
+      "def_sack_rate": 0.0639,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.923,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LA": {
+      "sack_rate_allowed": 0.0354,
+      "avg_air_yards": 8.083,
+      "def_pressure_rate": 0.1748,
+      "def_sack_rate": 0.0607,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.713,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LAC": {
+      "sack_rate_allowed": 0.0535,
+      "avg_air_yards": 7.297,
+      "def_pressure_rate": 0.1328,
+      "def_sack_rate": 0.0557,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.333,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LV": {
+      "sack_rate_allowed": 0.0492,
+      "avg_air_yards": 7.811,
+      "def_pressure_rate": 0.1082,
+      "def_sack_rate": 0.0526,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.111,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIA": {
+      "sack_rate_allowed": 0.0654,
+      "avg_air_yards": 8.813,
+      "def_pressure_rate": 0.1501,
+      "def_sack_rate": 0.0513,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.538,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIN": {
+      "sack_rate_allowed": 0.0836,
+      "avg_air_yards": 7.128,
+      "def_pressure_rate": 0.1756,
+      "def_sack_rate": 0.0665,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.418,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NE": {
+      "sack_rate_allowed": 0.0519,
+      "avg_air_yards": 7.822,
+      "def_pressure_rate": 0.1366,
+      "def_sack_rate": 0.0675,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.771,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NO": {
+      "sack_rate_allowed": 0.0438,
+      "avg_air_yards": 7.846,
+      "def_pressure_rate": 0.1075,
+      "def_sack_rate": 0.051,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.555,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYG": {
+      "sack_rate_allowed": 0.04,
+      "avg_air_yards": 7.575,
+      "def_pressure_rate": 0.1244,
+      "def_sack_rate": 0.0337,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.568,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYJ": {
+      "sack_rate_allowed": 0.034,
+      "avg_air_yards": 9.18,
+      "def_pressure_rate": 0.1695,
+      "def_sack_rate": 0.0563,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.778,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PHI": {
+      "sack_rate_allowed": 0.0532,
+      "avg_air_yards": 6.825,
+      "def_pressure_rate": 0.1196,
+      "def_sack_rate": 0.0524,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.935,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PIT": {
+      "sack_rate_allowed": 0.0533,
+      "avg_air_yards": 9.726,
+      "def_pressure_rate": 0.1325,
+      "def_sack_rate": 0.0644,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.071,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SEA": {
+      "sack_rate_allowed": 0.0793,
+      "avg_air_yards": 8.742,
+      "def_pressure_rate": 0.1664,
+      "def_sack_rate": 0.0605,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.634,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SF": {
+      "sack_rate_allowed": 0.0836,
+      "avg_air_yards": 7.418,
+      "def_pressure_rate": 0.1298,
+      "def_sack_rate": 0.0462,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.811,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TB": {
+      "sack_rate_allowed": 0.0458,
+      "avg_air_yards": 10.019,
+      "def_pressure_rate": 0.1419,
+      "def_sack_rate": 0.0617,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.586,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TEN": {
+      "sack_rate_allowed": 0.0822,
+      "avg_air_yards": 8.888,
+      "def_pressure_rate": 0.1222,
+      "def_sack_rate": 0.0674,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.778,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "WAS": {
+      "sack_rate_allowed": 0.0493,
+      "avg_air_yards": 8.053,
+      "def_pressure_rate": 0.1246,
+      "def_sack_rate": 0.0573,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.894,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    }
+  },
+  "2016": {
+    "ARI": {
+      "sack_rate_allowed": 0.0562,
+      "avg_air_yards": 9.649,
+      "def_pressure_rate": 0.1661,
+      "def_sack_rate": 0.0745,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.077,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "ATL": {
+      "sack_rate_allowed": 0.0618,
+      "avg_air_yards": 8.793,
+      "def_pressure_rate": 0.1204,
+      "def_sack_rate": 0.0498,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.228,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BAL": {
+      "sack_rate_allowed": 0.0445,
+      "avg_air_yards": 7.503,
+      "def_pressure_rate": 0.1318,
+      "def_sack_rate": 0.0486,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.801,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BUF": {
+      "sack_rate_allowed": 0.0813,
+      "avg_air_yards": 9.492,
+      "def_pressure_rate": 0.1379,
+      "def_sack_rate": 0.0661,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.338,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CAR": {
+      "sack_rate_allowed": 0.0565,
+      "avg_air_yards": 10.198,
+      "def_pressure_rate": 0.1342,
+      "def_sack_rate": 0.0662,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.061,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CHI": {
+      "sack_rate_allowed": 0.0457,
+      "avg_air_yards": 9.251,
+      "def_pressure_rate": 0.129,
+      "def_sack_rate": 0.0614,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.78,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CIN": {
+      "sack_rate_allowed": 0.0638,
+      "avg_air_yards": 7.872,
+      "def_pressure_rate": 0.1584,
+      "def_sack_rate": 0.0502,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.174,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CLE": {
+      "sack_rate_allowed": 0.0942,
+      "avg_air_yards": 8.588,
+      "def_pressure_rate": 0.1373,
+      "def_sack_rate": 0.0438,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.744,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DAL": {
+      "sack_rate_allowed": 0.0517,
+      "avg_air_yards": 8.28,
+      "def_pressure_rate": 0.1253,
+      "def_sack_rate": 0.0515,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.419,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DEN": {
+      "sack_rate_allowed": 0.0615,
+      "avg_air_yards": 8.794,
+      "def_pressure_rate": 0.1801,
+      "def_sack_rate": 0.066,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.736,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DET": {
+      "sack_rate_allowed": 0.0567,
+      "avg_air_yards": 7.51,
+      "def_pressure_rate": 0.1246,
+      "def_sack_rate": 0.0454,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.315,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "GB": {
+      "sack_rate_allowed": 0.0537,
+      "avg_air_yards": 9.004,
+      "def_pressure_rate": 0.1294,
+      "def_sack_rate": 0.0553,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.196,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "HOU": {
+      "sack_rate_allowed": 0.049,
+      "avg_air_yards": 8.561,
+      "def_pressure_rate": 0.1526,
+      "def_sack_rate": 0.0531,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.795,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "IND": {
+      "sack_rate_allowed": 0.0656,
+      "avg_air_yards": 8.36,
+      "def_pressure_rate": 0.1315,
+      "def_sack_rate": 0.0508,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.538,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "JAX": {
+      "sack_rate_allowed": 0.0489,
+      "avg_air_yards": 8.235,
+      "def_pressure_rate": 0.1265,
+      "def_sack_rate": 0.0541,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.73,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "KC": {
+      "sack_rate_allowed": 0.0509,
+      "avg_air_yards": 6.879,
+      "def_pressure_rate": 0.1138,
+      "def_sack_rate": 0.0422,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.532,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LA": {
+      "sack_rate_allowed": 0.0774,
+      "avg_air_yards": 7.303,
+      "def_pressure_rate": 0.1631,
+      "def_sack_rate": 0.0481,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.041,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LAC": {
+      "sack_rate_allowed": 0.0551,
+      "avg_air_yards": 8.485,
+      "def_pressure_rate": 0.138,
+      "def_sack_rate": 0.0538,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.659,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LV": {
+      "sack_rate_allowed": 0.0306,
+      "avg_air_yards": 7.87,
+      "def_pressure_rate": 0.1315,
+      "def_sack_rate": 0.0405,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.432,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIA": {
+      "sack_rate_allowed": 0.06,
+      "avg_air_yards": 7.949,
+      "def_pressure_rate": 0.1442,
+      "def_sack_rate": 0.0501,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.763,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIN": {
+      "sack_rate_allowed": 0.0571,
+      "avg_air_yards": 6.6,
+      "def_pressure_rate": 0.1891,
+      "def_sack_rate": 0.0653,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.723,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NE": {
+      "sack_rate_allowed": 0.0435,
+      "avg_air_yards": 8.059,
+      "def_pressure_rate": 0.1188,
+      "def_sack_rate": 0.0531,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.23,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NO": {
+      "sack_rate_allowed": 0.0373,
+      "avg_air_yards": 7.245,
+      "def_pressure_rate": 0.165,
+      "def_sack_rate": 0.0467,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.112,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYG": {
+      "sack_rate_allowed": 0.0348,
+      "avg_air_yards": 8.042,
+      "def_pressure_rate": 0.119,
+      "def_sack_rate": 0.0536,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.227,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYJ": {
+      "sack_rate_allowed": 0.0565,
+      "avg_air_yards": 8.913,
+      "def_pressure_rate": 0.1276,
+      "def_sack_rate": 0.0451,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.481,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PHI": {
+      "sack_rate_allowed": 0.0475,
+      "avg_air_yards": 7.499,
+      "def_pressure_rate": 0.1482,
+      "def_sack_rate": 0.0548,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.688,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PIT": {
+      "sack_rate_allowed": 0.0309,
+      "avg_air_yards": 8.692,
+      "def_pressure_rate": 0.1396,
+      "def_sack_rate": 0.0576,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.036,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SEA": {
+      "sack_rate_allowed": 0.0664,
+      "avg_air_yards": 8.71,
+      "def_pressure_rate": 0.1695,
+      "def_sack_rate": 0.0683,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.565,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SF": {
+      "sack_rate_allowed": 0.0805,
+      "avg_air_yards": 8.19,
+      "def_pressure_rate": 0.1343,
+      "def_sack_rate": 0.0565,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.936,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TB": {
+      "sack_rate_allowed": 0.0535,
+      "avg_air_yards": 10.067,
+      "def_pressure_rate": 0.1358,
+      "def_sack_rate": 0.0606,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.894,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TEN": {
+      "sack_rate_allowed": 0.05,
+      "avg_air_yards": 9.519,
+      "def_pressure_rate": 0.1363,
+      "def_sack_rate": 0.0559,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.655,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "WAS": {
+      "sack_rate_allowed": 0.0353,
+      "avg_air_yards": 8.772,
+      "def_pressure_rate": 0.147,
+      "def_sack_rate": 0.0572,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.62,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    }
+  },
+  "2017": {
+    "ARI": {
+      "sack_rate_allowed": 0.074,
+      "avg_air_yards": 9.727,
+      "def_pressure_rate": 0.1559,
+      "def_sack_rate": 0.0578,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.338,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "ATL": {
+      "sack_rate_allowed": 0.0459,
+      "avg_air_yards": 8.771,
+      "def_pressure_rate": 0.1319,
+      "def_sack_rate": 0.0606,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.46,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BAL": {
+      "sack_rate_allowed": 0.0437,
+      "avg_air_yards": 6.801,
+      "def_pressure_rate": 0.1584,
+      "def_sack_rate": 0.0634,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.211,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BUF": {
+      "sack_rate_allowed": 0.0801,
+      "avg_air_yards": 8.516,
+      "def_pressure_rate": 0.122,
+      "def_sack_rate": 0.0445,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.627,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CAR": {
+      "sack_rate_allowed": 0.0629,
+      "avg_air_yards": 8.598,
+      "def_pressure_rate": 0.1616,
+      "def_sack_rate": 0.0748,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.63,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CHI": {
+      "sack_rate_allowed": 0.0713,
+      "avg_air_yards": 7.41,
+      "def_pressure_rate": 0.1713,
+      "def_sack_rate": 0.0684,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.062,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CIN": {
+      "sack_rate_allowed": 0.0681,
+      "avg_air_yards": 8.223,
+      "def_pressure_rate": 0.1583,
+      "def_sack_rate": 0.064,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.66,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CLE": {
+      "sack_rate_allowed": 0.0743,
+      "avg_air_yards": 9.054,
+      "def_pressure_rate": 0.1364,
+      "def_sack_rate": 0.0575,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.361,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DAL": {
+      "sack_rate_allowed": 0.0575,
+      "avg_air_yards": 8.029,
+      "def_pressure_rate": 0.1603,
+      "def_sack_rate": 0.0597,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.837,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DEN": {
+      "sack_rate_allowed": 0.0774,
+      "avg_air_yards": 8.42,
+      "def_pressure_rate": 0.1431,
+      "def_sack_rate": 0.0592,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.996,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DET": {
+      "sack_rate_allowed": 0.0704,
+      "avg_air_yards": 8.002,
+      "def_pressure_rate": 0.1499,
+      "def_sack_rate": 0.0545,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.504,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "GB": {
+      "sack_rate_allowed": 0.0766,
+      "avg_air_yards": 7.275,
+      "def_pressure_rate": 0.1431,
+      "def_sack_rate": 0.0628,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.246,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "HOU": {
+      "sack_rate_allowed": 0.0856,
+      "avg_air_yards": 9.988,
+      "def_pressure_rate": 0.1292,
+      "def_sack_rate": 0.0565,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.04,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "IND": {
+      "sack_rate_allowed": 0.0924,
+      "avg_air_yards": 7.599,
+      "def_pressure_rate": 0.1331,
+      "def_sack_rate": 0.0442,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.029,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "JAX": {
+      "sack_rate_allowed": 0.0431,
+      "avg_air_yards": 7.816,
+      "def_pressure_rate": 0.1634,
+      "def_sack_rate": 0.0809,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.697,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "KC": {
+      "sack_rate_allowed": 0.0624,
+      "avg_air_yards": 7.718,
+      "def_pressure_rate": 0.1097,
+      "def_sack_rate": 0.0492,
+      "blitz_rate": {},
+      "avg_ay_allowed": 10.427,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LA": {
+      "sack_rate_allowed": 0.0498,
+      "avg_air_yards": 7.964,
+      "def_pressure_rate": 0.1591,
+      "def_sack_rate": 0.073,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.298,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LAC": {
+      "sack_rate_allowed": 0.0291,
+      "avg_air_yards": 8.227,
+      "def_pressure_rate": 0.1426,
+      "def_sack_rate": 0.0704,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.651,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LV": {
+      "sack_rate_allowed": 0.0395,
+      "avg_air_yards": 8.357,
+      "def_pressure_rate": 0.1214,
+      "def_sack_rate": 0.0508,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.809,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIA": {
+      "sack_rate_allowed": 0.0495,
+      "avg_air_yards": 8.135,
+      "def_pressure_rate": 0.1526,
+      "def_sack_rate": 0.0495,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.091,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIN": {
+      "sack_rate_allowed": 0.0444,
+      "avg_air_yards": 7.506,
+      "def_pressure_rate": 0.1377,
+      "def_sack_rate": 0.0565,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.669,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NE": {
+      "sack_rate_allowed": 0.0473,
+      "avg_air_yards": 9.229,
+      "def_pressure_rate": 0.1423,
+      "def_sack_rate": 0.0641,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.205,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NO": {
+      "sack_rate_allowed": 0.0352,
+      "avg_air_yards": 6.837,
+      "def_pressure_rate": 0.1327,
+      "def_sack_rate": 0.0654,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.304,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYG": {
+      "sack_rate_allowed": 0.0514,
+      "avg_air_yards": 7.234,
+      "def_pressure_rate": 0.1058,
+      "def_sack_rate": 0.044,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.219,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYJ": {
+      "sack_rate_allowed": 0.0783,
+      "avg_air_yards": 7.809,
+      "def_pressure_rate": 0.1548,
+      "def_sack_rate": 0.0455,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.289,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PHI": {
+      "sack_rate_allowed": 0.0493,
+      "avg_air_yards": 9.225,
+      "def_pressure_rate": 0.1765,
+      "def_sack_rate": 0.0525,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.481,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PIT": {
+      "sack_rate_allowed": 0.0372,
+      "avg_air_yards": 8.814,
+      "def_pressure_rate": 0.1872,
+      "def_sack_rate": 0.0885,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.529,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SEA": {
+      "sack_rate_allowed": 0.0657,
+      "avg_air_yards": 9.867,
+      "def_pressure_rate": 0.1794,
+      "def_sack_rate": 0.0619,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.118,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SF": {
+      "sack_rate_allowed": 0.0622,
+      "avg_air_yards": 7.974,
+      "def_pressure_rate": 0.1652,
+      "def_sack_rate": 0.0496,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.725,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TB": {
+      "sack_rate_allowed": 0.0571,
+      "avg_air_yards": 10.261,
+      "def_pressure_rate": 0.1353,
+      "def_sack_rate": 0.0372,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.757,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TEN": {
+      "sack_rate_allowed": 0.0686,
+      "avg_air_yards": 9.051,
+      "def_pressure_rate": 0.125,
+      "def_sack_rate": 0.0588,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.874,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "WAS": {
+      "sack_rate_allowed": 0.0659,
+      "avg_air_yards": 7.705,
+      "def_pressure_rate": 0.1742,
+      "def_sack_rate": 0.0697,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.603,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    }
+  },
+  "2018": {
+    "ARI": {
+      "sack_rate_allowed": 0.0857,
+      "avg_air_yards": 8.061,
+      "def_pressure_rate": 0.1532,
+      "def_sack_rate": 0.0811,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.996,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "ATL": {
+      "sack_rate_allowed": 0.0595,
+      "avg_air_yards": 8.555,
+      "def_pressure_rate": 0.1172,
+      "def_sack_rate": 0.0546,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.151,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BAL": {
+      "sack_rate_allowed": 0.0591,
+      "avg_air_yards": 8.712,
+      "def_pressure_rate": 0.1616,
+      "def_sack_rate": 0.0629,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.189,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BUF": {
+      "sack_rate_allowed": 0.0704,
+      "avg_air_yards": 9.946,
+      "def_pressure_rate": 0.1582,
+      "def_sack_rate": 0.0635,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.167,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CAR": {
+      "sack_rate_allowed": 0.051,
+      "avg_air_yards": 7.444,
+      "def_pressure_rate": 0.121,
+      "def_sack_rate": 0.0586,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.59,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CHI": {
+      "sack_rate_allowed": 0.0556,
+      "avg_air_yards": 8.948,
+      "def_pressure_rate": 0.1437,
+      "def_sack_rate": 0.067,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.023,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CIN": {
+      "sack_rate_allowed": 0.06,
+      "avg_air_yards": 8.087,
+      "def_pressure_rate": 0.1315,
+      "def_sack_rate": 0.0523,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.344,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CLE": {
+      "sack_rate_allowed": 0.0582,
+      "avg_air_yards": 9.571,
+      "def_pressure_rate": 0.1271,
+      "def_sack_rate": 0.053,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.736,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DAL": {
+      "sack_rate_allowed": 0.082,
+      "avg_air_yards": 7.543,
+      "def_pressure_rate": 0.153,
+      "def_sack_rate": 0.0593,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.179,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DEN": {
+      "sack_rate_allowed": 0.0519,
+      "avg_air_yards": 7.525,
+      "def_pressure_rate": 0.1486,
+      "def_sack_rate": 0.0692,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.666,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DET": {
+      "sack_rate_allowed": 0.0622,
+      "avg_air_yards": 6.942,
+      "def_pressure_rate": 0.14,
+      "def_sack_rate": 0.0734,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.733,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "GB": {
+      "sack_rate_allowed": 0.0711,
+      "avg_air_yards": 8.915,
+      "def_pressure_rate": 0.1263,
+      "def_sack_rate": 0.0717,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.349,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "HOU": {
+      "sack_rate_allowed": 0.0956,
+      "avg_air_yards": 8.539,
+      "def_pressure_rate": 0.1377,
+      "def_sack_rate": 0.0605,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.309,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "IND": {
+      "sack_rate_allowed": 0.0278,
+      "avg_air_yards": 7.735,
+      "def_pressure_rate": 0.131,
+      "def_sack_rate": 0.0628,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.852,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "JAX": {
+      "sack_rate_allowed": 0.0823,
+      "avg_air_yards": 7.047,
+      "def_pressure_rate": 0.1698,
+      "def_sack_rate": 0.0646,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.996,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "KC": {
+      "sack_rate_allowed": 0.0471,
+      "avg_air_yards": 9.257,
+      "def_pressure_rate": 0.1379,
+      "def_sack_rate": 0.0662,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.021,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LA": {
+      "sack_rate_allowed": 0.0507,
+      "avg_air_yards": 8.662,
+      "def_pressure_rate": 0.163,
+      "def_sack_rate": 0.0615,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.798,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LAC": {
+      "sack_rate_allowed": 0.0545,
+      "avg_air_yards": 7.951,
+      "def_pressure_rate": 0.1344,
+      "def_sack_rate": 0.0636,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.186,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LV": {
+      "sack_rate_allowed": 0.0795,
+      "avg_air_yards": 6.894,
+      "def_pressure_rate": 0.097,
+      "def_sack_rate": 0.0256,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.85,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIA": {
+      "sack_rate_allowed": 0.0932,
+      "avg_air_yards": 8.166,
+      "def_pressure_rate": 0.137,
+      "def_sack_rate": 0.0543,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.287,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIN": {
+      "sack_rate_allowed": 0.0581,
+      "avg_air_yards": 7.29,
+      "def_pressure_rate": 0.1586,
+      "def_sack_rate": 0.0826,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.104,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NE": {
+      "sack_rate_allowed": 0.0296,
+      "avg_air_yards": 7.641,
+      "def_pressure_rate": 0.1612,
+      "def_sack_rate": 0.0498,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.742,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NO": {
+      "sack_rate_allowed": 0.0371,
+      "avg_air_yards": 7.338,
+      "def_pressure_rate": 0.1535,
+      "def_sack_rate": 0.0669,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.546,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYG": {
+      "sack_rate_allowed": 0.069,
+      "avg_air_yards": 7.514,
+      "def_pressure_rate": 0.1382,
+      "def_sack_rate": 0.0487,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.279,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYJ": {
+      "sack_rate_allowed": 0.062,
+      "avg_air_yards": 8.883,
+      "def_pressure_rate": 0.1763,
+      "def_sack_rate": 0.0588,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.553,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PHI": {
+      "sack_rate_allowed": 0.0536,
+      "avg_air_yards": 7.663,
+      "def_pressure_rate": 0.1786,
+      "def_sack_rate": 0.0597,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.234,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PIT": {
+      "sack_rate_allowed": 0.0326,
+      "avg_air_yards": 7.748,
+      "def_pressure_rate": 0.179,
+      "def_sack_rate": 0.0774,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.966,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SEA": {
+      "sack_rate_allowed": 0.0945,
+      "avg_air_yards": 9.052,
+      "def_pressure_rate": 0.1755,
+      "def_sack_rate": 0.0662,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.637,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SF": {
+      "sack_rate_allowed": 0.0766,
+      "avg_air_yards": 7.233,
+      "def_pressure_rate": 0.1513,
+      "def_sack_rate": 0.0589,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.991,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TB": {
+      "sack_rate_allowed": 0.0579,
+      "avg_air_yards": 10.613,
+      "def_pressure_rate": 0.1576,
+      "def_sack_rate": 0.0624,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.023,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TEN": {
+      "sack_rate_allowed": 0.0883,
+      "avg_air_yards": 7.471,
+      "def_pressure_rate": 0.1406,
+      "def_sack_rate": 0.0641,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.46,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "WAS": {
+      "sack_rate_allowed": 0.0738,
+      "avg_air_yards": 8.34,
+      "def_pressure_rate": 0.1564,
+      "def_sack_rate": 0.0732,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.779,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    }
+  },
+  "2019": {
+    "ARI": {
+      "sack_rate_allowed": 0.0766,
+      "avg_air_yards": 7.627,
+      "def_pressure_rate": 0.1364,
+      "def_sack_rate": 0.059,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.692,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "ATL": {
+      "sack_rate_allowed": 0.0634,
+      "avg_air_yards": 8.128,
+      "def_pressure_rate": 0.1172,
+      "def_sack_rate": 0.0474,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.548,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BAL": {
+      "sack_rate_allowed": 0.0569,
+      "avg_air_yards": 9.042,
+      "def_pressure_rate": 0.1864,
+      "def_sack_rate": 0.0595,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.654,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BUF": {
+      "sack_rate_allowed": 0.0655,
+      "avg_air_yards": 9.207,
+      "def_pressure_rate": 0.1598,
+      "def_sack_rate": 0.0747,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.016,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CAR": {
+      "sack_rate_allowed": 0.0774,
+      "avg_air_yards": 8.398,
+      "def_pressure_rate": 0.1722,
+      "def_sack_rate": 0.0814,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.159,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CHI": {
+      "sack_rate_allowed": 0.0674,
+      "avg_air_yards": 7.863,
+      "def_pressure_rate": 0.1291,
+      "def_sack_rate": 0.0503,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.407,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CIN": {
+      "sack_rate_allowed": 0.068,
+      "avg_air_yards": 8.26,
+      "def_pressure_rate": 0.1594,
+      "def_sack_rate": 0.0556,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.779,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CLE": {
+      "sack_rate_allowed": 0.066,
+      "avg_air_yards": 8.618,
+      "def_pressure_rate": 0.146,
+      "def_sack_rate": 0.0648,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.353,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DAL": {
+      "sack_rate_allowed": 0.0357,
+      "avg_air_yards": 9.418,
+      "def_pressure_rate": 0.144,
+      "def_sack_rate": 0.06,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.466,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DEN": {
+      "sack_rate_allowed": 0.07,
+      "avg_air_yards": 7.002,
+      "def_pressure_rate": 0.1319,
+      "def_sack_rate": 0.0649,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.746,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DET": {
+      "sack_rate_allowed": 0.0656,
+      "avg_air_yards": 9.626,
+      "def_pressure_rate": 0.1082,
+      "def_sack_rate": 0.042,
+      "blitz_rate": {},
+      "avg_ay_allowed": 10.244,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "GB": {
+      "sack_rate_allowed": 0.0567,
+      "avg_air_yards": 8.732,
+      "def_pressure_rate": 0.1571,
+      "def_sack_rate": 0.0694,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.776,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "HOU": {
+      "sack_rate_allowed": 0.0834,
+      "avg_air_yards": 8.908,
+      "def_pressure_rate": 0.1429,
+      "def_sack_rate": 0.0476,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.979,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "IND": {
+      "sack_rate_allowed": 0.0556,
+      "avg_air_yards": 8.088,
+      "def_pressure_rate": 0.1277,
+      "def_sack_rate": 0.0637,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.802,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "JAX": {
+      "sack_rate_allowed": 0.0618,
+      "avg_air_yards": 7.602,
+      "def_pressure_rate": 0.177,
+      "def_sack_rate": 0.0768,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.362,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "KC": {
+      "sack_rate_allowed": 0.0426,
+      "avg_air_yards": 8.451,
+      "def_pressure_rate": 0.1505,
+      "def_sack_rate": 0.0671,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.053,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LA": {
+      "sack_rate_allowed": 0.0325,
+      "avg_air_yards": 7.716,
+      "def_pressure_rate": 0.1431,
+      "def_sack_rate": 0.076,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.768,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LAC": {
+      "sack_rate_allowed": 0.0513,
+      "avg_air_yards": 8.551,
+      "def_pressure_rate": 0.1263,
+      "def_sack_rate": 0.0576,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.017,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LV": {
+      "sack_rate_allowed": 0.0503,
+      "avg_air_yards": 6.683,
+      "def_pressure_rate": 0.1095,
+      "def_sack_rate": 0.0543,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.817,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIA": {
+      "sack_rate_allowed": 0.0792,
+      "avg_air_yards": 8.926,
+      "def_pressure_rate": 0.1093,
+      "def_sack_rate": 0.039,
+      "blitz_rate": {},
+      "avg_ay_allowed": 10.131,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIN": {
+      "sack_rate_allowed": 0.0614,
+      "avg_air_yards": 7.553,
+      "def_pressure_rate": 0.1493,
+      "def_sack_rate": 0.0695,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.103,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NE": {
+      "sack_rate_allowed": 0.0392,
+      "avg_air_yards": 7.561,
+      "def_pressure_rate": 0.1661,
+      "def_sack_rate": 0.0731,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.056,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NO": {
+      "sack_rate_allowed": 0.042,
+      "avg_air_yards": 6.544,
+      "def_pressure_rate": 0.1599,
+      "def_sack_rate": 0.0728,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.326,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYG": {
+      "sack_rate_allowed": 0.0618,
+      "avg_air_yards": 8.068,
+      "def_pressure_rate": 0.1525,
+      "def_sack_rate": 0.0575,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.666,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYJ": {
+      "sack_rate_allowed": 0.0831,
+      "avg_air_yards": 8.11,
+      "def_pressure_rate": 0.1491,
+      "def_sack_rate": 0.0537,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.846,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PHI": {
+      "sack_rate_allowed": 0.0592,
+      "avg_air_yards": 8.016,
+      "def_pressure_rate": 0.1734,
+      "def_sack_rate": 0.0638,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.247,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PIT": {
+      "sack_rate_allowed": 0.0559,
+      "avg_air_yards": 7.882,
+      "def_pressure_rate": 0.1951,
+      "def_sack_rate": 0.0867,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.261,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SEA": {
+      "sack_rate_allowed": 0.0788,
+      "avg_air_yards": 9.704,
+      "def_pressure_rate": 0.1159,
+      "def_sack_rate": 0.0509,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.554,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SF": {
+      "sack_rate_allowed": 0.0646,
+      "avg_air_yards": 6.685,
+      "def_pressure_rate": 0.1546,
+      "def_sack_rate": 0.081,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.904,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TB": {
+      "sack_rate_allowed": 0.0648,
+      "avg_air_yards": 10.339,
+      "def_pressure_rate": 0.1588,
+      "def_sack_rate": 0.0614,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.238,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TEN": {
+      "sack_rate_allowed": 0.097,
+      "avg_air_yards": 8.856,
+      "def_pressure_rate": 0.1272,
+      "def_sack_rate": 0.0593,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.74,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "WAS": {
+      "sack_rate_allowed": 0.0861,
+      "avg_air_yards": 7.647,
+      "def_pressure_rate": 0.1538,
+      "def_sack_rate": 0.0714,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.479,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    }
+  },
+  "2020": {
+    "ARI": {
+      "sack_rate_allowed": 0.0463,
+      "avg_air_yards": 7.892,
+      "def_pressure_rate": 0.1605,
+      "def_sack_rate": 0.0722,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.604,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "ATL": {
+      "sack_rate_allowed": 0.0576,
+      "avg_air_yards": 8.653,
+      "def_pressure_rate": 0.1367,
+      "def_sack_rate": 0.0426,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.137,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BAL": {
+      "sack_rate_allowed": 0.0751,
+      "avg_air_yards": 8.711,
+      "def_pressure_rate": 0.1729,
+      "def_sack_rate": 0.0553,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.704,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BUF": {
+      "sack_rate_allowed": 0.0444,
+      "avg_air_yards": 8.68,
+      "def_pressure_rate": 0.1367,
+      "def_sack_rate": 0.055,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.771,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CAR": {
+      "sack_rate_allowed": 0.0579,
+      "avg_air_yards": 7.507,
+      "def_pressure_rate": 0.1408,
+      "def_sack_rate": 0.0453,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.152,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CHI": {
+      "sack_rate_allowed": 0.0516,
+      "avg_air_yards": 8.044,
+      "def_pressure_rate": 0.1438,
+      "def_sack_rate": 0.055,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.076,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CIN": {
+      "sack_rate_allowed": 0.0713,
+      "avg_air_yards": 8.192,
+      "def_pressure_rate": 0.129,
+      "def_sack_rate": 0.0296,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.615,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CLE": {
+      "sack_rate_allowed": 0.0435,
+      "avg_air_yards": 8.226,
+      "def_pressure_rate": 0.1038,
+      "def_sack_rate": 0.0506,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.634,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DAL": {
+      "sack_rate_allowed": 0.0606,
+      "avg_air_yards": 7.483,
+      "def_pressure_rate": 0.1311,
+      "def_sack_rate": 0.0534,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.998,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DEN": {
+      "sack_rate_allowed": 0.0514,
+      "avg_air_yards": 9.076,
+      "def_pressure_rate": 0.1473,
+      "def_sack_rate": 0.0643,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.808,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DET": {
+      "sack_rate_allowed": 0.0634,
+      "avg_air_yards": 8.7,
+      "def_pressure_rate": 0.0942,
+      "def_sack_rate": 0.0395,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.287,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "GB": {
+      "sack_rate_allowed": 0.0393,
+      "avg_air_yards": 7.908,
+      "def_pressure_rate": 0.1349,
+      "def_sack_rate": 0.0666,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.416,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "HOU": {
+      "sack_rate_allowed": 0.0772,
+      "avg_air_yards": 8.947,
+      "def_pressure_rate": 0.1384,
+      "def_sack_rate": 0.0556,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.456,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "IND": {
+      "sack_rate_allowed": 0.0328,
+      "avg_air_yards": 7.257,
+      "def_pressure_rate": 0.1291,
+      "def_sack_rate": 0.062,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.125,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "JAX": {
+      "sack_rate_allowed": 0.0621,
+      "avg_air_yards": 7.925,
+      "def_pressure_rate": 0.1359,
+      "def_sack_rate": 0.0316,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.184,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "KC": {
+      "sack_rate_allowed": 0.0356,
+      "avg_air_yards": 7.907,
+      "def_pressure_rate": 0.1577,
+      "def_sack_rate": 0.0508,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.788,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LA": {
+      "sack_rate_allowed": 0.0453,
+      "avg_air_yards": 6.792,
+      "def_pressure_rate": 0.1644,
+      "def_sack_rate": 0.0798,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.665,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LAC": {
+      "sack_rate_allowed": 0.049,
+      "avg_air_yards": 7.573,
+      "def_pressure_rate": 0.1439,
+      "def_sack_rate": 0.0452,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.547,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LV": {
+      "sack_rate_allowed": 0.0464,
+      "avg_air_yards": 8.225,
+      "def_pressure_rate": 0.126,
+      "def_sack_rate": 0.0337,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.776,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIA": {
+      "sack_rate_allowed": 0.0541,
+      "avg_air_yards": 7.697,
+      "def_pressure_rate": 0.1627,
+      "def_sack_rate": 0.0656,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.808,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIN": {
+      "sack_rate_allowed": 0.0652,
+      "avg_air_yards": 7.998,
+      "def_pressure_rate": 0.1155,
+      "def_sack_rate": 0.0392,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.839,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NE": {
+      "sack_rate_allowed": 0.0721,
+      "avg_air_yards": 6.838,
+      "def_pressure_rate": 0.1216,
+      "def_sack_rate": 0.0443,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.138,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NO": {
+      "sack_rate_allowed": 0.0458,
+      "avg_air_yards": 6.136,
+      "def_pressure_rate": 0.1734,
+      "def_sack_rate": 0.0656,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.011,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYG": {
+      "sack_rate_allowed": 0.0808,
+      "avg_air_yards": 7.74,
+      "def_pressure_rate": 0.1683,
+      "def_sack_rate": 0.0608,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.14,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYJ": {
+      "sack_rate_allowed": 0.0736,
+      "avg_air_yards": 8.562,
+      "def_pressure_rate": 0.1266,
+      "def_sack_rate": 0.0468,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.605,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PHI": {
+      "sack_rate_allowed": 0.0887,
+      "avg_air_yards": 8.987,
+      "def_pressure_rate": 0.1889,
+      "def_sack_rate": 0.0783,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.696,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PIT": {
+      "sack_rate_allowed": 0.0184,
+      "avg_air_yards": 7.213,
+      "def_pressure_rate": 0.2146,
+      "def_sack_rate": 0.0835,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.097,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SEA": {
+      "sack_rate_allowed": 0.076,
+      "avg_air_yards": 8.873,
+      "def_pressure_rate": 0.1497,
+      "def_sack_rate": 0.0615,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.911,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SF": {
+      "sack_rate_allowed": 0.0599,
+      "avg_air_yards": 6.649,
+      "def_pressure_rate": 0.1235,
+      "def_sack_rate": 0.0503,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.454,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TB": {
+      "sack_rate_allowed": 0.0342,
+      "avg_air_yards": 9.225,
+      "def_pressure_rate": 0.1649,
+      "def_sack_rate": 0.0635,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.186,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TEN": {
+      "sack_rate_allowed": 0.0444,
+      "avg_air_yards": 8.292,
+      "def_pressure_rate": 0.1116,
+      "def_sack_rate": 0.034,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.942,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "WAS": {
+      "sack_rate_allowed": 0.0691,
+      "avg_air_yards": 6.36,
+      "def_pressure_rate": 0.1613,
+      "def_sack_rate": 0.0746,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.279,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    }
+  },
+  "2021": {
+    "ARI": {
+      "sack_rate_allowed": 0.0577,
+      "avg_air_yards": 7.526,
+      "def_pressure_rate": 0.164,
+      "def_sack_rate": 0.0633,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.336,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "ATL": {
+      "sack_rate_allowed": 0.0612,
+      "avg_air_yards": 7.245,
+      "def_pressure_rate": 0.097,
+      "def_sack_rate": 0.0292,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.282,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BAL": {
+      "sack_rate_allowed": 0.0786,
+      "avg_air_yards": 8.662,
+      "def_pressure_rate": 0.1431,
+      "def_sack_rate": 0.0492,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.251,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BUF": {
+      "sack_rate_allowed": 0.0372,
+      "avg_air_yards": 8.205,
+      "def_pressure_rate": 0.1452,
+      "def_sack_rate": 0.0664,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.946,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CAR": {
+      "sack_rate_allowed": 0.0738,
+      "avg_air_yards": 7.399,
+      "def_pressure_rate": 0.158,
+      "def_sack_rate": 0.0654,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.646,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CHI": {
+      "sack_rate_allowed": 0.088,
+      "avg_air_yards": 8.338,
+      "def_pressure_rate": 0.1467,
+      "def_sack_rate": 0.0854,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.044,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CIN": {
+      "sack_rate_allowed": 0.0875,
+      "avg_air_yards": 7.611,
+      "def_pressure_rate": 0.1314,
+      "def_sack_rate": 0.0585,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.91,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CLE": {
+      "sack_rate_allowed": 0.0793,
+      "avg_air_yards": 8.302,
+      "def_pressure_rate": 0.1509,
+      "def_sack_rate": 0.0646,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.519,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DAL": {
+      "sack_rate_allowed": 0.0493,
+      "avg_air_yards": 7.965,
+      "def_pressure_rate": 0.164,
+      "def_sack_rate": 0.0566,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.964,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DEN": {
+      "sack_rate_allowed": 0.0642,
+      "avg_air_yards": 8.43,
+      "def_pressure_rate": 0.1317,
+      "def_sack_rate": 0.0566,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.23,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DET": {
+      "sack_rate_allowed": 0.0541,
+      "avg_air_yards": 6.437,
+      "def_pressure_rate": 0.1043,
+      "def_sack_rate": 0.0496,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.499,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "GB": {
+      "sack_rate_allowed": 0.0546,
+      "avg_air_yards": 7.764,
+      "def_pressure_rate": 0.1422,
+      "def_sack_rate": 0.0605,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.366,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "HOU": {
+      "sack_rate_allowed": 0.0696,
+      "avg_air_yards": 7.361,
+      "def_pressure_rate": 0.1174,
+      "def_sack_rate": 0.0524,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.456,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "IND": {
+      "sack_rate_allowed": 0.0543,
+      "avg_air_yards": 7.678,
+      "def_pressure_rate": 0.1293,
+      "def_sack_rate": 0.0495,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.61,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "JAX": {
+      "sack_rate_allowed": 0.0478,
+      "avg_air_yards": 7.928,
+      "def_pressure_rate": 0.1409,
+      "def_sack_rate": 0.0527,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.456,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "KC": {
+      "sack_rate_allowed": 0.0424,
+      "avg_air_yards": 7.094,
+      "def_pressure_rate": 0.1252,
+      "def_sack_rate": 0.0448,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.24,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LA": {
+      "sack_rate_allowed": 0.0459,
+      "avg_air_yards": 8.512,
+      "def_pressure_rate": 0.1305,
+      "def_sack_rate": 0.0691,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.636,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LAC": {
+      "sack_rate_allowed": 0.0417,
+      "avg_air_yards": 7.551,
+      "def_pressure_rate": 0.1445,
+      "def_sack_rate": 0.0556,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.962,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LV": {
+      "sack_rate_allowed": 0.0561,
+      "avg_air_yards": 8.17,
+      "def_pressure_rate": 0.1669,
+      "def_sack_rate": 0.0518,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.503,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIA": {
+      "sack_rate_allowed": 0.0576,
+      "avg_air_yards": 7.315,
+      "def_pressure_rate": 0.1864,
+      "def_sack_rate": 0.0689,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.038,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIN": {
+      "sack_rate_allowed": 0.0453,
+      "avg_air_yards": 8.083,
+      "def_pressure_rate": 0.146,
+      "def_sack_rate": 0.07,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.105,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NE": {
+      "sack_rate_allowed": 0.0488,
+      "avg_air_yards": 7.935,
+      "def_pressure_rate": 0.1381,
+      "def_sack_rate": 0.0565,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.06,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NO": {
+      "sack_rate_allowed": 0.0638,
+      "avg_air_yards": 7.475,
+      "def_pressure_rate": 0.1721,
+      "def_sack_rate": 0.0672,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.47,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYG": {
+      "sack_rate_allowed": 0.057,
+      "avg_air_yards": 7.407,
+      "def_pressure_rate": 0.1151,
+      "def_sack_rate": 0.0502,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.34,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYJ": {
+      "sack_rate_allowed": 0.0743,
+      "avg_air_yards": 7.224,
+      "def_pressure_rate": 0.1355,
+      "def_sack_rate": 0.0505,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.063,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PHI": {
+      "sack_rate_allowed": 0.0545,
+      "avg_air_yards": 8.783,
+      "def_pressure_rate": 0.1273,
+      "def_sack_rate": 0.0476,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.268,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PIT": {
+      "sack_rate_allowed": 0.0506,
+      "avg_air_yards": 6.75,
+      "def_pressure_rate": 0.1631,
+      "def_sack_rate": 0.0806,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.87,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SEA": {
+      "sack_rate_allowed": 0.0782,
+      "avg_air_yards": 9.35,
+      "def_pressure_rate": 0.1255,
+      "def_sack_rate": 0.0468,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.858,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SF": {
+      "sack_rate_allowed": 0.0561,
+      "avg_air_yards": 7.586,
+      "def_pressure_rate": 0.1715,
+      "def_sack_rate": 0.0766,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.986,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TB": {
+      "sack_rate_allowed": 0.0341,
+      "avg_air_yards": 7.915,
+      "def_pressure_rate": 0.1722,
+      "def_sack_rate": 0.059,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.13,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TEN": {
+      "sack_rate_allowed": 0.0733,
+      "avg_air_yards": 7.645,
+      "def_pressure_rate": 0.1389,
+      "def_sack_rate": 0.0674,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.688,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "WAS": {
+      "sack_rate_allowed": 0.0675,
+      "avg_air_yards": 7.532,
+      "def_pressure_rate": 0.1552,
+      "def_sack_rate": 0.0562,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.48,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    }
+  },
+  "2022": {
+    "ARI": {
+      "sack_rate_allowed": 0.0606,
+      "avg_air_yards": 6.976,
+      "def_pressure_rate": 0.1648,
+      "def_sack_rate": 0.054,
+      "blitz_rate": {},
+      "avg_ay_allowed": 5.761,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "ATL": {
+      "sack_rate_allowed": 0.076,
+      "avg_air_yards": 9.813,
+      "def_pressure_rate": 0.1134,
+      "def_sack_rate": 0.0348,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.182,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BAL": {
+      "sack_rate_allowed": 0.0675,
+      "avg_air_yards": 8.213,
+      "def_pressure_rate": 0.1414,
+      "def_sack_rate": 0.0711,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.971,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BUF": {
+      "sack_rate_allowed": 0.0556,
+      "avg_air_yards": 9.596,
+      "def_pressure_rate": 0.1535,
+      "def_sack_rate": 0.0606,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.459,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CAR": {
+      "sack_rate_allowed": 0.0683,
+      "avg_air_yards": 7.319,
+      "def_pressure_rate": 0.1431,
+      "def_sack_rate": 0.0538,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.062,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CHI": {
+      "sack_rate_allowed": 0.1167,
+      "avg_air_yards": 9.112,
+      "def_pressure_rate": 0.0837,
+      "def_sack_rate": 0.0383,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.816,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CIN": {
+      "sack_rate_allowed": 0.065,
+      "avg_air_yards": 6.858,
+      "def_pressure_rate": 0.1648,
+      "def_sack_rate": 0.0486,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.572,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CLE": {
+      "sack_rate_allowed": 0.0705,
+      "avg_air_yards": 8.323,
+      "def_pressure_rate": 0.1063,
+      "def_sack_rate": 0.0577,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.006,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DAL": {
+      "sack_rate_allowed": 0.0424,
+      "avg_air_yards": 8.066,
+      "def_pressure_rate": 0.1705,
+      "def_sack_rate": 0.0761,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.62,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DEN": {
+      "sack_rate_allowed": 0.0904,
+      "avg_air_yards": 8.768,
+      "def_pressure_rate": 0.1217,
+      "def_sack_rate": 0.0532,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.836,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DET": {
+      "sack_rate_allowed": 0.0363,
+      "avg_air_yards": 7.044,
+      "def_pressure_rate": 0.1623,
+      "def_sack_rate": 0.0607,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.497,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "GB": {
+      "sack_rate_allowed": 0.051,
+      "avg_air_yards": 7.996,
+      "def_pressure_rate": 0.1618,
+      "def_sack_rate": 0.0622,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.121,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "HOU": {
+      "sack_rate_allowed": 0.0578,
+      "avg_air_yards": 7.54,
+      "def_pressure_rate": 0.1321,
+      "def_sack_rate": 0.0651,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.717,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "IND": {
+      "sack_rate_allowed": 0.0825,
+      "avg_air_yards": 6.363,
+      "def_pressure_rate": 0.1429,
+      "def_sack_rate": 0.0696,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.145,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "JAX": {
+      "sack_rate_allowed": 0.0427,
+      "avg_air_yards": 7.377,
+      "def_pressure_rate": 0.1685,
+      "def_sack_rate": 0.0499,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.585,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "KC": {
+      "sack_rate_allowed": 0.0354,
+      "avg_air_yards": 7.074,
+      "def_pressure_rate": 0.1646,
+      "def_sack_rate": 0.0739,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.246,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LA": {
+      "sack_rate_allowed": 0.0912,
+      "avg_air_yards": 7.017,
+      "def_pressure_rate": 0.1332,
+      "def_sack_rate": 0.0602,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.63,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LAC": {
+      "sack_rate_allowed": 0.0501,
+      "avg_air_yards": 6.33,
+      "def_pressure_rate": 0.1359,
+      "def_sack_rate": 0.0658,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.995,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LV": {
+      "sack_rate_allowed": 0.0531,
+      "avg_air_yards": 9.145,
+      "def_pressure_rate": 0.1419,
+      "def_sack_rate": 0.0417,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.034,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIA": {
+      "sack_rate_allowed": 0.055,
+      "avg_air_yards": 9.263,
+      "def_pressure_rate": 0.1449,
+      "def_sack_rate": 0.062,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.227,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIN": {
+      "sack_rate_allowed": 0.0582,
+      "avg_air_yards": 7.443,
+      "def_pressure_rate": 0.1282,
+      "def_sack_rate": 0.0558,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.852,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NE": {
+      "sack_rate_allowed": 0.0657,
+      "avg_air_yards": 7.641,
+      "def_pressure_rate": 0.135,
+      "def_sack_rate": 0.0765,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.911,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NO": {
+      "sack_rate_allowed": 0.0646,
+      "avg_air_yards": 8.924,
+      "def_pressure_rate": 0.1299,
+      "def_sack_rate": 0.0758,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.159,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYG": {
+      "sack_rate_allowed": 0.0819,
+      "avg_air_yards": 6.499,
+      "def_pressure_rate": 0.1696,
+      "def_sack_rate": 0.0588,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.244,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYJ": {
+      "sack_rate_allowed": 0.0591,
+      "avg_air_yards": 8.25,
+      "def_pressure_rate": 0.2013,
+      "def_sack_rate": 0.0697,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.099,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PHI": {
+      "sack_rate_allowed": 0.0668,
+      "avg_air_yards": 8.413,
+      "def_pressure_rate": 0.1889,
+      "def_sack_rate": 0.0986,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.032,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PIT": {
+      "sack_rate_allowed": 0.0586,
+      "avg_air_yards": 8.274,
+      "def_pressure_rate": 0.1345,
+      "def_sack_rate": 0.0645,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.928,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SEA": {
+      "sack_rate_allowed": 0.0692,
+      "avg_air_yards": 7.665,
+      "def_pressure_rate": 0.1584,
+      "def_sack_rate": 0.0686,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.234,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SF": {
+      "sack_rate_allowed": 0.0557,
+      "avg_air_yards": 7.173,
+      "def_pressure_rate": 0.1685,
+      "def_sack_rate": 0.0619,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.239,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TB": {
+      "sack_rate_allowed": 0.0276,
+      "avg_air_yards": 6.784,
+      "def_pressure_rate": 0.162,
+      "def_sack_rate": 0.0663,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.191,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TEN": {
+      "sack_rate_allowed": 0.0884,
+      "avg_air_yards": 7.84,
+      "def_pressure_rate": 0.1417,
+      "def_sack_rate": 0.0519,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.764,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "WAS": {
+      "sack_rate_allowed": 0.0733,
+      "avg_air_yards": 8.067,
+      "def_pressure_rate": 0.1928,
+      "def_sack_rate": 0.0719,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.127,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    }
+  },
+  "2023": {
+    "ARI": {
+      "sack_rate_allowed": 0.0652,
+      "avg_air_yards": 7.556,
+      "def_pressure_rate": 0.1024,
+      "def_sack_rate": 0.0579,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.169,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "ATL": {
+      "sack_rate_allowed": 0.0657,
+      "avg_air_yards": 8.259,
+      "def_pressure_rate": 0.1568,
+      "def_sack_rate": 0.0661,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.576,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BAL": {
+      "sack_rate_allowed": 0.074,
+      "avg_air_yards": 8.332,
+      "def_pressure_rate": 0.1632,
+      "def_sack_rate": 0.0743,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.462,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BUF": {
+      "sack_rate_allowed": 0.0371,
+      "avg_air_yards": 8.449,
+      "def_pressure_rate": 0.1766,
+      "def_sack_rate": 0.0761,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.858,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CAR": {
+      "sack_rate_allowed": 0.0908,
+      "avg_air_yards": 7.662,
+      "def_pressure_rate": 0.1415,
+      "def_sack_rate": 0.0504,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.252,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CHI": {
+      "sack_rate_allowed": 0.0812,
+      "avg_air_yards": 7.359,
+      "def_pressure_rate": 0.1308,
+      "def_sack_rate": 0.0441,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.039,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CIN": {
+      "sack_rate_allowed": 0.0699,
+      "avg_air_yards": 6.326,
+      "def_pressure_rate": 0.173,
+      "def_sack_rate": 0.0682,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.137,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CLE": {
+      "sack_rate_allowed": 0.064,
+      "avg_air_yards": 8.428,
+      "def_pressure_rate": 0.1716,
+      "def_sack_rate": 0.0748,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.471,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DAL": {
+      "sack_rate_allowed": 0.0575,
+      "avg_air_yards": 7.887,
+      "def_pressure_rate": 0.167,
+      "def_sack_rate": 0.0741,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.686,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DEN": {
+      "sack_rate_allowed": 0.0844,
+      "avg_air_yards": 7.373,
+      "def_pressure_rate": 0.1564,
+      "def_sack_rate": 0.064,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.357,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DET": {
+      "sack_rate_allowed": 0.0479,
+      "avg_air_yards": 6.791,
+      "def_pressure_rate": 0.1794,
+      "def_sack_rate": 0.0616,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.003,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "GB": {
+      "sack_rate_allowed": 0.043,
+      "avg_air_yards": 8.445,
+      "def_pressure_rate": 0.1729,
+      "def_sack_rate": 0.0693,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.628,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "HOU": {
+      "sack_rate_allowed": 0.0637,
+      "avg_air_yards": 8.747,
+      "def_pressure_rate": 0.1739,
+      "def_sack_rate": 0.0713,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.368,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "IND": {
+      "sack_rate_allowed": 0.062,
+      "avg_air_yards": 7.413,
+      "def_pressure_rate": 0.1629,
+      "def_sack_rate": 0.0767,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.707,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "JAX": {
+      "sack_rate_allowed": 0.0581,
+      "avg_air_yards": 8.034,
+      "def_pressure_rate": 0.155,
+      "def_sack_rate": 0.0573,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.326,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "KC": {
+      "sack_rate_allowed": 0.0389,
+      "avg_air_yards": 6.481,
+      "def_pressure_rate": 0.1842,
+      "def_sack_rate": 0.0766,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.512,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LA": {
+      "sack_rate_allowed": 0.0519,
+      "avg_air_yards": 7.86,
+      "def_pressure_rate": 0.1331,
+      "def_sack_rate": 0.0611,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.048,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LAC": {
+      "sack_rate_allowed": 0.0599,
+      "avg_air_yards": 7.501,
+      "def_pressure_rate": 0.1329,
+      "def_sack_rate": 0.0691,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.846,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LV": {
+      "sack_rate_allowed": 0.0628,
+      "avg_air_yards": 7.717,
+      "def_pressure_rate": 0.1426,
+      "def_sack_rate": 0.0701,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.462,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIA": {
+      "sack_rate_allowed": 0.0492,
+      "avg_air_yards": 7.62,
+      "def_pressure_rate": 0.2039,
+      "def_sack_rate": 0.0775,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.918,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIN": {
+      "sack_rate_allowed": 0.065,
+      "avg_air_yards": 7.849,
+      "def_pressure_rate": 0.1347,
+      "def_sack_rate": 0.0624,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.305,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NE": {
+      "sack_rate_allowed": 0.0735,
+      "avg_air_yards": 7.363,
+      "def_pressure_rate": 0.1223,
+      "def_sack_rate": 0.0555,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.244,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NO": {
+      "sack_rate_allowed": 0.0516,
+      "avg_air_yards": 8.277,
+      "def_pressure_rate": 0.121,
+      "def_sack_rate": 0.0541,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.349,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYG": {
+      "sack_rate_allowed": 0.1241,
+      "avg_air_yards": 7.396,
+      "def_pressure_rate": 0.1238,
+      "def_sack_rate": 0.0525,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.079,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYJ": {
+      "sack_rate_allowed": 0.0879,
+      "avg_air_yards": 6.689,
+      "def_pressure_rate": 0.1728,
+      "def_sack_rate": 0.078,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.956,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PHI": {
+      "sack_rate_allowed": 0.0615,
+      "avg_air_yards": 8.56,
+      "def_pressure_rate": 0.1415,
+      "def_sack_rate": 0.0601,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.282,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PIT": {
+      "sack_rate_allowed": 0.0599,
+      "avg_air_yards": 7.504,
+      "def_pressure_rate": 0.1649,
+      "def_sack_rate": 0.0702,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.935,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SEA": {
+      "sack_rate_allowed": 0.0585,
+      "avg_air_yards": 7.217,
+      "def_pressure_rate": 0.1506,
+      "def_sack_rate": 0.0693,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.273,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SF": {
+      "sack_rate_allowed": 0.0566,
+      "avg_air_yards": 8.289,
+      "def_pressure_rate": 0.1642,
+      "def_sack_rate": 0.0623,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.158,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TB": {
+      "sack_rate_allowed": 0.0644,
+      "avg_air_yards": 8.549,
+      "def_pressure_rate": 0.125,
+      "def_sack_rate": 0.0665,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.834,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TEN": {
+      "sack_rate_allowed": 0.1034,
+      "avg_air_yards": 9.327,
+      "def_pressure_rate": 0.1294,
+      "def_sack_rate": 0.0679,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.93,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "WAS": {
+      "sack_rate_allowed": 0.0846,
+      "avg_air_yards": 7.495,
+      "def_pressure_rate": 0.1242,
+      "def_sack_rate": 0.0578,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.024,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    }
+  },
+  "2024": {
+    "ARI": {
+      "sack_rate_allowed": 0.0498,
+      "avg_air_yards": 6.821,
+      "def_pressure_rate": 0.1261,
+      "def_sack_rate": 0.0661,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.92,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "ATL": {
+      "sack_rate_allowed": 0.0515,
+      "avg_air_yards": 8.047,
+      "def_pressure_rate": 0.1201,
+      "def_sack_rate": 0.0485,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.139,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BAL": {
+      "sack_rate_allowed": 0.047,
+      "avg_air_yards": 8.776,
+      "def_pressure_rate": 0.1687,
+      "def_sack_rate": 0.0737,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.141,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "BUF": {
+      "sack_rate_allowed": 0.0296,
+      "avg_air_yards": 8.213,
+      "def_pressure_rate": 0.1547,
+      "def_sack_rate": 0.0606,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.977,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CAR": {
+      "sack_rate_allowed": 0.058,
+      "avg_air_yards": 8.161,
+      "def_pressure_rate": 0.1083,
+      "def_sack_rate": 0.0538,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.585,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CHI": {
+      "sack_rate_allowed": 0.096,
+      "avg_air_yards": 8.068,
+      "def_pressure_rate": 0.1777,
+      "def_sack_rate": 0.0683,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.911,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CIN": {
+      "sack_rate_allowed": 0.0641,
+      "avg_air_yards": 7.088,
+      "def_pressure_rate": 0.168,
+      "def_sack_rate": 0.056,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.399,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "CLE": {
+      "sack_rate_allowed": 0.0826,
+      "avg_air_yards": 7.806,
+      "def_pressure_rate": 0.1916,
+      "def_sack_rate": 0.0696,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.366,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DAL": {
+      "sack_rate_allowed": 0.0533,
+      "avg_air_yards": 7.39,
+      "def_pressure_rate": 0.1738,
+      "def_sack_rate": 0.0844,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.294,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DEN": {
+      "sack_rate_allowed": 0.0403,
+      "avg_air_yards": 7.441,
+      "def_pressure_rate": 0.1974,
+      "def_sack_rate": 0.0851,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.224,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "DET": {
+      "sack_rate_allowed": 0.0531,
+      "avg_air_yards": 6.532,
+      "def_pressure_rate": 0.1588,
+      "def_sack_rate": 0.0516,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.862,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "GB": {
+      "sack_rate_allowed": 0.0426,
+      "avg_air_yards": 8.746,
+      "def_pressure_rate": 0.1438,
+      "def_sack_rate": 0.0691,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.364,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "HOU": {
+      "sack_rate_allowed": 0.0855,
+      "avg_air_yards": 8.317,
+      "def_pressure_rate": 0.1674,
+      "def_sack_rate": 0.0772,
+      "blitz_rate": {},
+      "avg_ay_allowed": 9.066,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "IND": {
+      "sack_rate_allowed": 0.0555,
+      "avg_air_yards": 10.632,
+      "def_pressure_rate": 0.136,
+      "def_sack_rate": 0.0583,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.286,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "JAX": {
+      "sack_rate_allowed": 0.0519,
+      "avg_air_yards": 8.417,
+      "def_pressure_rate": 0.1068,
+      "def_sack_rate": 0.0521,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.824,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "KC": {
+      "sack_rate_allowed": 0.0658,
+      "avg_air_yards": 6.454,
+      "def_pressure_rate": 0.1903,
+      "def_sack_rate": 0.0675,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.765,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LA": {
+      "sack_rate_allowed": 0.0537,
+      "avg_air_yards": 7.577,
+      "def_pressure_rate": 0.129,
+      "def_sack_rate": 0.0757,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.223,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LAC": {
+      "sack_rate_allowed": 0.0752,
+      "avg_air_yards": 8.848,
+      "def_pressure_rate": 0.1495,
+      "def_sack_rate": 0.0702,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.48,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "LV": {
+      "sack_rate_allowed": 0.0682,
+      "avg_air_yards": 7.071,
+      "def_pressure_rate": 0.1311,
+      "def_sack_rate": 0.06,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.807,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIA": {
+      "sack_rate_allowed": 0.0634,
+      "avg_air_yards": 6.322,
+      "def_pressure_rate": 0.1298,
+      "def_sack_rate": 0.055,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.574,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "MIN": {
+      "sack_rate_allowed": 0.0823,
+      "avg_air_yards": 8.596,
+      "def_pressure_rate": 0.1632,
+      "def_sack_rate": 0.0664,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.759,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NE": {
+      "sack_rate_allowed": 0.0819,
+      "avg_air_yards": 7.298,
+      "def_pressure_rate": 0.1101,
+      "def_sack_rate": 0.0474,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.592,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NO": {
+      "sack_rate_allowed": 0.0589,
+      "avg_air_yards": 8.055,
+      "def_pressure_rate": 0.125,
+      "def_sack_rate": 0.0581,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.282,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYG": {
+      "sack_rate_allowed": 0.0698,
+      "avg_air_yards": 6.858,
+      "def_pressure_rate": 0.1603,
+      "def_sack_rate": 0.0758,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.263,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "NYJ": {
+      "sack_rate_allowed": 0.0577,
+      "avg_air_yards": 6.786,
+      "def_pressure_rate": 0.1393,
+      "def_sack_rate": 0.0705,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.381,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PHI": {
+      "sack_rate_allowed": 0.0884,
+      "avg_air_yards": 7.62,
+      "def_pressure_rate": 0.1386,
+      "def_sack_rate": 0.0693,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.643,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "PIT": {
+      "sack_rate_allowed": 0.0836,
+      "avg_air_yards": 7.977,
+      "def_pressure_rate": 0.1602,
+      "def_sack_rate": 0.0594,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.226,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SEA": {
+      "sack_rate_allowed": 0.0769,
+      "avg_air_yards": 6.964,
+      "def_pressure_rate": 0.1772,
+      "def_sack_rate": 0.0682,
+      "blitz_rate": {},
+      "avg_ay_allowed": 6.629,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "SF": {
+      "sack_rate_allowed": 0.06,
+      "avg_air_yards": 8.594,
+      "def_pressure_rate": 0.139,
+      "def_sack_rate": 0.0626,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.364,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TB": {
+      "sack_rate_allowed": 0.0609,
+      "avg_air_yards": 6.983,
+      "def_pressure_rate": 0.1622,
+      "def_sack_rate": 0.0622,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.719,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "TEN": {
+      "sack_rate_allowed": 0.082,
+      "avg_air_yards": 8.114,
+      "def_pressure_rate": 0.1307,
+      "def_sack_rate": 0.0596,
+      "blitz_rate": {},
+      "avg_ay_allowed": 7.17,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    },
+    "WAS": {
+      "sack_rate_allowed": 0.0719,
+      "avg_air_yards": 7.435,
+      "def_pressure_rate": 0.1476,
+      "def_sack_rate": 0.0701,
+      "blitz_rate": {},
+      "avg_ay_allowed": 8.429,
+      "off_pass_block_win_rate": {},
+      "times_to_pressure_sec": {}
+    }
+  }
+}

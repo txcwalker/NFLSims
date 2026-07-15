@@ -1,0 +1,44 @@
+{
+  "version": "V.0.1.0",
+  "created": "2026-07-09",
+  "source": "nflfastR/nfl_data_py PBP 2021-2025 regular season, running-clock snaps only",
+  "n_running_clock_snaps": 116258,
+  "cell_key_format": "'{row_group}|{margin_tier}' \u2014 row_group is Q1 (whole quarter), Q2/Q3/Q4 split into time windows; margin_tier is from posteam's perspective",
+  "row_groups": [
+    "Q1",
+    "Q2 >4:00",
+    "Q2 4:00-2:00",
+    "Q2 <2:00",
+    "Q3 >10:00",
+    "Q3 10:00-5:00",
+    "Q3 <5:00",
+    "Q4 >10:00",
+    "Q4 10:00-5:00",
+    "Q4 5:00-2:00",
+    "Q4 <2:00"
+  ],
+  "margin_tiers": [
+    "Trailing 3+ score",
+    "Trailing 2-score",
+    "Trailing 1-score",
+    "Tied",
+    "Leading 1-score",
+    "Leading 2-score",
+    "Leading 3+ score"
+  ],
+  "q1_note": "Trailing/Leading 3+ score tiers merged into 2-score tiers for Q1 (too rare/noisy for a separate bucket)",
+  "q4_late_override": {
+    "targets": [
+      "Q4 5:00-2:00",
+      "Q4 <2:00"
+    ],
+    "tiers": [
+      "Tied",
+      "Leading 1-score",
+      "Leading 2-score",
+      "Leading 3+ score"
+    ],
+    "source": "Q4 10:00-5:00",
+    "reason": "Raw pools for leading/tied in these windows are bimodal due to trailing-defense timeout stoppages contaminating the measurement; overridden with the clean pre-timeout-window pool so the pace model and the timeout model don't double-count the same slowdown."
+  }
+}

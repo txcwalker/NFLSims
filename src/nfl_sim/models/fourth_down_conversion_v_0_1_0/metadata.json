@@ -1,0 +1,40 @@
+{
+    "version": "V.0.1.0",
+    "model_type": "xgb.XGBClassifier",
+    "features": [
+        "ydstogo",
+        "yardline_100",
+        "score_differential",
+        "game_seconds_remaining"
+    ],
+    "fallbacks": {
+        "ydstogo": 2.0,
+        "yardline_100": 50.0,
+        "score_differential": 0.0,
+        "game_seconds_remaining": 1800.0
+    },
+    "training_seasons": [
+        2015,
+        2024
+    ],
+    "split": {
+        "train": 0.7,
+        "validation": 0.15,
+        "test": 0.15
+    },
+    "metrics": {
+        "xgb": {
+            "test_log_loss": 0.6246861386553882,
+            "test_brier_score": 0.21820892000268818,
+            "test_roc_auc": 0.6879550389383536,
+            "2025_log_loss": 0.626632919082064,
+            "2025_brier_score": 0.21886829013764314,
+            "2025_roc_auc": 0.6891842995735556
+        },
+        "lr": {
+            "test_log_loss": 0.6279204725519052,
+            "test_brier_score": 0.21960757050074028,
+            "test_roc_auc": 0.6856892176820486
+        }
+    }
+}

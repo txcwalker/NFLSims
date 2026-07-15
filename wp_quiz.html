@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Win Probability Intuition Quiz · NFL Analytics</title>
+  <style>
+    :root {
+      --bg:       #09090f;
+      --surface:  #111118;
+      --surface2: #18181f;
+      --border:   #252530;
+      --accent:   #00d4aa;
+      --gold:     #f5c842;
+      --red:      #e63946;
+      --green:    #52b788;
+      --orange:   #f5a623;
+      --text:     #e8e8f0;
+      --muted:    #6b6b80;
+      --team-a:   #4a9eff;
+      --team-b:   #ff6b4a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 32px 16px 64px;
+    }
+
+    .screen { display: none; width: 100%; max-width: 720px; }
+    .screen.active { display: block; }
+
+    /* ── SHARED ── */
+    .badge {
+      display: inline-block;
+      background: rgba(0,212,170,.1);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 14px;
+    }
+
+    .progress-wrap {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-bottom: 22px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width .4s ease;
+    }
+
+    /* ── PREAMBLE ── */
+    .pre-header { text-align: center; margin-bottom: 28px; }
+    .pre-title  { font-size: 26px; font-weight: 900; letter-spacing: -.5px; margin-bottom: 6px; }
+    .pre-sub    { font-size: 13px; color: var(--muted); }
+
+    .pre-body {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 26px 28px;
+      margin-bottom: 18px;
+      line-height: 1.75;
+      font-size: 15px;
+      color: var(--text);
+    }
+    .pre-body p + p { margin-top: 14px; }
+
+    .pre-how {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-bottom: 26px;
+    }
+    .pre-how h3 {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+    .pre-how ul { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+    .pre-how li {
+      font-size: 13px;
+      color: var(--muted);
+      padding-left: 18px;
+      position: relative;
+      line-height: 1.5;
+    }
+    .pre-how li::before { content: '→'; position: absolute; left: 0; color: var(--accent); }
+    .pre-how li strong { color: var(--text); }
+
+    /* ── SCOREBOARD ── */
+    .scoreboard {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .sb-topbar {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 9px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .sb-context  { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+    .sb-progress { font-size: 12px; font-weight: 800; color: var(--accent); }
+
+    .sb-main {
+      padding: 22px 18px 14px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 8px;
+    }
+    .sb-team      { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .sb-abbr      { font-size: 28px; font-weight: 900; letter-spacing: 1px; }
+    .sb-abbr.a    { color: var(--team-a); }
+    .sb-abbr.b    { color: var(--team-b); }
+    .sb-full      { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; text-align: center; }
+    .to-dots { display: flex; gap: 5px; justify-content: center; margin-top: 2px; }
+    .to-dot  { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+    .to-dot.on { background: var(--gold); box-shadow: 0 0 5px rgba(245,200,66,.5); }
+
+    .sb-poss-tag  {
+      font-size: 9px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 10px;
+      background: rgba(74,158,255,.12); color: var(--team-a);
+      border: 1px solid rgba(74,158,255,.3);
+    }
+
+    .sb-center    { text-align: center; }
+    .sb-score     { font-size: 46px; font-weight: 900; letter-spacing: -2px; display: flex; align-items: center; gap: 10px; }
+    .sb-score .a  { color: var(--team-a); }
+    .sb-score .sep{ color: var(--muted); font-weight: 300; }
+    .sb-score .b  { color: var(--team-b); }
+    .sb-clock     { font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+
+    .sb-field {
+      padding: 12px 18px 18px;
+      border-top: 1px solid var(--border);
+    }
+    .sb-field-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+    }
+    .field-strip {
+      position: relative; height: 22px;
+      background: #122212; border-radius: 4px;
+      border: 1px solid #1e3a1e; overflow: visible;
+    }
+    .field-strip::after {
+      content: '';
+      position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+      background: rgba(255,255,255,.08); transform: translateX(-50%);
+    }
+    .ez-a {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 10%;
+      background: rgba(74,158,255,.18);
+      border-right: 1px dashed rgba(74,158,255,.25);
+      border-radius: 4px 0 0 4px;
+    }
+    .ez-b {
+      position: absolute; right: 0; top: 0; bottom: 0; width: 10%;
+      background: rgba(255,107,74,.18);
+      border-left: 1px dashed rgba(255,107,74,.25);
+      border-radius: 0 4px 4px 0;
+    }
+    .ball {
+      position: absolute; top: 50%; transform: translate(-50%,-50%);
+      width: 13px; height: 13px;
+      background: var(--gold); border-radius: 50%;
+      box-shadow: 0 0 10px rgba(245,200,66,.7);
+      z-index: 2;
+    }
+    .field-ez-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: var(--muted);
+      margin-top: 4px;
+      padding: 0 2px;
+    }
+    .sb-field-info {
+      display: flex; justify-content: space-between; margin-top: 10px; font-size: 13px;
+    }
+    .sb-down-dist { font-weight: 800; color: var(--gold); }
+    .sb-pos-label { color: var(--muted); font-weight: 600; }
+
+    /* ── CONTROLS ── */
+    .controls {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      display: flex; flex-direction: column; gap: 26px;
+    }
+
+    .ctrl-group {}
+    .ctrl-label {
+      display: block;
+      font-size: 12px; font-weight: 700; letter-spacing: .5px;
+      color: var(--muted); margin-bottom: 12px;
+    }
+    .ctrl-label .hl { color: var(--team-a); }
+
+    /* Slider */
+    .slider-val {
+      text-align: center;
+      font-size: 36px; font-weight: 900; color: var(--accent); margin-bottom: 10px;
+    }
+    .slider-val span { font-size: 18px; opacity: .5; }
+
+    input[type="range"] {
+      width: 100%; height: 6px; -webkit-appearance: none;
+      background: transparent; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-track {
+      height: 6px; background: var(--border); border-radius: 3px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px; height: 24px;
+      background: var(--accent); border-radius: 50%;
+      margin-top: -9px;
+      box-shadow: 0 0 14px rgba(0,212,170,.5);
+      cursor: pointer;
+    }
+    .slider-ends {
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: var(--muted); margin-top: 7px;
+    }
+
+    /* Margin */
+    .margin-row { display: flex; align-items: center; gap: 14px; }
+    .margin-row input[type="number"] {
+      width: 110px; padding: 10px 14px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text);
+      font-size: 22px; font-weight: 700; text-align: center; outline: none;
+      transition: border-color .2s;
+    }
+    .margin-row input[type="number"]:focus { border-color: var(--accent); }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .margin-hint { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+    /* Confidence — removed */
+    .conf-btn {
+      flex: 1; padding: 10px 4px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted);
+      font-size: 14px; font-weight: 800; cursor: pointer;
+      transition: all .15s; text-align: center;
+    }
+    .conf-btn:hover  { border-color: var(--accent); color: var(--text); }
+    .conf-btn.active { background: rgba(0,212,170,.1); border-color: var(--accent); color: var(--accent); }
+    .conf-ends { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 6px; }
+
+    /* Buttons */
+    .btn-primary {
+      width: 100%; padding: 15px;
+      background: var(--accent); color: #000;
+      border: none; border-radius: 10px;
+      font-size: 14px; font-weight: 900; letter-spacing: .5px;
+      text-transform: uppercase; cursor: pointer;
+      transition: all .15s;
+    }
+    .btn-primary:hover    { background: #00f0c0; transform: translateY(-1px); }
+    .btn-primary:active   { transform: translateY(0); }
+    .btn-primary:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+
+    .btn-outline {
+      width: 100%; padding: 14px;
+      background: transparent; color: var(--accent);
+      border: 2px solid var(--accent); border-radius: 10px;
+      font-size: 13px; font-weight: 900; letter-spacing: 1px;
+      text-transform: uppercase; cursor: pointer;
+      transition: all .15s;
+    }
+    .btn-outline:hover { background: rgba(0,212,170,.08); }
+
+    /* ── FEEDBACK ── */
+    .feedback {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 26px 22px;
+      margin-bottom: 16px;
+    }
+    .feedback.visible { display: block; }
+    .fb-title {
+      font-size: 10px; font-weight: 800; letter-spacing: 2.5px;
+      text-transform: uppercase; color: var(--muted);
+      text-align: center; margin-bottom: 20px;
+    }
+    .gauge-wrap { width: 280px; margin: 0 auto 14px; }
+    .gauge-legend {
+      display: flex; justify-content: center; gap: 22px;
+      font-size: 12px; font-weight: 700; margin-bottom: 20px;
+    }
+    .leg-item  { display: flex; align-items: center; gap: 6px; }
+    .leg-dot   { width: 9px; height: 9px; border-radius: 50%; }
+
+    .fb-nums {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;
+    }
+    .fb-num {
+      text-align: center; padding: 14px 8px;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    }
+    .fb-num-lbl { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+    .fb-num-val { font-size: 22px; font-weight: 900; }
+    .fb-num-val.your  { color: var(--gold); }
+    .fb-num-val.model { color: var(--accent); }
+    .fb-num-val.close { color: var(--green); }
+    .fb-num-val.mid   { color: var(--orange); }
+    .fb-num-val.far   { color: var(--red); }
+
+    .fb-reveal {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+    }
+    .fb-reveal-label {
+      font-size: 9px; font-weight: 800; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--gold); margin-bottom: 8px;
+    }
+    .fb-reveal-teams {
+      font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px;
+    }
+    .fb-reveal-result {
+      font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 3px;
+    }
+    .fb-reveal-date {
+      font-size: 11px; color: var(--muted);
+    }
+
+    /* ── RESULTS ── */
+    .res-header { text-align: center; margin-bottom: 28px; }
+    .res-title  { font-size: 24px; font-weight: 900; margin-bottom: 6px; }
+    .res-sub    { font-size: 13px; color: var(--muted); }
+
+    .res-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px; }
+    .res-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px; text-align: center;
+    }
+    .res-card-lbl { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+    .res-card-val { font-size: 30px; font-weight: 900; color: var(--accent); }
+    .res-card-val.sm { font-size: 18px; }
+
+    .res-table-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden; margin-bottom: 22px;
+    }
+    .res-table-hdr {
+      background: var(--surface2); padding: 11px 16px;
+      font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    table.rt { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .rt th {
+      padding: 9px 14px; text-align: right;
+      font-size: 9px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .rt th:first-child { text-align: left; }
+    .rt td { padding: 9px 14px; text-align: right; border-bottom: 1px solid rgba(255,255,255,.03); }
+    .rt td:first-child { text-align: left; color: var(--muted); font-size: 11px; }
+    .rt tr:last-child td { border-bottom: none; }
+    .rt tr:hover td { background: rgba(255,255,255,.02); }
+    .td-y { color: var(--gold); font-weight: 800; }
+    .td-m { color: var(--accent); font-weight: 800; }
+    .td-d { font-weight: 800; }
+    .td-d.close { color: var(--green); }
+    .td-d.mid   { color: var(--orange); }
+    .td-d.far   { color: var(--red); }
+    .pre-fk-wrap { margin: 28px 0 20px; padding: 20px 24px; background: var(--surface2); border-radius: 10px; border: 1px solid var(--border); }
+    .pre-fk-label { display: block; font-size: 13px; font-weight: 700; color: var(--fg); margin-bottom: 16px; }
+    .pre-fk-row { display: flex; align-items: center; gap: 14px; }
+    .pre-fk-row input[type=range] { flex: 1; accent-color: var(--accent); height: 4px; cursor: pointer; }
+    .pre-fk-end { font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.4; min-width: 36px; }
+    .pre-fk-end span { font-weight: 400; font-size: 10px; }
+    .pre-fk-display { text-align: center; margin-top: 10px; font-size: 22px; font-weight: 900; color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<!-- ════════════ PREAMBLE ════════════ -->
+<div id="preamble-screen" class="screen active">
+  <div class="pre-header">
+    <div class="badge">NFL Analytics Research</div>
+    <h1 class="pre-title">Win Probability Intuition Quiz</h1>
+    <p class="pre-sub">20 real NFL scenarios &nbsp;·&nbsp; ~10 minutes</p>
+  </div>
+
+  <div class="pre-body" id="preamble-content">
+    <p>Thank you for taking the Win Probability Intuition Quiz. The goal is to collect data on how a diverse group of people understand and interpret win probability in the context of American football.</p>
+    <p>The quiz presents 20 scenarios from NFL games over the last 20 years. For each, you'll be given a freeze-frame of the game state: the score, time remaining, timeouts, and down and distance. You will not be given the teams, the year, the players, or the decision the team made at that moment. Your job is to predict Team A's win probability; Team A is always the team with possession.</p>
+    <p>Some scenarios may be recognizable. If you think you know the game, try to set that aside and estimate based on the game state in front of you rather than the outcome you remember or think you remember.</p>
+    <p>There are no trick questions. These 20 scenarios were chosen because they cover a wide range of game states, not to catch anyone out. Thanks for your time and honest answers.</p>
+    <p style="margin-top:20px;font-weight:700;">Cam</p>
+  </div>
+
+  <div class="pre-how">
+    <h3>How It Works</h3>
+    <ul>
+      <li>You will see <strong>20 real historical NFL game situations</strong>, one at a time.</li>
+      <li><strong>Team A is always the team with possession</strong> of the ball.</li>
+      <li>Use the slider to estimate <strong>Team A's chance of winning</strong> (0–100%).</li>
+      <li>Enter the <strong>final margin</strong> you'd expect — positive if Team A wins, negative if Team B wins.</li>
+      <li>After submitting each answer, you'll see how you compared to the model.</li>
+    </ul>
+  </div>
+
+  <div class="pre-fk-wrap">
+    <label class="pre-fk-label">How would you rate your football knowledge?</label>
+    <div class="pre-fk-row">
+      <span class="pre-fk-end">1<br><span>Casual</span></span>
+      <input type="range" id="fk-slider" min="1" max="10" value="5"
+             oninput="document.getElementById('fk-val').textContent=this.value">
+      <span class="pre-fk-end">10<br><span>Expert</span></span>
+    </div>
+    <div class="pre-fk-display"><span id="fk-val">5</span> / 10</div>
+  </div>
+
+  <button class="btn-primary" onclick="startQuiz()">BEGIN QUIZ →</button>
+</div>
+
+<!-- ════════════ QUIZ ════════════ -->
+<div id="quiz-screen" class="screen">
+  <div class="progress-wrap">
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+
+  <!-- Scoreboard -->
+  <div class="scoreboard">
+    <div class="sb-topbar">
+      <span class="sb-progress" id="sb-progress"></span>
+    </div>
+    <div class="sb-main">
+      <div class="sb-team">
+        <div class="sb-abbr a" id="sb-abbr-a"></div>
+        <div class="sb-full"  id="sb-full-a"></div>
+        <div class="sb-poss-tag">POSSESSION</div>
+        <div class="to-dots" id="to-dots-a"></div>
+      </div>
+      <div class="sb-center">
+        <div class="sb-score">
+          <span class="a" id="sb-score-a"></span>
+          <span class="sep">–</span>
+          <span class="b" id="sb-score-b"></span>
+        </div>
+        <div class="sb-clock" id="sb-clock"></div>
+      </div>
+      <div class="sb-team">
+        <div class="sb-abbr b" id="sb-abbr-b"></div>
+        <div class="sb-full"  id="sb-full-b"></div>
+        <div class="to-dots" id="to-dots-b"></div>
+      </div>
+    </div>
+    <div class="sb-field">
+      <div class="sb-field-label">Field Position</div>
+      <div class="field-strip" id="field-strip">
+        <div class="ez-a"></div>
+        <div class="ez-b"></div>
+        <div class="ball" id="ball"></div>
+      </div>
+      <div class="field-ez-labels">
+        <span id="ez-label-a"></span>
+        <span>← Team A attacking →</span>
+        <span id="ez-label-b"></span>
+      </div>
+      <div class="sb-field-info">
+        <span class="sb-down-dist" id="sb-down-dist"></span>
+        <span class="sb-pos-label" id="sb-pos-label"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback (shown after submit) -->
+  <div class="feedback" id="feedback">
+    <div class="fb-title">Comparison</div>
+    <div class="gauge-wrap" id="gauge-wrap"></div>
+    <div class="gauge-legend">
+      <div class="leg-item"><div class="leg-dot" style="background:var(--gold)"></div><span style="color:var(--gold)">Your Guess</span></div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--accent)"></div><span style="color:var(--accent)">Model WP</span></div>
+    </div>
+    <div class="fb-nums">
+      <div class="fb-num">
+        <div class="fb-num-lbl">Your Guess</div>
+        <div class="fb-num-val your" id="fb-your"></div>
+      </div>
+      <div class="fb-num">
+        <div class="fb-num-lbl">Model WP</div>
+        <div class="fb-num-val model" id="fb-model"></div>
+      </div>
+      <div class="fb-num">
+        <div class="fb-num-lbl">Difference</div>
+        <div class="fb-num-val" id="fb-diff"></div>
+      </div>
+    </div>
+    <div class="fb-reveal" id="fb-reveal">
+      <div class="fb-reveal-label">Actual Game</div>
+      <div class="fb-reveal-teams" id="fb-reveal-teams"></div>
+      <div class="fb-reveal-result" id="fb-reveal-result"></div>
+      <div class="fb-reveal-date" id="fb-reveal-date"></div>
+    </div>
+    <button class="btn-outline" id="btn-next" onclick="nextScenario()">NEXT SCENARIO →</button>
+  </div>
+
+  <!-- Controls (hidden after submit) -->
+  <div class="controls" id="controls">
+    <!-- WP Slider -->
+    <div class="ctrl-group">
+      <label class="ctrl-label">What is <span class="hl" id="ctrl-team-a"></span>'s win probability?</label>
+      <div class="slider-val" id="slider-display">50<span>%</span></div>
+      <input type="range" min="0" max="100" value="50" id="wp-slider" oninput="onSlider(this.value)">
+      <div class="slider-ends">
+        <span>0% · Team B wins</span>
+        <span>50% · Toss-up</span>
+        <span>100% · Team A wins</span>
+      </div>
+    </div>
+
+    <!-- Expected Margin -->
+    <div class="ctrl-group">
+      <label class="ctrl-label">Expected final margin (Team A perspective)</label>
+      <div class="margin-row">
+        <input type="number" id="margin-input" value="0" min="-60" max="60">
+        <div class="margin-hint">
+          Positive = Team A wins by that many<br>
+          Negative = Team B wins by that many
+        </div>
+      </div>
+    </div>
+
+
+    <button class="btn-primary" id="btn-submit" onclick="submitGuess()">SUBMIT GUESS</button>
+  </div>
+</div>
+
+<!-- ════════════ RESULTS ════════════ -->
+<div id="results-screen" class="screen">
+  <div class="res-header">
+    <div class="badge">Quiz Complete</div>
+    <h2 class="res-title">Your Results</h2>
+    <p class="res-sub" id="res-sub"></p>
+  </div>
+  <div class="res-cards" id="res-cards"></div>
+  <div class="res-table-wrap">
+    <div class="res-table-hdr">Scenario Breakdown</div>
+    <table class="rt">
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th>Your WP</th>
+          <th>Model WP</th>
+          <th>Diff</th>
+        </tr>
+      </thead>
+      <tbody id="res-tbody"></tbody>
+    </table>
+  </div>
+  <button class="btn-primary" onclick="restart()">RETAKE QUIZ</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// CONFIG — replace with your deployed GAS web app URL
+// ═══════════════════════════════════════════════════
+const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxQH1b9X7hh-04s6cXLQnJZgzd_UKxosLC8v-ddZ4iAtmebP9eMMemaPrSm5U1ZBNyd/exec';
+
+// ═══════════════════════════════════════════════════
+// SCENARIOS
+// Team A = possessing team; yardLine = yards from Team A's own end zone (0–100)
+// ═══════════════════════════════════════════════════
+const SCENARIOS = [
+  {
+    id:1, context:'2023 Regular Season',
+    teamA:'DET', teamAFull:'Detroit Lions',
+    teamB:'KC',  teamBFull:'Kansas City Chiefs',
+    scoreA:0, scoreB:0, quarter:1, clock:'15:00',
+    down:1, distance:10, posLabel:'Own 25', yardLine:25, modelWP:50.12,
+    toA:3, toB:3, // kickoff
+    reveal:{ teams:'Detroit Lions vs Kansas City Chiefs', result:'Lions won 21–20', date:'Week 1 · Sept 7, 2023' }
+  },
+  {
+    id:2, context:'Super Bowl LVII',
+    teamA:'KC',  teamAFull:'Kansas City Chiefs',
+    teamB:'PHI', teamBFull:'Philadelphia Eagles',
+    scoreA:0, scoreB:7, quarter:1, clock:'9:25',
+    down:1, distance:'Goal', posLabel:'Opp 8', yardLine:92, modelWP:46.53,
+    toA:3, toB:3, // early Q1, verify
+    reveal:{ teams:'Kansas City Chiefs vs Philadelphia Eagles', result:'Chiefs won 38–35', date:'Super Bowl LVII · Feb 12, 2023' }
+  },
+  {
+    id:3, context:'2019 AFC Divisional',
+    teamA:'KC',  teamAFull:'Kansas City Chiefs',
+    teamB:'HOU', teamBFull:'Houston Texans',
+    scoreA:0, scoreB:24, quarter:2, clock:'10:18',
+    down:1, distance:10, posLabel:'Own 26', yardLine:26, modelWP:20.00,
+    toA:3, toB:3, // early Q2, verify
+    reveal:{ teams:'Kansas City Chiefs vs Houston Texans', result:'Chiefs won 51–31', date:'2019 AFC Divisional · Jan 12, 2020' }
+  },
+  {
+    id:4, context:'Super Bowl LI',
+    teamA:'NE',  teamAFull:'New England Patriots',
+    teamB:'ATL', teamBFull:'Atlanta Falcons',
+    scoreA:3, scoreB:28, quarter:3, clock:'8:31',
+    down:1, distance:10, posLabel:'Own 25', yardLine:25, modelWP:0.49,
+    toA:3, toB:3, // verify from PBP
+    reveal:{ teams:'New England Patriots vs Atlanta Falcons', result:'Patriots won 34–28 (OT)', date:'Super Bowl LI · Feb 5, 2017' }
+  },
+  {
+    id:5, context:'2020 NFC Championship',
+    teamA:'GB',  teamAFull:'Green Bay Packers',
+    teamB:'TB',  teamBFull:'Tampa Bay Buccaneers',
+    scoreA:23, scoreB:31, quarter:4, clock:'2:09',
+    down:4, distance:'Goal', posLabel:'Opp 8', yardLine:92, modelWP:7.68,
+    toA:2, toB:3, // verify — LaFleur had TOs but chose FG
+    reveal:{ teams:'Green Bay Packers vs Tampa Bay Buccaneers', result:'Buccaneers won 31–26', date:'2020 NFC Championship · Jan 24, 2021' }
+  },
+  {
+    id:6, context:'2018 AFC Championship',
+    teamA:'NE',  teamAFull:'New England Patriots',
+    teamB:'KC',  teamBFull:'Kansas City Chiefs',
+    scoreA:7, scoreB:0, quarter:2, clock:'1:13',
+    down:3, distance:4, posLabel:'Own 27', yardLine:73, modelWP:77.18,
+    toA:3, toB:3, // both teams unused all TOs at this point
+    reveal:{ teams:'New England Patriots vs Kansas City Chiefs', result:'Patriots won 37–31 (OT)', date:'2018 AFC Championship · Jan 20, 2019' }
+  },
+  {
+    id:7, context:'2021 AFC Divisional',
+    teamA:'KC',  teamAFull:'Kansas City Chiefs',
+    teamB:'BUF', teamBFull:'Buffalo Bills',
+    scoreA:33, scoreB:36, quarter:4, clock:'0:13',
+    down:1, distance:10, posLabel:'Own 25', yardLine:25, modelWP:9.47,
+    toA:3, toB:0, // BUF famously had 0 TOs — the whole reason the 13s drive was possible
+    reveal:{ teams:'Kansas City Chiefs vs Buffalo Bills', result:'Chiefs won 42–36 (OT)', date:'2021 AFC Divisional · Jan 23, 2022' }
+  },
+  {
+    id:8, context:'2022 AFC Wild Card',
+    teamA:'JAX', teamAFull:'Jacksonville Jaguars',
+    teamB:'LAC', teamBFull:'Los Angeles Chargers',
+    scoreA:14, scoreB:30, quarter:3, clock:'5:18',
+    down:1, distance:10, posLabel:'Own 20', yardLine:20, modelWP:7.15,
+    toA:3, toB:3, // mid Q3, verify
+    reveal:{ teams:'Jacksonville Jaguars vs Los Angeles Chargers', result:'Jaguars won 31–30', date:'2022 AFC Wild Card · Jan 14, 2023' }
+  },
+  {
+    id:9, context:'Super Bowl XLIX',
+    teamA:'SEA', teamAFull:'Seattle Seahawks',
+    teamB:'NE',  teamBFull:'New England Patriots',
+    scoreA:24, scoreB:28, quarter:4, clock:'0:26',
+    down:2, distance:'Goal', posLabel:'Opp 1', yardLine:99, modelWP:68.25,
+    toA:1, toB:1, // verify from PBP
+    reveal:{ teams:'Seattle Seahawks vs New England Patriots', result:'Patriots won 28–24', date:'Super Bowl XLIX · Feb 1, 2015' }
+  },
+  {
+    id:10, context:'Super Bowl LII',
+    teamA:'PHI', teamAFull:'Philadelphia Eagles',
+    teamB:'NE',  teamBFull:'New England Patriots',
+    scoreA:15, scoreB:12, quarter:2, clock:'0:38',
+    down:4, distance:'Goal', posLabel:'Opp 1', yardLine:99, modelWP:73.44,
+    toA:2, toB:2, // verify from PBP
+    reveal:{ teams:'Philadelphia Eagles vs New England Patriots', result:'Eagles won 41–33', date:'Super Bowl LII · Feb 4, 2018' }
+  },
+  {
+    id:11, context:'2019 NFC Divisional',
+    teamA:'SEA', teamAFull:'Seattle Seahawks',
+    teamB:'GB',  teamBFull:'Green Bay Packers',
+    scoreA:17, scoreB:28, quarter:3, clock:'1:12',
+    down:1, distance:10, posLabel:'Opp 33', yardLine:67, modelWP:13.89,
+    toA:2, toB:3, // verify from PBP
+    reveal:{ teams:'Seattle Seahawks vs Green Bay Packers', result:'Packers won 28–23', date:'2019 NFC Divisional · Jan 12, 2020' }
+  },
+  {
+    id:12, context:'Super Bowl LIV',
+    teamA:'SF',  teamAFull:'San Francisco 49ers',
+    teamB:'KC',  teamBFull:'Kansas City Chiefs',
+    scoreA:10, scoreB:10, quarter:3, clock:'12:00',
+    down:1, distance:10, posLabel:'Own 25', yardLine:25, modelWP:54.30,
+    toA:3, toB:3, // start of Q3
+    reveal:{ teams:'San Francisco 49ers vs Kansas City Chiefs', result:'Chiefs won 31–20', date:'Super Bowl LIV · Feb 2, 2020' }
+  },
+  {
+    id:13, context:'2021 AFC Divisional',
+    teamA:'BUF', teamAFull:'Buffalo Bills',
+    teamB:'KC',  teamBFull:'Kansas City Chiefs',
+    scoreA:21, scoreB:26, quarter:4, clock:'8:55',
+    down:1, distance:10, posLabel:'Own 25', yardLine:25, modelWP:23.62,
+    toA:2, toB:2, // verify from PBP
+    reveal:{ teams:'Buffalo Bills vs Kansas City Chiefs', result:'Chiefs won 42–36 (OT)', date:'2021 AFC Divisional · Jan 23, 2022' }
+  },
+  {
+    id:14, context:'2006 AFC Wild Card',
+    teamA:'NE',  teamAFull:'New England Patriots',
+    teamB:'SD',  teamBFull:'San Diego Chargers',
+    scoreA:13, scoreB:21, quarter:4, clock:'6:25',
+    down:4, distance:5, posLabel:'Opp 41', yardLine:59, modelWP:9.55,
+    toA:2, toB:1, // verify from PBP
+    reveal:{ teams:'New England Patriots vs San Diego Chargers', result:'Patriots won 24–21', date:'2006 AFC Wild Card · Jan 14, 2007' }
+  },
+  {
+    id:15, context:'2021 AFC Wild Card',
+    teamA:'LV',  teamAFull:'Las Vegas Raiders',
+    teamB:'CIN', teamBFull:'Cincinnati Bengals',
+    scoreA:16, scoreB:26, quarter:4, clock:'15:00',
+    down:1, distance:10, posLabel:'Own 25', yardLine:25, modelWP:14.89,
+    toA:3, toB:3, // start of Q4
+    reveal:{ teams:'Las Vegas Raiders vs Cincinnati Bengals', result:'Bengals won 26–19', date:'2021 AFC Wild Card · Jan 15, 2022' }
+  },
+  {
+    id:16, context:'Super Bowl LI · Early',
+    teamA:'NE',  teamAFull:'New England Patriots',
+    teamB:'ATL', teamBFull:'Atlanta Falcons',
+    scoreA:0, scoreB:14, quarter:1, clock:'4:00',
+    down:1, distance:10, posLabel:'Own 25', yardLine:25, modelWP:18.96,
+    toA:3, toB:3, // early Q1
+    reveal:{ teams:'New England Patriots vs Atlanta Falcons', result:'Patriots won 34–28 (OT)', date:'Super Bowl LI · Feb 5, 2017' }
+  },
+  {
+    id:17, context:'Super Bowl LVII',
+    teamA:'PHI', teamAFull:'Philadelphia Eagles',
+    teamB:'KC',  teamBFull:'Kansas City Chiefs',
+    scoreA:27, scoreB:35, quarter:4, clock:'9:00',
+    down:1, distance:10, posLabel:'Own 25', yardLine:25, modelWP:11.00,
+    toA:3, toB:3, // verify from PBP
+    reveal:{ teams:'Philadelphia Eagles vs Kansas City Chiefs', result:'Chiefs won 38–35', date:'Super Bowl LVII · Feb 12, 2023' }
+  },
+  {
+    id:18, context:'2021 AFC Divisional',
+    teamA:'CIN', teamAFull:'Cincinnati Bengals',
+    teamB:'TEN', teamBFull:'Tennessee Titans',
+    scoreA:16, scoreB:16, quarter:4, clock:'2:42',
+    down:1, distance:10, posLabel:'Own 20', yardLine:20, modelWP:55.98,
+    toA:1, toB:1, // verify from PBP
+    reveal:{ teams:'Cincinnati Bengals vs Tennessee Titans', result:'Bengals won 19–16', date:'2021 AFC Divisional · Jan 22, 2022' }
+  },
+  {
+    id:19, context:'2021 Regular Season',
+    teamA:'BAL', teamAFull:'Baltimore Ravens',
+    teamB:'KC',  teamBFull:'Kansas City Chiefs',
+    scoreA:36, scoreB:35, quarter:4, clock:'1:05',
+    down:4, distance:1, posLabel:'Own 43', yardLine:43, modelWP:84.98,
+    toA:1, toB:0, // verify from PBP
+    reveal:{ teams:'Baltimore Ravens vs Kansas City Chiefs', result:'Ravens won 36–35', date:'Week 2 · Sept 19, 2021' }
+  },
+  {
+    id:20, context:'Super Bowl XLVI',
+    teamA:'NE',  teamAFull:'New England Patriots',
+    teamB:'NYG', teamBFull:'New York Giants',
+    scoreA:0, scoreB:0, quarter:1, clock:'11:20',
+    down:1, distance:10, posLabel:'Own 6', yardLine:6, modelWP:56.24,
+    toA:3, toB:3, // early Q1
+    reveal:{ teams:'New England Patriots vs New York Giants', result:'Giants won 21–17', date:'Super Bowl XLVI · Feb 5, 2012' }
+  }
+];
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let idx = 0;
+let answers = [];
+let sessionId = 'sess_' + Math.random().toString(36).slice(2,10) + '_' + Date.now();
+let tStart = null;
+let footballKnowledge = 5;
+
+// ═══════════════════════════════════════════════════
+// SCREEN MANAGEMENT
+// ═══════════════════════════════════════════════════
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startQuiz() {
+  footballKnowledge = parseInt(document.getElementById('fk-slider').value);
+  idx = 0; answers = [];
+  sessionId = 'sess_' + Math.random().toString(36).slice(2,10) + '_' + Date.now();
+  show('quiz-screen');
+  render();
+}
+
+function restart() { show('preamble-screen'); }
+
+// ═══════════════════════════════════════════════════
+// RENDER SCENARIO
+// ═══════════════════════════════════════════════════
+function render() {
+  const s = SCENARIOS[idx];
+  tStart = Date.now();
+  // Progress bar
+  document.getElementById('progress-fill').style.width = (idx / SCENARIOS.length * 100) + '%';
+
+  // Scoreboard header
+  document.getElementById('sb-progress').textContent = `${idx+1} / ${SCENARIOS.length}`;
+
+  // Teams & score
+  document.getElementById('sb-abbr-a').textContent = 'A';
+  document.getElementById('sb-full-a').textContent  = 'Team A';
+  document.getElementById('sb-abbr-b').textContent = 'B';
+  document.getElementById('sb-full-b').textContent  = 'Team B';
+  document.getElementById('to-dots-a').innerHTML = toDots(s.toA);
+  document.getElementById('to-dots-b').innerHTML = toDots(s.toB);
+  document.getElementById('sb-score-a').textContent = s.scoreA;
+  document.getElementById('sb-score-b').textContent = s.scoreB;
+  document.getElementById('sb-clock').textContent   = `Q${s.quarter}  ·  ${s.clock}`;
+
+  // End-zone labels
+  document.getElementById('ez-label-a').textContent = 'Team A EZ';
+  document.getElementById('ez-label-b').textContent = 'Team B EZ';
+
+  // Down & distance
+  const distStr = s.distance === 'Goal' ? '& Goal' : `& ${s.distance}`;
+  document.getElementById('sb-down-dist').textContent = `${ord(s.down)} ${distStr}`;
+  document.getElementById('sb-pos-label').textContent = s.posLabel;
+
+  // Ball position: yardLine 0→100 maps to left 10%→90% of strip
+  const pct = 10 + (s.yardLine / 100) * 80;
+  document.getElementById('ball').style.left = pct + '%';
+
+  // Controls label
+  document.getElementById('ctrl-team-a').textContent = 'Team A';
+
+  // Reset inputs
+  document.getElementById('wp-slider').value = 50;
+  document.getElementById('slider-display').innerHTML = '50<span>%</span>';
+  document.getElementById('margin-input').value = 0;
+
+  // Show controls, hide feedback
+  document.getElementById('controls').style.display = 'flex';
+  document.getElementById('feedback').classList.remove('visible');
+
+  // Next button label
+  const isLast = idx === SCENARIOS.length - 1;
+  document.getElementById('btn-next').textContent = isLast ? 'SEE RESULTS →' : 'NEXT SCENARIO →';
+}
+
+function ord(n) {
+  const sfx = ['th','st','nd','rd'];
+  const v = n % 100;
+  return n + (sfx[(v-20)%10] || sfx[v] || sfx[0]);
+}
+
+// ═══════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════
+function onSlider(v) {
+  document.getElementById('slider-display').innerHTML = v + '<span>%</span>';
+  checkReady();
+}
+
+function checkReady() {
+  document.getElementById('btn-submit').disabled = false;
+}
+
+// ═══════════════════════════════════════════════════
+// SUBMIT
+// ═══════════════════════════════════════════════════
+function submitGuess() {
+  const s = SCENARIOS[idx];
+  const wp  = parseInt(document.getElementById('wp-slider').value);
+  const mgn = parseInt(document.getElementById('margin-input').value) || 0;
+  const sec = Math.round((Date.now() - tStart) / 1000);
+
+  const row = {
+    session_id:          sessionId,
+    scenario_id:         s.id,
+    football_knowledge:  footballKnowledge,
+    estimated_wp:        wp,
+    estimated_margin:    mgn,
+    predicted_winner:    wp >= 50 ? 'Team A' : 'Team B',
+    time_taken:          sec
+  };
+
+  answers.push({ ...row, modelWP: s.modelWP, context: s.context, teamA: s.teamA });
+  sendWebhook(row);
+  showFeedback(wp, s.modelWP);
+  document.getElementById('controls').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════
+// FEEDBACK
+// ═══════════════════════════════════════════════════
+function showFeedback(guess, model) {
+  const s    = SCENARIOS[idx];
+  const diff = Math.abs(guess - model);
+  const cls  = diff <= 8 ? 'close' : diff <= 20 ? 'mid' : 'far';
+
+  document.getElementById('fb-your').textContent  = guess + '%';
+  document.getElementById('fb-model').textContent = model.toFixed(2) + '%';
+  const dEl = document.getElementById('fb-diff');
+  dEl.textContent = diff.toFixed(1) + ' pp';
+  dEl.className   = 'fb-num-val ' + cls;
+
+  document.getElementById('fb-reveal-teams').textContent  = s.reveal.teams;
+  document.getElementById('fb-reveal-result').textContent = s.reveal.result;
+  document.getElementById('fb-reveal-date').textContent   = s.reveal.date;
+
+  // Reveal real team names on the scoreboard
+  document.getElementById('sb-abbr-a').textContent = s.teamA;
+  document.getElementById('sb-full-a').textContent  = s.teamAFull;
+  document.getElementById('sb-abbr-b').textContent = s.teamB;
+  document.getElementById('sb-full-b').textContent  = s.teamBFull;
+
+  document.getElementById('gauge-wrap').innerHTML = buildGauge(guess, model);
+  document.getElementById('feedback').classList.add('visible');
+}
+
+function toDots(n) {
+  return [1,2,3].map(i => `<span class="to-dot${i <= n ? ' on' : ''}"></span>`).join('');
+}
+
+function buildGauge(guess, model) {
+  const cx = 140, cy = 140, rOuter = 112, rInner = 86;
+
+  function pt(pct, r) {
+    const a = Math.PI * (1 - pct / 100);
+    return { x: cx + r * Math.cos(a), y: cy - r * Math.sin(a) };
+  }
+
+  function arc(p1, p2, r, color, opacity) {
+    const s = pt(p1, r), e = pt(p2, r);
+    const large = (p2 - p1) > 50 ? 1 : 0;
+    return `<path d="M${s.x.toFixed(1)},${s.y.toFixed(1)} A${r},${r} 0 ${large},0 ${e.x.toFixed(1)},${e.y.toFixed(1)}"
+      fill="none" stroke="${color}" stroke-width="20" stroke-linecap="butt" opacity="${opacity}"/>`;
+  }
+
+  function needle(pct, color, len, sw) {
+    const e = pt(pct, len);
+    return `<line x1="${cx}" y1="${cy}" x2="${e.x.toFixed(1)}" y2="${e.y.toFixed(1)}"
+      stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>
+      <circle cx="${e.x.toFixed(1)}" cy="${e.y.toFixed(1)}" r="5" fill="${color}"/>`;
+  }
+
+  function tickLabel(pct, label) {
+    const p = pt(pct, rOuter + 18);
+    return `<text x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" fill="#6b6b80"
+      font-size="11" font-weight="700" text-anchor="middle" dominant-baseline="middle">${label}</text>`;
+  }
+
+  function tick(pct) {
+    const i = pt(pct, rInner - 6), o = pt(pct, rOuter + 6);
+    return `<line x1="${i.x.toFixed(1)}" y1="${i.y.toFixed(1)}" x2="${o.x.toFixed(1)}" y2="${o.y.toFixed(1)}"
+      stroke="#3a3a4a" stroke-width="1.5"/>`;
+  }
+
+  return `<svg viewBox="0 0 280 150" style="width:100%;overflow:visible">
+    ${arc(0,  10, rOuter, '#e63946', 0.45)}
+    ${arc(10, 30, rOuter, '#f5a623', 0.40)}
+    ${arc(30, 70, rOuter, '#3a3a5a', 0.70)}
+    ${arc(70, 90, rOuter, '#f5a623', 0.40)}
+    ${arc(90,100, rOuter, '#52b788', 0.45)}
+    ${arc(0,  rInner, rInner, 'none', 0)}
+    ${[0,25,50,75,100].map(tick).join('')}
+    ${[0,25,50,75,100].map(p => tickLabel(p, p+'%')).join('')}
+    ${needle(model, '#00d4aa', 98, 3)}
+    ${needle(guess, '#f5c842', 80, 3)}
+    <circle cx="${cx}" cy="${cy}" r="7" fill="#18181f" stroke="#3a3a4a" stroke-width="2"/>
+  </svg>`;
+}
+
+// ═══════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════
+function nextScenario() {
+  idx++;
+  if (idx >= SCENARIOS.length) showResults();
+  else render();
+}
+
+// ═══════════════════════════════════════════════════
+// RESULTS
+// ═══════════════════════════════════════════════════
+function showResults() {
+  show('results-screen');
+
+  const diffs = answers.map(a => Math.abs(a.estimated_wp - a.modelWP));
+  const avg   = diffs.reduce((s,d) => s+d, 0) / diffs.length;
+  const bestI = diffs.indexOf(Math.min(...diffs));
+  const worstI= diffs.indexOf(Math.max(...diffs));
+  const within10 = diffs.filter(d => d <= 10).length;
+
+  document.getElementById('res-sub').textContent =
+    `${answers.length} scenarios · avg error ${avg.toFixed(1)} percentage points`;
+
+  document.getElementById('res-cards').innerHTML = `
+    <div class="res-card">
+      <div class="res-card-lbl">Avg Error</div>
+      <div class="res-card-val">${avg.toFixed(1)}<span style="font-size:14px;opacity:.5"> pp</span></div>
+    </div>
+    <div class="res-card">
+      <div class="res-card-lbl">Within 10pp</div>
+      <div class="res-card-val">${within10}<span style="font-size:14px;opacity:.5"> / ${answers.length}</span></div>
+    </div>
+    <div class="res-card">
+      <div class="res-card-lbl">Closest</div>
+      <div class="res-card-val sm">#${answers[bestI].scenario_id} · ${answers[bestI].teamA}<br>
+        <span style="font-size:13px;color:var(--muted)">${diffs[bestI].toFixed(1)}pp off</span></div>
+    </div>
+    <div class="res-card">
+      <div class="res-card-lbl">Furthest</div>
+      <div class="res-card-val sm">#${answers[worstI].scenario_id} · ${answers[worstI].teamA}<br>
+        <span style="font-size:13px;color:var(--muted)">${diffs[worstI].toFixed(1)}pp off</span></div>
+    </div>`;
+
+  document.getElementById('res-tbody').innerHTML = answers.map((a, i) => {
+    const d = Math.abs(a.estimated_wp - a.modelWP);
+    const cls = d <= 8 ? 'close' : d <= 20 ? 'mid' : 'far';
+    return `<tr>
+      <td>${i+1}. ${a.context}</td>
+      <td class="td-y">${a.estimated_wp}%</td>
+      <td class="td-m">${a.modelWP.toFixed(2)}%</td>
+      <td class="td-d ${cls}">${d.toFixed(1)}pp</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// WEBHOOK (non-blocking, silent fail)
+// ═══════════════════════════════════════════════════
+function sendWebhook(data) {
+  if (!WEBHOOK_URL || WEBHOOK_URL.includes('YOUR_GOOGLE')) return;
+  fetch(WEBHOOK_URL, {
+    method: 'POST', mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).catch(() => {});
+}
+</script>
+
+<!--
+════════════════════════════════════════════════════════════
+GOOGLE APPS SCRIPT SETUP (one-time, ~10 min)
+════════════════════════════════════════════════════════════
+
+1. Create a new Google Sheet at sheets.google.com.
+   Name it "WP Quiz Responses".
+
+2. Click Extensions → Apps Script.
+   Delete all existing code and paste this:
+
+─────────────────────────────────────────────────────────
+function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var data  = JSON.parse(e.postData.contents);
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        'Timestamp','Session ID','Scenario ID',
+        'Estimated WP','Estimated Margin','Confidence',
+        'Predicted Winner','Time Taken (s)'
+      ]);
+    }
+    sheet.appendRow([
+      new Date().toISOString(),
+      data.session_id    || '',
+      data.scenario_id,
+      data.estimated_wp,
+      data.estimated_margin,
+      data.predicted_winner,
+      data.time_taken
+    ]);
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+─────────────────────────────────────────────────────────
+
+3. Click Deploy → New deployment.
+   - Type: Web app
+   - Execute as: Me
+   - Who has access: Anyone
+   Click Deploy, authorize, then copy the Web App URL.
+
+4. In this file, replace:
+      'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE'
+   (near the top of the <script> block) with that URL.
+
+5. Responses log to the sheet in real time as users submit each scenario.
+   Each row = one scenario answer. Group by session_id to reconstruct full runs.
+════════════════════════════════════════════════════════════
+-->
+</body>
+</html>

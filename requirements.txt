@@ -1,0 +1,48 @@
+# NFLSims — Python runtime dependencies
+# Target interpreter: Python 3.12 (see README "Prerequisites").
+# Versions below are pinned to a validated set: the full pytest suite (18/18)
+# plus a full-season batch-audit sim were confirmed to run on this exact
+# combination under Python 3.12 during the 2026-07 environment upgrade
+# (from the retired Python 3.8 pin). Regenerate the lock rationale in WORKLOG
+# before bumping any major version — several trained-model artifacts are
+# loaded from pickle/joblib and are sensitive to sklearn/xgboost versions.
+#
+# Install:  python -m venv venv && venv\Scripts\activate && pip install -r requirements.txt
+
+# --- Web / API service (src/api) ---
+fastapi==0.139.0
+uvicorn==0.51.0
+
+# --- Numerical & ML core (src/nfl_sim engine + models) ---
+numpy==2.5.1
+pandas==3.0.3
+scipy==1.18.0
+scikit-learn==1.9.0
+xgboost==3.3.0
+statsmodels==0.14.6
+
+# --- Columnar data I/O (parquet caches, interim sim results) ---
+pyarrow==25.0.0
+fastparquet==2026.5.0
+
+# --- NFL data source (nflverse / nflfastR pull) ---
+nfl_data_py==0.3.2
+
+# --- Plotting & EDA visuals (src/nfl_sim/visuals.py, scripts/eda) ---
+matplotlib==3.11.0
+seaborn==0.13.2
+
+# --- DFS lineup optimization (linear programming) ---
+PuLP==3.3.2
+
+# --- Live game-day social posting bots (src/live) ---
+atproto==0.0.69
+Mastodon.py==2.2.1
+
+# --- Config, HTTP, serialization utilities ---
+python-dotenv==1.2.2
+requests==2.34.2
+joblib==1.5.3
+
+# --- Testing ---
+pytest==9.1.1

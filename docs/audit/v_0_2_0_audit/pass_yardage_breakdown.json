@@ -1,0 +1,116 @@
+{
+  "real": {
+    "overall": {
+      "n": 58378,
+      "air_yards_mean": 5.721830368041992,
+      "yac_mean": 5.194816589355469,
+      "yards_gained_mean": 10.925605773925781
+    },
+    "by_zone": {
+      "goalline": {
+        "n": 1366,
+        "air_yards_mean": 1.800146460533142,
+        "yac_mean": 0.9040995836257935,
+        "yards_gained_mean": 2.7035138607025146,
+        "yardline_100_mean": 3.0849194526672363,
+        "yardline_100_median": 3.0,
+        "room_to_goal_after_air_mean": 1.2847731113433838
+      },
+      "primary": {
+        "n": 51479,
+        "air_yards_mean": 6.02191162109375,
+        "yac_mean": 5.4644999504089355,
+        "yards_gained_mean": 11.496435165405273,
+        "yardline_100_mean": 57.95662307739258,
+        "yardline_100_median": 60.0,
+        "room_to_goal_after_air_mean": 51.93471145629883
+      },
+      "redzone": {
+        "n": 5533,
+        "air_yards_mean": 3.8980660438537598,
+        "yac_mean": 3.7449846267700195,
+        "yards_gained_mean": 7.644496440887451,
+        "yardline_100_mean": 13.714801788330078,
+        "yardline_100_median": 14.0,
+        "room_to_goal_after_air_mean": 9.816736221313477
+      }
+    },
+    "by_depth": {
+      "deep": {
+        "n": 3735,
+        "air_yards_mean": 27.765460968017578,
+        "yac_mean": 5.602141857147217,
+        "yards_gained_mean": 33.36653137207031
+      },
+      "screen": {
+        "n": 15132,
+        "air_yards_mean": -2.755617141723633,
+        "yac_mean": 8.631773948669434,
+        "yards_gained_mean": 5.87946081161499
+      },
+      "standard": {
+        "n": 39511,
+        "air_yards_mean": 6.884740829467773,
+        "yac_mean": 3.8400192260742188,
+        "yards_gained_mean": 10.736832618713379
+      }
+    }
+  },
+  "sim": {
+    "overall": {
+      "n": 209779,
+      "air_yards_mean": 5.348113967556333,
+      "yac_mean": 5.117962236448834,
+      "yards_gained_mean": 10.052092916831523
+    },
+    "by_zone": {
+      "goalline": {
+        "n": 9997,
+        "air_yards_mean": 1.0409122736821046,
+        "yac_mean": 1.4683405021506453,
+        "yards_gained_mean": 1.6293888166449935,
+        "yardline_100_mean": 2.5738721616484947,
+        "yardline_100_median": 2.0,
+        "room_to_goal_after_air_mean": 1.53295988796639
+      },
+      "primary": {
+        "n": 177855,
+        "air_yards_mean": 5.699935340586433,
+        "yac_mean": 5.4930083494981865,
+        "yards_gained_mean": 10.891484636361081,
+        "yardline_100_mean": 62.547710213376064,
+        "yardline_100_median": 63.0,
+        "room_to_goal_after_air_mean": 56.847774872789635
+      },
+      "redzone": {
+        "n": 21927,
+        "air_yards_mean": 4.458156610571441,
+        "yac_mean": 3.7398184886213346,
+        "yards_gained_mean": 7.083686778857117,
+        "yardline_100_mean": 13.000592876362475,
+        "yardline_100_median": 13.0,
+        "room_to_goal_after_air_mean": 8.542436265791034
+      }
+    },
+    "by_depth": {
+      "deep": {
+        "n": 10232,
+        "air_yards_mean": 25.829945269741987,
+        "yac_mean": 5.519351055512119,
+        "yards_gained_mean": 30.29886630179828
+      },
+      "screen": {
+        "n": 55651,
+        "air_yards_mean": -2.63914395069271,
+        "yac_mean": 8.451851718747193,
+        "yards_gained_mean": 5.305475193617365
+      },
+      "standard": {
+        "n": 143896,
+        "air_yards_mean": 6.980743036637572,
+        "yac_mean": 3.800056985600712,
+        "yards_gained_mean": 10.44813615388892
+      }
+    }
+  }
+}

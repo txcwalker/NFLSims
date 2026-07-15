@@ -1,0 +1,42 @@
+{
+    "version": "V.0.1.0",
+    "model_type": "xgb.XGBClassifier",
+    "features": [
+        "score_differential",
+        "game_seconds_remaining",
+        "down",
+        "ydstogo",
+        "yardline_100",
+        "posteam_timeouts_remaining",
+        "defteam_timeouts_remaining",
+        "receive_2h_ko"
+    ],
+    "fallbacks": {
+        "score_differential": 0.0,
+        "game_seconds_remaining": 1800.0,
+        "down": 1.0,
+        "ydstogo": 10.0,
+        "yardline_100": 75.0,
+        "posteam_timeouts_remaining": 3.0,
+        "defteam_timeouts_remaining": 3.0,
+        "receive_2h_ko": 0.0
+    },
+    "training_seasons": [
+        2015,
+        2024
+    ],
+    "split": {
+        "train": 0.7,
+        "validation": 0.15,
+        "test": 0.15
+    },
+    "total_active_plays": 421927,
+    "overall_prior_win_rate": 0.5052141880087219,
+    "metrics": {
+        "test_log_loss": 0.47197338536189415,
+        "test_brier_score": 0.15906087842240943,
+        "test_roc_auc": 0.8474788994325735,
+        "baseline_log_loss": 0.6930928060249956,
+        "baseline_brier_score": 0.24997281322529377
+    }
+}

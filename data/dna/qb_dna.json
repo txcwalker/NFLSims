@@ -1,0 +1,2736 @@
+{
+  "_metadata": {
+    "version": "V.0.2.0",
+    "created": "2026-06-01",
+    "source": "nflfastR / NGS 2016-2024",
+    "name_format": "Unique Full Display Name (Cleaned Suffixes)"
+  },
+  "Aaron Rodgers": {
+    "cpoe": 1.1392,
+    "avg_air_yards_per_att": 7.532,
+    "deep_ball_rate": 0.1231,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0567,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -0.1589,
+    "pressure_rate": 0.2216,
+    "splits": {
+      "primary": {
+        "cpoe": 1.6121,
+        "sack_rate": 0.06,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -0.0863,
+        "sack_rate": 0.042,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -4.3308,
+        "sack_rate": 0.0366,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1796,
+    "avg_time_to_throw_sec": 2.678,
+    "ngs_aggressiveness_index": 15.16
+  },
+  "Aidan O'Connell": {
+    "cpoe": -3.768,
+    "avg_air_yards_per_att": 7.675,
+    "deep_ball_rate": 0.1079,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0519,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 3.2422,
+    "pressure_rate": 0.2512,
+    "splits": {
+      "primary": {
+        "cpoe": -4.8969,
+        "sack_rate": 0.0562,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 3.4641,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 3.2794,
+        "sack_rate": 0.1176,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 621,
+    "avg_time_to_throw_sec": 2.853,
+    "ngs_aggressiveness_index": 18.87
+  },
+  "Andy Dalton": {
+    "cpoe": -1.5166,
+    "avg_air_yards_per_att": 7.415,
+    "deep_ball_rate": 0.0821,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0563,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 1.75,
+    "pressure_rate": 0.216,
+    "splits": {
+      "primary": {
+        "cpoe": -2.2217,
+        "sack_rate": 0.0547,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 5.0315,
+        "sack_rate": 0.0526,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -3.9388,
+        "sack_rate": 0.125,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 889,
+    "avg_time_to_throw_sec": 2.617,
+    "ngs_aggressiveness_index": 14.49
+  },
+  "Anthony Richardson": {
+    "cpoe": -10.081,
+    "avg_air_yards_per_att": 11.272,
+    "deep_ball_rate": 0.1919,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0537,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 1.9346,
+    "pressure_rate": 0.3189,
+    "splits": {
+      "primary": {
+        "cpoe": -10.1763,
+        "sack_rate": 0.0534,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -13.8825,
+        "sack_rate": 0.0741,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -10.081,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 370,
+    "avg_time_to_throw_sec": 2.931,
+    "ngs_aggressiveness_index": 16.19
+  },
+  "Bailey Zappe": {
+    "cpoe": -2.4836,
+    "avg_air_yards_per_att": 7.569,
+    "deep_ball_rate": 0.112,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0804,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 6.8459,
+    "pressure_rate": 0.2486,
+    "splits": {
+      "primary": {
+        "cpoe": -2.3047,
+        "sack_rate": 0.0865,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -2.3624,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -2.4836,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 366,
+    "avg_time_to_throw_sec": 2.804,
+    "ngs_aggressiveness_index": 16.85
+  },
+  "Baker Mayfield": {
+    "cpoe": -0.5739,
+    "avg_air_yards_per_att": 7.847,
+    "deep_ball_rate": 0.1084,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0722,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -3.8697,
+    "pressure_rate": 0.2293,
+    "splits": {
+      "primary": {
+        "cpoe": -0.83,
+        "sack_rate": 0.0719,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -1.8603,
+        "sack_rate": 0.0826,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 10.7711,
+        "sack_rate": 0.0513,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 2159,
+    "avg_time_to_throw_sec": 2.751,
+    "ngs_aggressiveness_index": 13.8
+  },
+  "Ben Roethlisberger": {
+    "cpoe": -2.256,
+    "avg_air_yards_per_att": 6.784,
+    "deep_ball_rate": 0.0997,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0546,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -9.0726,
+    "pressure_rate": 0.2182,
+    "splits": {
+      "primary": {
+        "cpoe": -1.3532,
+        "sack_rate": 0.0575,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -6.1814,
+        "sack_rate": 0.0513,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -12.2001,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 692,
+    "avg_time_to_throw_sec": 2.376,
+    "ngs_aggressiveness_index": 18.62
+  },
+  "Bo Nix": {
+    "cpoe": 0.3646,
+    "avg_air_yards_per_att": 7.442,
+    "deep_ball_rate": 0.1268,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0406,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 4.625,
+    "pressure_rate": 0.278,
+    "splits": {
+      "primary": {
+        "cpoe": -0.7796,
+        "sack_rate": 0.0414,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 6.6,
+        "sack_rate": 0.0145,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 17.723,
+        "sack_rate": 0.125,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 615,
+    "avg_time_to_throw_sec": 2.919,
+    "ngs_aggressiveness_index": 12.6
+  },
+  "Brett Rypien": {
+    "cpoe": -8.5936,
+    "avg_air_yards_per_att": 8.281,
+    "deep_ball_rate": 0.1304,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0676,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 8.7248,
+    "pressure_rate": 0.2536,
+    "splits": {
+      "primary": {
+        "cpoe": -9.4228,
+        "sack_rate": 0.0699,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -8.5936,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -8.5936,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 138,
+    "avg_time_to_throw_sec": 2.775,
+    "ngs_aggressiveness_index": 17.69
+  },
+  "Brock Purdy": {
+    "cpoe": 2.6964,
+    "avg_air_yards_per_att": 8.296,
+    "deep_ball_rate": 0.1053,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0562,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 1.698,
+    "pressure_rate": 0.2929,
+    "splits": {
+      "primary": {
+        "cpoe": 1.8666,
+        "sack_rate": 0.0529,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 6.2803,
+        "sack_rate": 0.0814,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 13.1736,
+        "sack_rate": 0.0435,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 1311,
+    "avg_time_to_throw_sec": 2.906,
+    "ngs_aggressiveness_index": 13.77
+  },
+  "Bryce Young": {
+    "cpoe": -0.5176,
+    "avg_air_yards_per_att": 8.096,
+    "deep_ball_rate": 0.1057,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0832,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 4.0704,
+    "pressure_rate": 0.3141,
+    "splits": {
+      "primary": {
+        "cpoe": -0.2162,
+        "sack_rate": 0.0828,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -3.853,
+        "sack_rate": 0.0808,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 0.7864,
+        "sack_rate": 0.1034,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 1003,
+    "avg_time_to_throw_sec": 2.843,
+    "ngs_aggressiveness_index": 15.33
+  },
+  "CJ Stroud": {
+    "cpoe": -0.5808,
+    "avg_air_yards_per_att": 8.711,
+    "deep_ball_rate": 0.1134,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0751,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -4.1091,
+    "pressure_rate": 0.3379,
+    "splits": {
+      "primary": {
+        "cpoe": 0.1559,
+        "sack_rate": 0.0723,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -5.2136,
+        "sack_rate": 0.0902,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -10.478,
+        "sack_rate": 0.1111,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 1243,
+    "avg_time_to_throw_sec": 2.996,
+    "ngs_aggressiveness_index": 15.02
+  },
+  "Caleb Williams": {
+    "cpoe": -0.1022,
+    "avg_air_yards_per_att": 8.039,
+    "deep_ball_rate": 0.1258,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0966,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -9.8008,
+    "pressure_rate": 0.3176,
+    "splits": {
+      "primary": {
+        "cpoe": 0.6579,
+        "sack_rate": 0.1068,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -7.741,
+        "sack_rate": 0.0303,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 11.6319,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 636,
+    "avg_time_to_throw_sec": 2.926,
+    "ngs_aggressiveness_index": 11.9
+  },
+  "Cam Newton": {
+    "cpoe": -12.6353,
+    "avg_air_yards_per_att": 6.968,
+    "deep_ball_rate": 0.073,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.068,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -13.6286,
+    "pressure_rate": 0.2993,
+    "splits": {
+      "primary": {
+        "cpoe": -12.611,
+        "sack_rate": 0.0719,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -12.6353,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -12.6353,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 137,
+    "avg_time_to_throw_sec": 2.519,
+    "ngs_aggressiveness_index": 17.54
+  },
+  "Carson Wentz": {
+    "cpoe": -2.3932,
+    "avg_air_yards_per_att": 7.626,
+    "deep_ball_rate": 0.1054,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0656,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -6.0382,
+    "pressure_rate": 0.2832,
+    "splits": {
+      "primary": {
+        "cpoe": -2.8941,
+        "sack_rate": 0.0637,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 3.9412,
+        "sack_rate": 0.0918,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -6.7618,
+        "sack_rate": 0.0444,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 911,
+    "avg_time_to_throw_sec": 2.705,
+    "ngs_aggressiveness_index": 16.62
+  },
+  "Case Keenum": {
+    "cpoe": -3.6247,
+    "avg_air_yards_per_att": 6.47,
+    "deep_ball_rate": 0.049,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0714,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -15.3937,
+    "pressure_rate": 0.2517,
+    "splits": {
+      "primary": {
+        "cpoe": -3.4583,
+        "sack_rate": 0.0741,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -4.7079,
+        "sack_rate": 0.0667,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -3.6247,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 143,
+    "avg_time_to_throw_sec": 2.668,
+    "ngs_aggressiveness_index": 18.95
+  },
+  "Colt McCoy": {
+    "cpoe": 1.375,
+    "avg_air_yards_per_att": 5.684,
+    "deep_ball_rate": 0.06,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0706,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 10.814,
+    "pressure_rate": 0.212,
+    "splits": {
+      "primary": {
+        "cpoe": 2.4573,
+        "sack_rate": 0.0735,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -11.836,
+        "sack_rate": 0.0476,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 1.375,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 250,
+    "avg_time_to_throw_sec": 2.384,
+    "ngs_aggressiveness_index": 11.16
+  },
+  "Cooper Rush": {
+    "cpoe": -6.6275,
+    "avg_air_yards_per_att": 7.464,
+    "deep_ball_rate": 0.1099,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0408,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -6.2081,
+    "pressure_rate": 0.2695,
+    "splits": {
+      "primary": {
+        "cpoe": -7.2467,
+        "sack_rate": 0.0438,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -4.0071,
+        "sack_rate": 0.02,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 7.4631,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 564,
+    "avg_time_to_throw_sec": 2.547,
+    "ngs_aggressiveness_index": 21.3
+  },
+  "Dak Prescott": {
+    "cpoe": 1.7183,
+    "avg_air_yards_per_att": 7.94,
+    "deep_ball_rate": 0.1076,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0529,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 8.0272,
+    "pressure_rate": 0.2798,
+    "splits": {
+      "primary": {
+        "cpoe": 1.314,
+        "sack_rate": 0.0514,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 2.8007,
+        "sack_rate": 0.0644,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 7.8127,
+        "sack_rate": 0.0471,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 2166,
+    "avg_time_to_throw_sec": 2.739,
+    "ngs_aggressiveness_index": 17.88
+  },
+  "Daniel Jones": {
+    "cpoe": 0.7038,
+    "avg_air_yards_per_att": 6.993,
+    "deep_ball_rate": 0.068,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.08,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 2.9567,
+    "pressure_rate": 0.3381,
+    "splits": {
+      "primary": {
+        "cpoe": 0.8512,
+        "sack_rate": 0.0804,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -2.2083,
+        "sack_rate": 0.0873,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 4.3191,
+        "sack_rate": 0.0455,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1529,
+    "avg_time_to_throw_sec": 2.79,
+    "ngs_aggressiveness_index": 14.45
+  },
+  "Davis Mills": {
+    "cpoe": -3.2408,
+    "avg_air_yards_per_att": 7.547,
+    "deep_ball_rate": 0.0985,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0611,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -1.8662,
+    "pressure_rate": 0.2985,
+    "splits": {
+      "primary": {
+        "cpoe": -2.9474,
+        "sack_rate": 0.0564,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -4.6776,
+        "sack_rate": 0.11,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -10.2629,
+        "sack_rate": 0.0417,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1015,
+    "avg_time_to_throw_sec": 2.718,
+    "ngs_aggressiveness_index": 15.29
+  },
+  "Derek Carr": {
+    "cpoe": 1.0946,
+    "avg_air_yards_per_att": 8.257,
+    "deep_ball_rate": 0.1247,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0488,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 1.6958,
+    "pressure_rate": 0.2809,
+    "splits": {
+      "primary": {
+        "cpoe": 1.8901,
+        "sack_rate": 0.0511,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -6.5162,
+        "sack_rate": 0.0412,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 6.6256,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 2125,
+    "avg_time_to_throw_sec": 2.813,
+    "ngs_aggressiveness_index": 14.92
+  },
+  "Deshaun Watson": {
+    "cpoe": -1.9563,
+    "avg_air_yards_per_att": 7.901,
+    "deep_ball_rate": 0.0928,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.1007,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -9.3069,
+    "pressure_rate": 0.3456,
+    "splits": {
+      "primary": {
+        "cpoe": -2.4952,
+        "sack_rate": 0.0988,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 1.1493,
+        "sack_rate": 0.1299,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 6.7506,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 625,
+    "avg_time_to_throw_sec": 3.094,
+    "ngs_aggressiveness_index": 15.29
+  },
+  "Desmond Ridder": {
+    "cpoe": -1.5884,
+    "avg_air_yards_per_att": 8.214,
+    "deep_ball_rate": 0.1097,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0727,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 3.7692,
+    "pressure_rate": 0.2696,
+    "splits": {
+      "primary": {
+        "cpoe": -1.5258,
+        "sack_rate": 0.0751,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 0.6457,
+        "sack_rate": 0.0615,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -9.8781,
+        "sack_rate": 0.0417,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 638,
+    "avg_time_to_throw_sec": 2.741,
+    "ngs_aggressiveness_index": 13.91
+  },
+  "Dorian Thompson-Robinson": {
+    "cpoe": -11.6616,
+    "avg_air_yards_per_att": 6.018,
+    "deep_ball_rate": 0.0576,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0545,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -10.9987,
+    "pressure_rate": 0.3004,
+    "splits": {
+      "primary": {
+        "cpoe": -9.2603,
+        "sack_rate": 0.0603,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -33.5424,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -11.6616,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 243,
+    "avg_time_to_throw_sec": 2.76,
+    "ngs_aggressiveness_index": 10.2
+  },
+  "Drake Maye": {
+    "cpoe": 2.8359,
+    "avg_air_yards_per_att": 7.338,
+    "deep_ball_rate": 0.0882,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0833,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 16.4395,
+    "pressure_rate": 0.3316,
+    "splits": {
+      "primary": {
+        "cpoe": 2.3099,
+        "sack_rate": 0.0793,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 10.1141,
+        "sack_rate": 0.0833,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -0.5495,
+        "sack_rate": 0.1579,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 374,
+    "avg_time_to_throw_sec": 2.744,
+    "ngs_aggressiveness_index": 14.84
+  },
+  "Drew Lock": {
+    "cpoe": -5.0324,
+    "avg_air_yards_per_att": 7.746,
+    "deep_ball_rate": 0.1342,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.064,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -3.299,
+    "pressure_rate": 0.3013,
+    "splits": {
+      "primary": {
+        "cpoe": -4.6695,
+        "sack_rate": 0.0646,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -13.5416,
+        "sack_rate": 0.0769,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -5.0324,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 395,
+    "avg_time_to_throw_sec": 2.803,
+    "ngs_aggressiveness_index": 15.31
+  },
+  "Easton Stick": {
+    "cpoe": -4.8077,
+    "avg_air_yards_per_att": 6.96,
+    "deep_ball_rate": 0.1016,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0697,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -3.8714,
+    "pressure_rate": 0.2246,
+    "splits": {
+      "primary": {
+        "cpoe": -4.8412,
+        "sack_rate": 0.0601,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 14.1199,
+        "sack_rate": 0.1538,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -4.8077,
+        "sack_rate": 0.2,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 187,
+    "avg_time_to_throw_sec": 2.832,
+    "ngs_aggressiveness_index": 15.92
+  },
+  "Gardner Minshew": {
+    "cpoe": -1.5143,
+    "avg_air_yards_per_att": 6.994,
+    "deep_ball_rate": 0.0924,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0685,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -2.9983,
+    "pressure_rate": 0.3009,
+    "splits": {
+      "primary": {
+        "cpoe": -0.6237,
+        "sack_rate": 0.065,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -4.7425,
+        "sack_rate": 0.0849,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -22.152,
+        "sack_rate": 0.1081,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1007,
+    "avg_time_to_throw_sec": 2.752,
+    "ngs_aggressiveness_index": 15.8
+  },
+  "Geno Smith": {
+    "cpoe": 4.8925,
+    "avg_air_yards_per_att": 7.231,
+    "deep_ball_rate": 0.0973,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0692,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 8.7713,
+    "pressure_rate": 0.296,
+    "splits": {
+      "primary": {
+        "cpoe": 5.623,
+        "sack_rate": 0.0694,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 0.1259,
+        "sack_rate": 0.0762,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -2.2745,
+        "sack_rate": 0.0364,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1922,
+    "avg_time_to_throw_sec": 2.84,
+    "ngs_aggressiveness_index": 13.78
+  },
+  "Jacoby Brissett": {
+    "cpoe": 0.6547,
+    "avg_air_yards_per_att": 8.013,
+    "deep_ball_rate": 0.1016,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0679,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -6.0244,
+    "pressure_rate": 0.3369,
+    "splits": {
+      "primary": {
+        "cpoe": 1.1886,
+        "sack_rate": 0.0742,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -2.8652,
+        "sack_rate": 0.0361,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -2.3537,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 837,
+    "avg_time_to_throw_sec": 2.875,
+    "ngs_aggressiveness_index": 16.79
+  },
+  "Jake Browning": {
+    "cpoe": 3.8663,
+    "avg_air_yards_per_att": 6.395,
+    "deep_ball_rate": 0.0896,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0822,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 1.7212,
+    "pressure_rate": 0.2799,
+    "splits": {
+      "primary": {
+        "cpoe": 3.8608,
+        "sack_rate": 0.0906,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 3.7809,
+        "sack_rate": 0.0312,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 3.8663,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 268,
+    "avg_time_to_throw_sec": 2.714,
+    "ngs_aggressiveness_index": 14.51
+  },
+  "Jalen Hurts": {
+    "cpoe": 3.4702,
+    "avg_air_yards_per_att": 8.419,
+    "deep_ball_rate": 0.119,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0675,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 10.4984,
+    "pressure_rate": 0.2908,
+    "splits": {
+      "primary": {
+        "cpoe": 3.5946,
+        "sack_rate": 0.0676,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 2.6605,
+        "sack_rate": 0.0783,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 1.9146,
+        "sack_rate": 0.0179,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 2211,
+    "avg_time_to_throw_sec": 2.992,
+    "ngs_aggressiveness_index": 15.91
+  },
+  "Jameis Winston": {
+    "cpoe": -1.7551,
+    "avg_air_yards_per_att": 9.588,
+    "deep_ball_rate": 0.1295,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0667,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -0.2593,
+    "pressure_rate": 0.2812,
+    "splits": {
+      "primary": {
+        "cpoe": -2.6618,
+        "sack_rate": 0.0651,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 8.2333,
+        "sack_rate": 0.0896,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -3.6881,
+        "sack_rate": 0.0435,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 672,
+    "avg_time_to_throw_sec": 2.859,
+    "ngs_aggressiveness_index": 17.11
+  },
+  "Jared Goff": {
+    "cpoe": 1.3561,
+    "avg_air_yards_per_att": 6.711,
+    "deep_ball_rate": 0.0832,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0487,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -4.1988,
+    "pressure_rate": 0.2728,
+    "splits": {
+      "primary": {
+        "cpoe": 1.6601,
+        "sack_rate": 0.0531,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -3.039,
+        "sack_rate": 0.0237,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 9.4072,
+        "sack_rate": 0.0213,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 2500,
+    "avg_time_to_throw_sec": 2.759,
+    "ngs_aggressiveness_index": 11.82
+  },
+  "Jarrett Stidham": {
+    "cpoe": -0.7637,
+    "avg_air_yards_per_att": 8.913,
+    "deep_ball_rate": 0.1411,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0791,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -0.944,
+    "pressure_rate": 0.3313,
+    "splits": {
+      "primary": {
+        "cpoe": 0.0013,
+        "sack_rate": 0.0855,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -3.3386,
+        "sack_rate": 0.05,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -0.7637,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 163,
+    "avg_time_to_throw_sec": 2.952,
+    "ngs_aggressiveness_index": 18.29
+  },
+  "Jayden Daniels": {
+    "cpoe": 3.2869,
+    "avg_air_yards_per_att": 7.223,
+    "deep_ball_rate": 0.091,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.073,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 8.2459,
+    "pressure_rate": 0.2886,
+    "splits": {
+      "primary": {
+        "cpoe": 2.7335,
+        "sack_rate": 0.0745,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 7.3933,
+        "sack_rate": 0.0779,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 4.1663,
+        "sack_rate": 0.0323,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 648,
+    "avg_time_to_throw_sec": 2.68,
+    "ngs_aggressiveness_index": 13.9
+  },
+  "Jimmy Garoppolo": {
+    "cpoe": -0.4636,
+    "avg_air_yards_per_att": 7.241,
+    "deep_ball_rate": 0.0845,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0582,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 4.3871,
+    "pressure_rate": 0.2664,
+    "splits": {
+      "primary": {
+        "cpoe": -0.3477,
+        "sack_rate": 0.0591,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 0.5728,
+        "sack_rate": 0.0588,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -8.421,
+        "sack_rate": 0.0303,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1100,
+    "avg_time_to_throw_sec": 2.723,
+    "ngs_aggressiveness_index": 15.09
+  },
+  "Joe Burrow": {
+    "cpoe": 4.597,
+    "avg_air_yards_per_att": 7.105,
+    "deep_ball_rate": 0.0838,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0693,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 11.6636,
+    "pressure_rate": 0.2486,
+    "splits": {
+      "primary": {
+        "cpoe": 4.5675,
+        "sack_rate": 0.0717,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 7.7236,
+        "sack_rate": 0.0578,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -2.7776,
+        "sack_rate": 0.053,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 2591,
+    "avg_time_to_throw_sec": 2.622,
+    "ngs_aggressiveness_index": 15.34
+  },
+  "Joe Flacco": {
+    "cpoe": -0.8601,
+    "avg_air_yards_per_att": 8.635,
+    "deep_ball_rate": 0.1135,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0514,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 4.0457,
+    "pressure_rate": 0.2826,
+    "splits": {
+      "primary": {
+        "cpoe": -0.3346,
+        "sack_rate": 0.0529,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -5.7939,
+        "sack_rate": 0.0404,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 6.9821,
+        "sack_rate": 0.0556,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 775,
+    "avg_time_to_throw_sec": 2.801,
+    "ngs_aggressiveness_index": 16.67
+  },
+  "Jordan Love": {
+    "cpoe": 0.5199,
+    "avg_air_yards_per_att": 8.533,
+    "deep_ball_rate": 0.1376,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0384,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -2.1953,
+    "pressure_rate": 0.2451,
+    "splits": {
+      "primary": {
+        "cpoe": -0.1819,
+        "sack_rate": 0.0354,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 2.1234,
+        "sack_rate": 0.0469,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 15.0284,
+        "sack_rate": 0.0732,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1228,
+    "avg_time_to_throw_sec": 2.811,
+    "ngs_aggressiveness_index": 16.34
+  },
+  "Josh Allen": {
+    "cpoe": 2.6804,
+    "avg_air_yards_per_att": 8.653,
+    "deep_ball_rate": 0.1342,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0407,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 3.9681,
+    "pressure_rate": 0.2688,
+    "splits": {
+      "primary": {
+        "cpoe": 2.6344,
+        "sack_rate": 0.0388,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 2.4251,
+        "sack_rate": 0.0577,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 5.0972,
+        "sack_rate": 0.0213,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 2690,
+    "avg_time_to_throw_sec": 2.889,
+    "ngs_aggressiveness_index": 13.33
+  },
+  "Josh Johnson": {
+    "cpoe": 0.2221,
+    "avg_air_yards_per_att": 7.204,
+    "deep_ball_rate": 0.0642,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0522,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 15.6596,
+    "pressure_rate": 0.367,
+    "splits": {
+      "primary": {
+        "cpoe": 0.637,
+        "sack_rate": 0.0594,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -3.329,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 0.2221,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 109,
+    "avg_time_to_throw_sec": 2.702,
+    "ngs_aggressiveness_index": 17.35
+  },
+  "Joshua Dobbs": {
+    "cpoe": -1.4435,
+    "avg_air_yards_per_att": 7.968,
+    "deep_ball_rate": 0.1014,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0623,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 4.7597,
+    "pressure_rate": 0.3147,
+    "splits": {
+      "primary": {
+        "cpoe": -2.1879,
+        "sack_rate": 0.0649,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 0.3715,
+        "sack_rate": 0.0339,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 28.8608,
+        "sack_rate": 0.0833,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 572,
+    "avg_time_to_throw_sec": 2.927,
+    "ngs_aggressiveness_index": 15.93
+  },
+  "Justin Fields": {
+    "cpoe": -0.6456,
+    "avg_air_yards_per_att": 8.731,
+    "deep_ball_rate": 0.1318,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.1059,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 0.1728,
+    "pressure_rate": 0.3271,
+    "splits": {
+      "primary": {
+        "cpoe": -1.7963,
+        "sack_rate": 0.1101,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 10.3725,
+        "sack_rate": 0.0602,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -5.5725,
+        "sack_rate": 0.125,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1275,
+    "avg_time_to_throw_sec": 3.096,
+    "ngs_aggressiveness_index": 12.59
+  },
+  "Justin Herbert": {
+    "cpoe": 0.1277,
+    "avg_air_yards_per_att": 7.513,
+    "deep_ball_rate": 0.1028,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.054,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 4.955,
+    "pressure_rate": 0.2912,
+    "splits": {
+      "primary": {
+        "cpoe": 0.5199,
+        "sack_rate": 0.0532,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -0.4523,
+        "sack_rate": 0.0764,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -8.0521,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 2558,
+    "avg_time_to_throw_sec": 2.862,
+    "ngs_aggressiveness_index": 16.03
+  },
+  "Kenny Pickett": {
+    "cpoe": -0.5626,
+    "avg_air_yards_per_att": 7.424,
+    "deep_ball_rate": 0.0974,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0624,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -1.943,
+    "pressure_rate": 0.3009,
+    "splits": {
+      "primary": {
+        "cpoe": 0.7431,
+        "sack_rate": 0.0609,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -9.5514,
+        "sack_rate": 0.087,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -12.4311,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 811,
+    "avg_time_to_throw_sec": 2.906,
+    "ngs_aggressiveness_index": 17.77
+  },
+  "Kirk Cousins": {
+    "cpoe": 1.9496,
+    "avg_air_yards_per_att": 7.67,
+    "deep_ball_rate": 0.1009,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0531,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -0.8167,
+    "pressure_rate": 0.3165,
+    "splits": {
+      "primary": {
+        "cpoe": 2.2597,
+        "sack_rate": 0.0554,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 0.6054,
+        "sack_rate": 0.0478,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -1.4428,
+        "sack_rate": 0.0135,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 2120,
+    "avg_time_to_throw_sec": 2.791,
+    "ngs_aggressiveness_index": 15.91
+  },
+  "Kyle Allen": {
+    "cpoe": -7.6485,
+    "avg_air_yards_per_att": 7.224,
+    "deep_ball_rate": 0.0926,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0609,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -11.738,
+    "pressure_rate": 0.2685,
+    "splits": {
+      "primary": {
+        "cpoe": -8.6176,
+        "sack_rate": 0.0693,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -7.6485,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -7.6485,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 108,
+    "avg_time_to_throw_sec": 2.673,
+    "ngs_aggressiveness_index": 16.67
+  },
+  "Kyler Murray": {
+    "cpoe": 0.9875,
+    "avg_air_yards_per_att": 7.26,
+    "deep_ball_rate": 0.1155,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0548,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 4.423,
+    "pressure_rate": 0.2173,
+    "splits": {
+      "primary": {
+        "cpoe": 1.4023,
+        "sack_rate": 0.0567,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 3.1205,
+        "sack_rate": 0.0529,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -16.0718,
+        "sack_rate": 0.0145,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1827,
+    "avg_time_to_throw_sec": 2.768,
+    "ngs_aggressiveness_index": 14.31
+  },
+  "Lamar Jackson": {
+    "cpoe": 2.4942,
+    "avg_air_yards_per_att": 8.731,
+    "deep_ball_rate": 0.1257,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0666,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 2.0929,
+    "pressure_rate": 0.2818,
+    "splits": {
+      "primary": {
+        "cpoe": 1.7823,
+        "sack_rate": 0.0686,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 5.9102,
+        "sack_rate": 0.0533,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 10.8186,
+        "sack_rate": 0.0615,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1877,
+    "avg_time_to_throw_sec": 3.038,
+    "ngs_aggressiveness_index": 11.6
+  },
+  "Mac Jones": {
+    "cpoe": 0.0602,
+    "avg_air_yards_per_att": 7.605,
+    "deep_ball_rate": 0.1155,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0556,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -2.2565,
+    "pressure_rate": 0.2309,
+    "splits": {
+      "primary": {
+        "cpoe": -0.041,
+        "sack_rate": 0.0557,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 2.2676,
+        "sack_rate": 0.0621,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -3.5669,
+        "sack_rate": 0.0351,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1715,
+    "avg_time_to_throw_sec": 2.649,
+    "ngs_aggressiveness_index": 14.96
+  },
+  "Malik Willis": {
+    "cpoe": -1.0121,
+    "avg_air_yards_per_att": 8.058,
+    "deep_ball_rate": 0.0909,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.1333,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 31.5266,
+    "pressure_rate": 0.3357,
+    "splits": {
+      "primary": {
+        "cpoe": -0.3658,
+        "sack_rate": 0.1293,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -1.2738,
+        "sack_rate": 0.1538,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -1.0121,
+        "sack_rate": 0.2,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 143,
+    "avg_time_to_throw_sec": 2.96,
+    "ngs_aggressiveness_index": 22.75
+  },
+  "Marcus Mariota": {
+    "cpoe": 1.3418,
+    "avg_air_yards_per_att": 10.192,
+    "deep_ball_rate": 0.1521,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0782,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 2.3529,
+    "pressure_rate": 0.2768,
+    "splits": {
+      "primary": {
+        "cpoe": -0.1197,
+        "sack_rate": 0.0838,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 9.1694,
+        "sack_rate": 0.0556,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 17.1511,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 401,
+    "avg_time_to_throw_sec": 2.94,
+    "ngs_aggressiveness_index": 19.53
+  },
+  "Mason Rudolph": {
+    "cpoe": 0.8981,
+    "avg_air_yards_per_att": 7.084,
+    "deep_ball_rate": 0.0823,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0418,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -16.4619,
+    "pressure_rate": 0.2954,
+    "splits": {
+      "primary": {
+        "cpoe": 0.5393,
+        "sack_rate": 0.038,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 12.2907,
+        "sack_rate": 0.0816,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -32.9384,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 413,
+    "avg_time_to_throw_sec": 2.73,
+    "ngs_aggressiveness_index": 13.14
+  },
+  "Matt Ryan": {
+    "cpoe": 0.9278,
+    "avg_air_yards_per_att": 6.649,
+    "deep_ball_rate": 0.0644,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.066,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 2.9462,
+    "pressure_rate": 0.3019,
+    "splits": {
+      "primary": {
+        "cpoe": 1.296,
+        "sack_rate": 0.0678,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 0.9752,
+        "sack_rate": 0.0579,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -9.6735,
+        "sack_rate": 0.0476,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 1103,
+    "avg_time_to_throw_sec": 2.75,
+    "ngs_aggressiveness_index": 16.51
+  },
+  "Matthew Stafford": {
+    "cpoe": -0.3169,
+    "avg_air_yards_per_att": 7.876,
+    "deep_ball_rate": 0.1067,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0541,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -2.1705,
+    "pressure_rate": 0.28,
+    "splits": {
+      "primary": {
+        "cpoe": 0.5718,
+        "sack_rate": 0.0546,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -4.8291,
+        "sack_rate": 0.0631,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -5.4206,
+        "sack_rate": 0.019,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 2325,
+    "avg_time_to_throw_sec": 2.746,
+    "ngs_aggressiveness_index": 13.13
+  },
+  "Michael Penix": {
+    "cpoe": -4.4384,
+    "avg_air_yards_per_att": 10.219,
+    "deep_ball_rate": 0.1743,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0354,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -45.1981,
+    "pressure_rate": 0.2385,
+    "splits": {
+      "primary": {
+        "cpoe": -4.1961,
+        "sack_rate": 0.0412,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -2.055,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -4.4384,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 109,
+    "avg_time_to_throw_sec": 2.668,
+    "ngs_aggressiveness_index": 14.01
+  },
+  "Mike Glennon": {
+    "cpoe": -7.878,
+    "avg_air_yards_per_att": 7.378,
+    "deep_ball_rate": 0.092,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0492,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -2.3973,
+    "pressure_rate": 0.2816,
+    "splits": {
+      "primary": {
+        "cpoe": -8.7874,
+        "sack_rate": 0.0539,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 2.696,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -7.878,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 174,
+    "avg_time_to_throw_sec": 2.704,
+    "ngs_aggressiveness_index": 16.02
+  },
+  "Mike White": {
+    "cpoe": -5.2759,
+    "avg_air_yards_per_att": 6.806,
+    "deep_ball_rate": 0.074,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.037,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -5.3067,
+    "pressure_rate": 0.2811,
+    "splits": {
+      "primary": {
+        "cpoe": -4.8764,
+        "sack_rate": 0.0355,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -6.5997,
+        "sack_rate": 0.0312,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -5.2759,
+        "sack_rate": 0.1111,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 338,
+    "avg_time_to_throw_sec": 2.745,
+    "ngs_aggressiveness_index": 17.55
+  },
+  "Mitchell Trubisky": {
+    "cpoe": 0.6646,
+    "avg_air_yards_per_att": 9.154,
+    "deep_ball_rate": 0.1534,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0504,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -4.4772,
+    "pressure_rate": 0.2301,
+    "splits": {
+      "primary": {
+        "cpoe": -0.3453,
+        "sack_rate": 0.048,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 17.7546,
+        "sack_rate": 0.125,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 0.6646,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 339,
+    "avg_time_to_throw_sec": 2.758,
+    "ngs_aggressiveness_index": 19.68
+  },
+  "Nick Foles": {
+    "cpoe": -3.3011,
+    "avg_air_yards_per_att": 7.026,
+    "deep_ball_rate": 0.0889,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.1176,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -2.2102,
+    "pressure_rate": 0.3111,
+    "splits": {
+      "primary": {
+        "cpoe": -4.1297,
+        "sack_rate": 0.1059,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 2.2124,
+        "sack_rate": 0.2143,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -3.3011,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 90,
+    "avg_time_to_throw_sec": 2.8,
+    "ngs_aggressiveness_index": 13.45
+  },
+  "Nick Mullens": {
+    "cpoe": 7.1231,
+    "avg_air_yards_per_att": 8.803,
+    "deep_ball_rate": 0.1488,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0529,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 13.4533,
+    "pressure_rate": 0.3395,
+    "splits": {
+      "primary": {
+        "cpoe": 8.1621,
+        "sack_rate": 0.0545,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -0.2085,
+        "sack_rate": 0.0455,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 7.1231,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 215,
+    "avg_time_to_throw_sec": 3.056,
+    "ngs_aggressiveness_index": 19.76
+  },
+  "Patrick Mahomes": {
+    "cpoe": 3.4024,
+    "avg_air_yards_per_att": 6.807,
+    "deep_ball_rate": 0.0907,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0448,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 4.6255,
+    "pressure_rate": 0.2762,
+    "splits": {
+      "primary": {
+        "cpoe": 3.2731,
+        "sack_rate": 0.0434,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 0.9537,
+        "sack_rate": 0.0519,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 14.044,
+        "sack_rate": 0.049,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 3088,
+    "avg_time_to_throw_sec": 2.87,
+    "ngs_aggressiveness_index": 9.85
+  },
+  "Phillip Walker": {
+    "cpoe": -10.0348,
+    "avg_air_yards_per_att": 8.302,
+    "deep_ball_rate": 0.1368,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0753,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -9.7641,
+    "pressure_rate": 0.3062,
+    "splits": {
+      "primary": {
+        "cpoe": -9.1598,
+        "sack_rate": 0.0757,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -6.8962,
+        "sack_rate": 0.1053,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -10.0348,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 307,
+    "avg_time_to_throw_sec": 2.506,
+    "ngs_aggressiveness_index": 9.65
+  },
+  "Russell Wilson": {
+    "cpoe": 2.778,
+    "avg_air_yards_per_att": 8.483,
+    "deep_ball_rate": 0.1453,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0835,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 7.7103,
+    "pressure_rate": 0.3072,
+    "splits": {
+      "primary": {
+        "cpoe": 2.4559,
+        "sack_rate": 0.0873,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 6.4074,
+        "sack_rate": 0.0558,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -0.461,
+        "sack_rate": 0.0635,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1865,
+    "avg_time_to_throw_sec": 2.917,
+    "ngs_aggressiveness_index": 14.0
+  },
+  "Ryan Tannehill": {
+    "cpoe": 1.4988,
+    "avg_air_yards_per_att": 7.743,
+    "deep_ball_rate": 0.0942,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0847,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -1.6876,
+    "pressure_rate": 0.3202,
+    "splits": {
+      "primary": {
+        "cpoe": 1.5628,
+        "sack_rate": 0.0876,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 1.6805,
+        "sack_rate": 0.0637,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -1.6983,
+        "sack_rate": 0.0857,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 1221,
+    "avg_time_to_throw_sec": 2.709,
+    "ngs_aggressiveness_index": 15.96
+  },
+  "Sam Darnold": {
+    "cpoe": 0.3853,
+    "avg_air_yards_per_att": 8.087,
+    "deep_ball_rate": 0.1161,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0776,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -0.8155,
+    "pressure_rate": 0.3242,
+    "splits": {
+      "primary": {
+        "cpoe": -0.2178,
+        "sack_rate": 0.0838,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 4.3494,
+        "sack_rate": 0.042,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 2.4045,
+        "sack_rate": 0.037,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1283,
+    "avg_time_to_throw_sec": 3.046,
+    "ngs_aggressiveness_index": 14.17
+  },
+  "Sam Ehlinger": {
+    "cpoe": -3.4685,
+    "avg_air_yards_per_att": 7.149,
+    "deep_ball_rate": 0.1217,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.1085,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -1.8121,
+    "pressure_rate": 0.2696,
+    "splits": {
+      "primary": {
+        "cpoe": -3.0871,
+        "sack_rate": 0.0926,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -15.1496,
+        "sack_rate": 0.2353,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -3.4685,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 115,
+    "avg_time_to_throw_sec": 3.008,
+    "ngs_aggressiveness_index": 14.1
+  },
+  "Sam Howell": {
+    "cpoe": -1.3114,
+    "avg_air_yards_per_att": 7.49,
+    "deep_ball_rate": 0.1099,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.091,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 4.2325,
+    "pressure_rate": 0.3115,
+    "splits": {
+      "primary": {
+        "cpoe": -0.8186,
+        "sack_rate": 0.0979,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -1.405,
+        "sack_rate": 0.0364,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -15.1878,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 719,
+    "avg_time_to_throw_sec": 2.835,
+    "ngs_aggressiveness_index": 15.95
+  },
+  "Skylar Thompson": {
+    "cpoe": -6.7122,
+    "avg_air_yards_per_att": 8.251,
+    "deep_ball_rate": 0.105,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0741,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 1.9409,
+    "pressure_rate": 0.43,
+    "splits": {
+      "primary": {
+        "cpoe": -7.0849,
+        "sack_rate": 0.0733,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -7.0356,
+        "sack_rate": 0.0909,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -6.7122,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 200,
+    "avg_time_to_throw_sec": 3.071,
+    "ngs_aggressiveness_index": 6.87
+  },
+  "Spencer Rattler": {
+    "cpoe": -9.0621,
+    "avg_air_yards_per_att": 8.079,
+    "deep_ball_rate": 0.124,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0809,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -2.8025,
+    "pressure_rate": 0.336,
+    "splits": {
+      "primary": {
+        "cpoe": -10.087,
+        "sack_rate": 0.0781,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 2.9259,
+        "sack_rate": 0.1538,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -9.0621,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 250,
+    "avg_time_to_throw_sec": 2.817,
+    "ngs_aggressiveness_index": 8.22
+  },
+  "Taylor Heinicke": {
+    "cpoe": -0.7679,
+    "avg_air_yards_per_att": 7.997,
+    "deep_ball_rate": 0.1169,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0663,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -7.2102,
+    "pressure_rate": 0.285,
+    "splits": {
+      "primary": {
+        "cpoe": -1.3378,
+        "sack_rate": 0.0648,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 8.0781,
+        "sack_rate": 0.0795,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -9.8862,
+        "sack_rate": 0.0714,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 958,
+    "avg_time_to_throw_sec": 2.973,
+    "ngs_aggressiveness_index": 16.82
+  },
+  "Taysom Hill": {
+    "cpoe": -5.4756,
+    "avg_air_yards_per_att": 8.578,
+    "deep_ball_rate": 0.1285,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0677,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -6.4615,
+    "pressure_rate": 0.3408,
+    "splits": {
+      "primary": {
+        "cpoe": -4.5133,
+        "sack_rate": 0.071,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -15.4482,
+        "sack_rate": 0.0455,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -5.4756,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 179,
+    "avg_time_to_throw_sec": 2.814,
+    "ngs_aggressiveness_index": 16.4
+  },
+  "Teddy Bridgewater": {
+    "cpoe": 3.5747,
+    "avg_air_yards_per_att": 8.164,
+    "deep_ball_rate": 0.1113,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0648,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 9.7863,
+    "pressure_rate": 0.3394,
+    "splits": {
+      "primary": {
+        "cpoe": 3.09,
+        "sack_rate": 0.0661,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 5.8457,
+        "sack_rate": 0.0635,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 8.5376,
+        "sack_rate": 0.0417,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 548,
+    "avg_time_to_throw_sec": 2.917,
+    "ngs_aggressiveness_index": 13.25
+  },
+  "Tim Boyle": {
+    "cpoe": -6.4617,
+    "avg_air_yards_per_att": 6.509,
+    "deep_ball_rate": 0.0954,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0437,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -10.004,
+    "pressure_rate": 0.2822,
+    "splits": {
+      "primary": {
+        "cpoe": -5.2451,
+        "sack_rate": 0.0452,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -6.6168,
+        "sack_rate": 0.0455,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -6.4617,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 241,
+    "avg_time_to_throw_sec": 2.598,
+    "ngs_aggressiveness_index": 13.17
+  },
+  "Tom Brady": {
+    "cpoe": 0.3422,
+    "avg_air_yards_per_att": 7.349,
+    "deep_ball_rate": 0.108,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0308,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -2.348,
+    "pressure_rate": 0.1975,
+    "splits": {
+      "primary": {
+        "cpoe": 0.5395,
+        "sack_rate": 0.0307,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -3.2278,
+        "sack_rate": 0.0237,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 8.0911,
+        "sack_rate": 0.0533,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 1666,
+    "avg_time_to_throw_sec": 2.461,
+    "ngs_aggressiveness_index": 14.4
+  },
+  "Tommy DeVito": {
+    "cpoe": -1.4064,
+    "avg_air_yards_per_att": 6.36,
+    "deep_ball_rate": 0.0642,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.1396,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -1.2322,
+    "pressure_rate": 0.3472,
+    "splits": {
+      "primary": {
+        "cpoe": -1.3084,
+        "sack_rate": 0.1458,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -1.8898,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -1.4064,
+        "sack_rate": 0.1667,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 265,
+    "avg_time_to_throw_sec": 2.987,
+    "ngs_aggressiveness_index": 8.97
+  },
+  "Trace McSorley": {
+    "cpoe": -10.6189,
+    "avg_air_yards_per_att": 7.854,
+    "deep_ball_rate": 0.093,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0337,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -19.795,
+    "pressure_rate": 0.1744,
+    "splits": {
+      "primary": {
+        "cpoe": -10.3257,
+        "sack_rate": 0.0241,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -10.6189,
+        "sack_rate": 0.2,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -10.6189,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 1,
+    "total_attempts": 86,
+    "avg_time_to_throw_sec": 2.679,
+    "ngs_aggressiveness_index": 12.22
+  },
+  "Trevor Lawrence": {
+    "cpoe": -1.0521,
+    "avg_air_yards_per_att": 8.027,
+    "deep_ball_rate": 0.1108,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0491,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -8.7805,
+    "pressure_rate": 0.2612,
+    "splits": {
+      "primary": {
+        "cpoe": -1.2163,
+        "sack_rate": 0.0515,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 3.4334,
+        "sack_rate": 0.0431,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -11.1954,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 2247,
+    "avg_time_to_throw_sec": 2.65,
+    "ngs_aggressiveness_index": 12.4
+  },
+  "Trevor Siemian": {
+    "cpoe": -6.5596,
+    "avg_air_yards_per_att": 6.322,
+    "deep_ball_rate": 0.0974,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0465,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 2.4729,
+    "pressure_rate": 0.2667,
+    "splits": {
+      "primary": {
+        "cpoe": -6.2882,
+        "sack_rate": 0.0546,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -9.5114,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -3.7997,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 390,
+    "avg_time_to_throw_sec": 2.732,
+    "ngs_aggressiveness_index": 18.14
+  },
+  "Trey Lance": {
+    "cpoe": -7.5328,
+    "avg_air_yards_per_att": 7.944,
+    "deep_ball_rate": 0.1242,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0613,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -15.5091,
+    "pressure_rate": 0.3137,
+    "splits": {
+      "primary": {
+        "cpoe": -5.5487,
+        "sack_rate": 0.0432,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -11.2245,
+        "sack_rate": 0.1538,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -7.5328,
+        "sack_rate": 0.1818,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 153,
+    "avg_time_to_throw_sec": 3.023,
+    "ngs_aggressiveness_index": 12.52
+  },
+  "Tua Tagovailoa": {
+    "cpoe": 2.64,
+    "avg_air_yards_per_att": 7.534,
+    "deep_ball_rate": 0.0973,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0471,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -2.6958,
+    "pressure_rate": 0.218,
+    "splits": {
+      "primary": {
+        "cpoe": 2.5949,
+        "sack_rate": 0.0454,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 5.2653,
+        "sack_rate": 0.0612,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -3.4221,
+        "sack_rate": 0.0494,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 1881,
+    "avg_time_to_throw_sec": 2.467,
+    "ngs_aggressiveness_index": 14.39
+  },
+  "Tyler Huntley": {
+    "cpoe": 0.3452,
+    "avg_air_yards_per_att": 7.531,
+    "deep_ball_rate": 0.0866,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0781,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -5.1568,
+    "pressure_rate": 0.2615,
+    "splits": {
+      "primary": {
+        "cpoe": 0.727,
+        "sack_rate": 0.0772,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 1.8727,
+        "sack_rate": 0.0658,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -24.6677,
+        "sack_rate": 0.1429,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 543,
+    "avg_time_to_throw_sec": 2.716,
+    "ngs_aggressiveness_index": 13.9
+  },
+  "Tyrod Taylor": {
+    "cpoe": 1.6426,
+    "avg_air_yards_per_att": 8.034,
+    "deep_ball_rate": 0.1125,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0778,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -1.2783,
+    "pressure_rate": 0.3274,
+    "splits": {
+      "primary": {
+        "cpoe": 2.9014,
+        "sack_rate": 0.0769,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -5.3884,
+        "sack_rate": 0.1042,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -23.9144,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 4,
+    "total_attempts": 391,
+    "avg_time_to_throw_sec": 2.823,
+    "ngs_aggressiveness_index": 14.15
+  },
+  "Tyson Bagent": {
+    "cpoe": -2.1492,
+    "avg_air_yards_per_att": 5.621,
+    "deep_ball_rate": 0.0596,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0321,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -7.8937,
+    "pressure_rate": 0.2384,
+    "splits": {
+      "primary": {
+        "cpoe": -2.3277,
+        "sack_rate": 0.0296,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": 5.8099,
+        "sack_rate": 0.0667,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -2.1492,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 151,
+    "avg_time_to_throw_sec": 2.944,
+    "ngs_aggressiveness_index": 13.99
+  },
+  "Will Levis": {
+    "cpoe": -0.4095,
+    "avg_air_yards_per_att": 9.583,
+    "deep_ball_rate": 0.1581,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0993,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": 0.161,
+    "pressure_rate": 0.3466,
+    "splits": {
+      "primary": {
+        "cpoe": 0.2533,
+        "sack_rate": 0.0949,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -11.0214,
+        "sack_rate": 0.18,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": -0.6053,
+        "sack_rate": 0.0,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 2,
+    "total_attempts": 626,
+    "avg_time_to_throw_sec": 2.749,
+    "ngs_aggressiveness_index": 17.49
+  },
+  "Zach Wilson": {
+    "cpoe": -6.2671,
+    "avg_air_yards_per_att": 7.832,
+    "deep_ball_rate": 0.1003,
+    "scramble_rate": 0.0,
+    "sack_rate": 0.0926,
+    "play_action_rate": 0.0,
+    "under_pressure_cpoe": -13.7588,
+    "pressure_rate": 0.3017,
+    "splits": {
+      "primary": {
+        "cpoe": -6.6432,
+        "sack_rate": 0.0892,
+        "play_action_rate": 0.0
+      },
+      "redzone": {
+        "cpoe": -7.0749,
+        "sack_rate": 0.1132,
+        "play_action_rate": 0.0
+      },
+      "goalline": {
+        "cpoe": 25.3105,
+        "sack_rate": 0.1481,
+        "play_action_rate": 0.0
+      }
+    },
+    "seasons_observed": 3,
+    "total_attempts": 1107,
+    "avg_time_to_throw_sec": 2.987,
+    "ngs_aggressiveness_index": 15.69
+  }
+}
