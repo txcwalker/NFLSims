@@ -53,6 +53,10 @@ jobs:
             any::stringr
             any::data.table
 
+      - name: Run ESPN adapter test
+        run: |
+          Rscript --vanilla R/live/test_espn_fetch.R
+
       - name: Run FD evaluator on ESPN data
         run: |
           Rscript --vanilla -e "

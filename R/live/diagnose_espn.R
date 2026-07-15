@@ -1,4 +1,6 @@
 # R/bots/run_live_today.R
+# Modified to support FORCE_FETCH for testing outside game windows
+# Fixed glue syntax error and added better PBP diagnostics
 
 suppressPackageStartupMessages({
   library(dplyr); library(lubridate); library(glue); library(jsonlite); library(tibble)
