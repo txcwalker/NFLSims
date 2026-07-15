@@ -1,3 +1,15 @@
+"""Simulation-output visualizer (fantasy KDEs, game totals, spreads).
+
+Renders charts from batch simulation logs: per-player fantasy-point KDE curves
+(median / 5th / 95th percentile marked), combined game-total histograms, and
+point-spread distributions. matplotlib/seaborn are lazy-imported inside each
+method (never at module level) to avoid PIL DLL load failures in Windows
+multiprocessing workers.
+
+Entry point: Visualizer(output_dir).plot_*().
+Full design rationale: see visuals.md.
+"""
+
 import os
 
 class Visualizer:

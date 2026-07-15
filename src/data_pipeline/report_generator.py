@@ -1,3 +1,14 @@
+"""Formats weekly simulation CSVs into human-readable box-score text.
+
+Reads a week's game-summary and player-projection CSVs, groups players by game,
+sorts by projected DraftKings points, and writes an aligned plain-text box score
+(game header with scores/plays/win-rate; top-15 players with position-tailored
+usage — comp/att for QBs, rush/targets for skill players).
+
+Entry point: generate_weekly_report(week).
+Full design rationale: see report_generator.md.
+"""
+
 import pandas as pd
 import os
 

@@ -1,3 +1,16 @@
+"""FastAPI service bridging the React frontends and the simulation engine.
+
+Exposes endpoints to compile team rosters/settings, apply in-memory scenario
+overlays (target/carry/pressure/pace overrides with touchdown & carry
+redistribution), dispatch vectorized Monte Carlo simulations via
+ProcessPoolExecutor, and post-process results into DraftKings/FanDuel scoring
+(averages, floors, ceilings, salaries) plus Vegas cover / over-under
+frequencies.
+
+Run via uvicorn (see start_backend_api.bat and AGENTS.md §3 for the port map).
+Full design rationale (endpoints, multiprocessing notes): see app.md.
+"""
+
 import os
 import json
 import math
