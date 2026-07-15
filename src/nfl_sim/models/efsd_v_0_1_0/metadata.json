@@ -1,0 +1,67 @@
+{
+  "version": "V.0.1.0",
+  "features": [
+    "score_differential",
+    "game_seconds_remaining",
+    "down",
+    "ydstogo",
+    "yardline_100",
+    "posteam_timeouts_remaining",
+    "defteam_timeouts_remaining",
+    "receive_2h_ko"
+  ],
+  "train_seasons": [
+    2020,
+    2021,
+    2022,
+    2023
+  ],
+  "test_season": 2024,
+  "included_play_types": [
+    "extra_point",
+    "field_goal",
+    "kickoff",
+    "pass",
+    "punt",
+    "qb_kneel",
+    "qb_spike",
+    "run"
+  ],
+  "hyperparameters": {
+    "objective": "reg:squarederror",
+    "learning_rate": 0.05,
+    "n_estimators": 500,
+    "early_stopping_rounds": 50,
+    "max_depth": 6,
+    "tree_method": "hist"
+  },
+  "metrics": {
+    "test_rmse": 10.110260009765625,
+    "test_mae": 7.531910419464111,
+    "test_r2": 0.49793774816639536,
+    "test_sign_accuracy": 0.7488259194765448,
+    "test_epa_correlation": 0.017832262247052866,
+    "time_bucket": {
+      "Q1": {
+        "rmse": 13.7274180732511,
+        "r2": 0.11500760888173789,
+        "sign_accuracy": 0.5942028985507246
+      },
+      "Q2": {
+        "rmse": 11.55473377316207,
+        "r2": 0.38154927224319446,
+        "sign_accuracy": 0.7040176925912274
+      },
+      "Q3": {
+        "rmse": 8.666410346648302,
+        "r2": 0.6644255005922297,
+        "sign_accuracy": 0.7945568400770713
+      },
+      "Q4": {
+        "rmse": 5.243556422922592,
+        "r2": 0.8258031337793907,
+        "sign_accuracy": 0.8739845078405442
+      }
+    }
+  }
+}

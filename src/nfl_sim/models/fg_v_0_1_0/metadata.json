@@ -1,0 +1,49 @@
+{
+  "version": "V.0.1.0",
+  "model_type": "LogisticRegression",
+  "features": [
+    "kick_distance"
+  ],
+  "feature_derivation": "kick_distance = yardline_100 + 17",
+  "training_years": [
+    2015,
+    2024
+  ],
+  "eda_years": [
+    2016,
+    2025
+  ],
+  "data_source": "nflfastR via nfl_data_py",
+  "split": {
+    "train": 0.7,
+    "validation": 0.15,
+    "test": 0.15
+  },
+  "total_samples": 10624,
+  "overall_success_rate": 0.8458,
+  "metrics": {
+    "validation": {
+      "brier_score": 0.116968,
+      "log_loss": 0.375913,
+      "roc_auc": 0.75016
+    },
+    "test": {
+      "brier_score": 0.115565,
+      "log_loss": 0.370124,
+      "roc_auc": 0.763631
+    }
+  },
+  "comparison": {
+    "logistic_regression": {
+      "val_brier": 0.116968,
+      "val_logloss": 0.375913,
+      "val_auc": 0.75016
+    },
+    "xgboost": {
+      "val_brier": 0.116058,
+      "val_logloss": 0.374776,
+      "val_auc": 0.747345
+    },
+    "selected": "logistic_regression"
+  }
+}

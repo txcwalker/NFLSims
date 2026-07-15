@@ -1,0 +1,280 @@
+{
+  "version": "V.0.3.0",
+  "trained_by": "train.py",
+  "seasons": [
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "split": "GroupShuffleSplit by game_id, 70/15/15 train/val/test",
+  "features": [
+    "yardline_100",
+    "game_seconds_remaining",
+    "score_differential",
+    "timeouts_pos",
+    "timeouts_def",
+    "leverage",
+    "cpoe_by_filter",
+    "target_share_by_filter",
+    "carry_share_by_filter"
+  ],
+  "zones": [
+    "primary",
+    "redzone",
+    "goalline"
+  ],
+  "buckets": [
+    "1_10",
+    "1_long",
+    "1_short",
+    "2_short",
+    "2_med",
+    "2_long",
+    "3_short",
+    "3_med",
+    "3_long",
+    "4_short",
+    "4_med_long"
+  ],
+  "bucket_metrics": {
+    "primary_1_10": {
+      "n_train": 50450,
+      "n_test": 10829,
+      "test_accuracy": 0.6176008865084496,
+      "test_log_loss": 0.6305540756713137,
+      "pred_pass_rate": 0.49616968631744385,
+      "real_pass_rate": 0.4945054945054945
+    },
+    "primary_1_long": {
+      "n_train": 2111,
+      "n_test": 503,
+      "test_accuracy": 0.7077534791252486,
+      "test_log_loss": 0.5929627106103567,
+      "pred_pass_rate": 0.6878015398979187,
+      "real_pass_rate": 0.7017892644135189
+    },
+    "primary_1_short": {
+      "n_train": 311,
+      "n_test": 77,
+      "test_accuracy": 0.5974025974025974,
+      "test_log_loss": 0.6613313330721293,
+      "pred_pass_rate": 0.49171000719070435,
+      "real_pass_rate": 0.4025974025974026
+    },
+    "primary_2_short": {
+      "n_train": 5549,
+      "n_test": 1191,
+      "test_accuracy": 0.7581863979848866,
+      "test_log_loss": 0.5373556032350498,
+      "pred_pass_rate": 0.3700804114341736,
+      "real_pass_rate": 0.3434089000839631
+    },
+    "primary_2_med": {
+      "n_train": 12486,
+      "n_test": 2715,
+      "test_accuracy": 0.6051565377532229,
+      "test_log_loss": 0.6418199464321077,
+      "pred_pass_rate": 0.5399653315544128,
+      "real_pass_rate": 0.5447513812154696
+    },
+    "primary_2_long": {
+      "n_train": 21115,
+      "n_test": 4543,
+      "test_accuracy": 0.7162667840633943,
+      "test_log_loss": 0.5688516623902894,
+      "pred_pass_rate": 0.7050691843032837,
+      "real_pass_rate": 0.6953554919656615
+    },
+    "primary_3_short": {
+      "n_train": 6407,
+      "n_test": 1363,
+      "test_accuracy": 0.5913426265590609,
+      "test_log_loss": 0.6650530726112444,
+      "pred_pass_rate": 0.49888551235198975,
+      "real_pass_rate": 0.4783565663976522
+    },
+    "primary_3_med": {
+      "n_train": 7498,
+      "n_test": 1689,
+      "test_accuracy": 0.8756660746003553,
+      "test_log_loss": 0.3568247564198282,
+      "pred_pass_rate": 0.8656699061393738,
+      "real_pass_rate": 0.866785079928952
+    },
+    "primary_3_long": {
+      "n_train": 9866,
+      "n_test": 2143,
+      "test_accuracy": 0.8763415772281848,
+      "test_log_loss": 0.35420049404497933,
+      "pred_pass_rate": 0.8695437908172607,
+      "real_pass_rate": 0.8735417638824078
+    },
+    "primary_4_short": {
+      "n_train": 1219,
+      "n_test": 275,
+      "test_accuracy": 0.6363636363636364,
+      "test_log_loss": 0.6598493149834627,
+      "pred_pass_rate": 0.38190269470214844,
+      "real_pass_rate": 0.4072727272727273
+    },
+    "primary_4_med_long": {
+      "n_train": 1167,
+      "n_test": 264,
+      "test_accuracy": 0.9053030303030303,
+      "test_log_loss": 0.279922221771509,
+      "pred_pass_rate": 0.9138538241386414,
+      "real_pass_rate": 0.9128787878787878
+    },
+    "redzone_1_10": {
+      "n_train": 4661,
+      "n_test": 973,
+      "test_accuracy": 0.6896197327852004,
+      "test_log_loss": 0.6071249050837924,
+      "pred_pass_rate": 0.43131202459335327,
+      "real_pass_rate": 0.40596094552929085
+    },
+    "redzone_1_long": {
+      "n_train": 129,
+      "n_test": 36,
+      "test_accuracy": 0.5555555555555556,
+      "test_log_loss": 0.8822424638455805,
+      "pred_pass_rate": 0.7683200836181641,
+      "real_pass_rate": 0.5277777777777778
+    },
+    "redzone_1_short": {
+      "n_train": 1540,
+      "n_test": 320,
+      "test_accuracy": 0.675,
+      "test_log_loss": 0.6320256136218237,
+      "pred_pass_rate": 0.3636731505393982,
+      "real_pass_rate": 0.3625
+    },
+    "redzone_2_short": {
+      "n_train": 826,
+      "n_test": 183,
+      "test_accuracy": 0.7377049180327869,
+      "test_log_loss": 0.5638614742138958,
+      "pred_pass_rate": 0.3103751540184021,
+      "real_pass_rate": 0.29508196721311475
+    },
+    "redzone_2_med": {
+      "n_train": 2153,
+      "n_test": 438,
+      "test_accuracy": 0.5593607305936074,
+      "test_log_loss": 0.6677627428010892,
+      "pred_pass_rate": 0.5118839740753174,
+      "real_pass_rate": 0.5251141552511416
+    },
+    "redzone_2_long": {
+      "n_train": 2441,
+      "n_test": 545,
+      "test_accuracy": 0.7155963302752294,
+      "test_log_loss": 0.5733533338450499,
+      "pred_pass_rate": 0.6919192671775818,
+      "real_pass_rate": 0.7174311926605504
+    },
+    "redzone_3_short": {
+      "n_train": 1035,
+      "n_test": 216,
+      "test_accuracy": 0.5972222222222222,
+      "test_log_loss": 0.6799469030614469,
+      "pred_pass_rate": 0.4261210262775421,
+      "real_pass_rate": 0.4351851851851852
+    },
+    "redzone_3_med": {
+      "n_train": 1325,
+      "n_test": 285,
+      "test_accuracy": 0.8421052631578947,
+      "test_log_loss": 0.4344402230521094,
+      "pred_pass_rate": 0.8526113629341125,
+      "real_pass_rate": 0.8315789473684211
+    },
+    "redzone_3_long": {
+      "n_train": 1208,
+      "n_test": 286,
+      "test_accuracy": 0.8881118881118881,
+      "test_log_loss": 0.34280671456070094,
+      "pred_pass_rate": 0.8747990727424622,
+      "real_pass_rate": 0.8811188811188811
+    },
+    "redzone_4_short": {
+      "n_train": 276,
+      "n_test": 50,
+      "test_accuracy": 0.52,
+      "test_log_loss": 0.7180761457907445,
+      "pred_pass_rate": 0.34715062379837036,
+      "real_pass_rate": 0.46
+    },
+    "redzone_4_med_long": {
+      "n_train": 193,
+      "n_test": 46,
+      "test_accuracy": 0.9347826086956522,
+      "test_log_loss": 0.2744694752710284,
+      "pred_pass_rate": 0.8510231375694275,
+      "real_pass_rate": 0.9347826086956522
+    },
+    "goalline_1_10": null,
+    "goalline_1_long": null,
+    "goalline_1_short": {
+      "n_train": 2102,
+      "n_test": 443,
+      "test_accuracy": 0.7110609480812641,
+      "test_log_loss": 0.6046176449739507,
+      "pred_pass_rate": 0.2981569468975067,
+      "real_pass_rate": 0.3227990970654628
+    },
+    "goalline_2_short": {
+      "n_train": 1196,
+      "n_test": 251,
+      "test_accuracy": 0.6653386454183267,
+      "test_log_loss": 0.590617117558892,
+      "pred_pass_rate": 0.3689199686050415,
+      "real_pass_rate": 0.35856573705179284
+    },
+    "goalline_2_med": {
+      "n_train": 637,
+      "n_test": 109,
+      "test_accuracy": 0.5688073394495413,
+      "test_log_loss": 0.6753780819331242,
+      "pred_pass_rate": 0.5798583626747131,
+      "real_pass_rate": 0.5688073394495413
+    },
+    "goalline_2_long": null,
+    "goalline_3_short": {
+      "n_train": 915,
+      "n_test": 178,
+      "test_accuracy": 0.6292134831460674,
+      "test_log_loss": 0.6473246712268326,
+      "pred_pass_rate": 0.4757577180862427,
+      "real_pass_rate": 0.4887640449438202
+    },
+    "goalline_3_med": {
+      "n_train": 361,
+      "n_test": 76,
+      "test_accuracy": 0.8552631578947368,
+      "test_log_loss": 0.4080278753108388,
+      "pred_pass_rate": 0.8607261180877686,
+      "real_pass_rate": 0.8552631578947368
+    },
+    "goalline_3_long": null,
+    "goalline_4_short": {
+      "n_train": 279,
+      "n_test": 64,
+      "test_accuracy": 0.609375,
+      "test_log_loss": 0.7185854211494719,
+      "pred_pass_rate": 0.4650897979736328,
+      "real_pass_rate": 0.453125
+    },
+    "goalline_4_med_long": {
+      "n_train": 73,
+      "n_test": 14,
+      "test_accuracy": 0.8571428571428571,
+      "test_log_loss": 0.4143523313224771,
+      "pred_pass_rate": 0.8105167150497437,
+      "real_pass_rate": 0.8571428571428571
+    }
+  }
+}

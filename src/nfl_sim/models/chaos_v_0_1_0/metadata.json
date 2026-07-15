@@ -1,0 +1,61 @@
+{
+  "version": "V.0.1.0",
+  "gate_1": {
+    "features": [
+      "down",
+      "ydstogo",
+      "yardline_100",
+      "score_differential",
+      "game_seconds_remaining",
+      "is_home"
+    ],
+    "brier": 0.0629990779285533,
+    "logloss": 0.2471008923423098,
+    "prauc": 0.07451995315961364
+  },
+  "gate_2": {
+    "features": [
+      "avg_time_to_throw_sec_qb",
+      "cpoe_qb",
+      "def_pressure_rate",
+      "def_sack_rate",
+      "sack_rate_allowed",
+      "off_sack_rate_l4",
+      "def_sack_rate_l4",
+      "down",
+      "ydstogo",
+      "yardline_100",
+      "score_differential"
+    ],
+    "brier": 0.06493137331798661,
+    "logloss": 0.24981966933582553,
+    "prauc": 0.11158520100714692,
+    "gamma_params": {
+      "shape": 22.34558271437158,
+      "loc": -8.518309781232169,
+      "scale": 0.6963881567035505
+    }
+  },
+  "gate_4": {
+    "features": [
+      "air_yards",
+      "cpoe_qb",
+      "down",
+      "ydstogo",
+      "yardline_100",
+      "score_differential"
+    ],
+    "brier": 0.021451115631792562,
+    "logloss": 0.0999141265590456,
+    "prauc": 0.06262226273542021,
+    "trained_by": "train_gate4.py",
+    "seasons": [
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ]
+  }
+}

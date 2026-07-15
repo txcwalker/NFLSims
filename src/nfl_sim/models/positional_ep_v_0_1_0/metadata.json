@@ -1,0 +1,34 @@
+{
+  "version": "V.0.1.0",
+  "model_type": "xgb.XGBRegressor",
+  "features": [
+    "yardline_100",
+    "down",
+    "ydstogo",
+    "goal_to_go"
+  ],
+  "target": "ep",
+  "xgb_params": {
+    "n_estimators": 300,
+    "max_depth": 4,
+    "learning_rate": 0.05,
+    "subsample": 0.8,
+    "colsample_bytree": 1.0,
+    "min_child_weight": 50,
+    "objective": "reg:squarederror",
+    "tree_method": "hist",
+    "device": "cpu",
+    "seed": 42
+  },
+  "metrics": {
+    "val_rmse": 0.3675178587436676,
+    "val_mae": 0.265149861574173,
+    "test_rmse": 0.3665143847465515,
+    "test_mae": 0.26542747020721436,
+    "n_train": 64901,
+    "n_val": 13908,
+    "n_test": 13908,
+    "best_iteration": 299
+  },
+  "data_source": "data/processed/hardened_pass_training_master_v2_5.csv"
+}
