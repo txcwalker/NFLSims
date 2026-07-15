@@ -72,8 +72,8 @@ tests/
 
 ## 2. Frozen / Legacy Zones
 
-- `legacy/` — do not touch; kept for archival reference only
-- `R/` — R scripts deprecated; Python is the authoritative implementation
+- `legacy/` — do not touch; kept for archival reference only. Its data + model binaries (2.35GB) are gitignored; only code is committed.
+- `R/` (root) — **ACTIVE, not deprecated.** This is the live game-day 4th-down bot: `src/live/main.py` shells out to `Rscript R/simulators/fourth_down/run_one_sim.R`, and both GitHub Actions workflows (`nfl_live.yml`, `nfl_manuel.yml`) run R directly. Python is authoritative for the *simulation engine* (`src/nfl_sim/`), but the *live 4th-down bot* remains R. Only the R under `legacy/` is retired.
 - `frontend/src/pages/InDevelopment.jsx` — chess code removed; no chess page in pagesConfig.js. Do not re-add chess to the DFS site.
 - `scripts/play_by_play_runner.py` — drives the OLD `legacy.game_engine_sequential.SequentialNFLGameEngine`, not the current vectorized engine. Interactive (blocks on stdin). Do not use for verifying current engine behavior — use `scripts/print_play_by_play_v020.py` instead.
 - `MODEL_DEVELOPMENT_STANDARD.md` is referenced by other docs (roadmap, tracker) as the model-audit gate but **does not exist in the repo**. Don't assume it's there.
