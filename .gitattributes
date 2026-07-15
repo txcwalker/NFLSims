@@ -1,0 +1,30 @@
+# Normalize line endings: store text as LF in the repo, check out native locally.
+# Matters here because CI (GitHub Actions) runs the R/Python scripts on Linux.
+* text=auto
+
+# Explicit text types
+*.py    text
+*.R     text
+*.js    text
+*.jsx   text
+*.css   text
+*.html  text
+*.md    text
+*.json  text
+*.yml   text
+*.yaml  text
+*.csv   text
+*.bat   text eol=crlf
+
+# Binary artifacts — never touch line endings
+*.joblib binary
+*.parquet binary
+*.rds   binary
+*.npy   binary
+*.pt    binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.db    binary
+*.duckdb binary
