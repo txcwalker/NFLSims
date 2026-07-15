@@ -1,3 +1,14 @@
+"""Backtests season-vs-recency DNA blending weights against real outcomes.
+
+Sweeps a grid of season-to-L4 blend ratios (100/0 … 0/100), builds temporary
+trait files for each, runs a batch of simulations, and scores projected fantasy
+points against a real historical game via Mean Absolute Error — identifying the
+blend weights that minimize forecast error for the rolling DNA generator.
+
+Entry point: run as a script.
+Full design rationale: see backtest_weights.md.
+"""
+
 import nfl_data_py as nfl
 import pandas as pd
 import numpy as np

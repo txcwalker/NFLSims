@@ -1,3 +1,15 @@
+"""Builds per-player DNA/trait JSONs from raw play-by-play data.
+
+Ingests nfl_data_py PBP (previous season as baseline, blended with the current
+season through a given week), computes each player's carry/target share,
+position, and efficiency metrics (adot, yac, ypc, completion %, sack rate),
+damps them toward league baselines (70/30) to control small samples, clips
+outliers, and exports per-team trait JSONs the engine loads at runtime.
+
+Entry point: RosterManager(data_dir).
+Full design rationale: see roster_manager.md.
+"""
+
 import nfl_data_py as nfl
 import pandas as pd
 import os

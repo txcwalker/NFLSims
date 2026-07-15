@@ -1,3 +1,15 @@
+"""Monte Carlo dispatcher: runs many games and aggregates the results.
+
+Runs thousands of NFLGameEngine simulations (vectorized by default, with a
+sequential worker fallback), then aggregates play-by-play logs into game- and
+player-level projections — means, medians, std, and 5th/95th-percentile floors
+and ceilings — with dynamic slot mapping (QB1/RB1/WR1/TE1…) derived from
+target/carry shares.
+
+Entry point: BatchSimulator(...).run_batch(iterations, vectorized=True).
+Full design rationale: see batch.md.
+"""
+
 import pandas as pd
 import numpy as np
 import os

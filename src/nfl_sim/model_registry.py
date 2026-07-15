@@ -1,3 +1,16 @@
+"""Central registry that loads and serves all trained ML submodels.
+
+Loads and caches every simulation submodel once at startup (chaos, air_yards,
+yac, rush_yards, field_goal, win_probability, fourth_down_conversion, and the
+zone-split play-selection classifiers) so the game engine can fetch predictions
+without repeated file reads. Also holds player-DNA lookups (qb/skill) and
+computes 4th-down win-probability recommendations (Go/Punt/FG), including
+desperation-time overrides when trailing late.
+
+Singleton: ModelRegistry() caches a single instance in memory.
+Full design rationale: see model_registry.md.
+"""
+
 import xgboost as xgb
 import numpy as np
 import os

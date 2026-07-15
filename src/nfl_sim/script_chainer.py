@@ -1,4 +1,16 @@
 
+"""Fallback play sampler for game states outside model coverage.
+
+When an ML submodel is missing or the engine hits a state it can't predict,
+samples a complete historical play (type, yards, turnover/penalty flags) from a
+geography-partitioned pool (redzone: yardline_100<=20 vs. open field) so
+simulation stays realistic and continuous. Falls back to a 55% pass rate and a
+5-yard default gain if the pool CSV is absent.
+
+Entry point: ScriptChainer(pool_path).
+Full design rationale: see script_chainer.md.
+"""
+
 import pandas as pd
 import numpy as np
 import os

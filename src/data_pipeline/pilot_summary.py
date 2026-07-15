@@ -1,3 +1,15 @@
+"""Aggregates multi-week simulation logs into league standings.
+
+Concatenates several weeks of game-summary and player CSVs, computes expected
+standings (xW, PF, PA, plays) per team, and runs a 1,000-season Monte Carlo over
+the simulated win rates to produce win floors/ceilings (10th/90th percentile),
+organized into the 8 NFL divisions — a diagnostic for overall engine balance
+and pacing.
+
+Entry point: run as a script.
+Full design rationale: see pilot_summary.md.
+"""
+
 import pandas as pd
 import os
 import numpy as np

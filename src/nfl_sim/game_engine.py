@@ -1,3 +1,16 @@
+"""Vectorized Monte Carlo NFL game simulation engine.
+
+Simulates N games in parallel using NumPy arrays (yardline, down, distance,
+clock, score, possession as length-N vectors), driving the full play loop —
+play-type selection, air yards / YAC / rush gains, sacks, turnovers, penalties,
+field goals, 4th-down decisions, clock physics, possession changes — via the ML
+submodels in ModelRegistry. True vectorization (boolean masking over N lanes)
+runs thousands of concurrent sims in seconds instead of looping game objects.
+
+Entry point: NFLGameEngine(away, home, year, N).simulate_play_step().
+Full design rationale (SME notes, metric trade-offs): see game_engine.md.
+"""
+
 import numpy as np
 import pandas as pd
 import os
