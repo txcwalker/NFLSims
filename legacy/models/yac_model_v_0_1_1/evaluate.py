@@ -1,3 +1,7 @@
+# RETIRED — evaluates the old single-model YAC trainer (train.py in this same
+# legacy folder), not the deployed zone-split model. DO NOT RUN as a
+# current-model check. Kept for historical reference only. See AGENTS.md §11.7.
+
 import os
 import json
 import pandas as pd
