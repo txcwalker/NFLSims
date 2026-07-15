@@ -31,7 +31,6 @@ data/fourth_down/
 # excluded, same principle as the active data/processed/.
 legacy/data/
 legacy/models_archive/
-legacy/models/
 legacy/**/*.npy
 legacy/**/*.pt
 
@@ -67,6 +66,9 @@ venv_py38_old/
 .env
 logs/
 R/bots/.posted_keys.rds
+# Live bot per-game runtime output (regenerated each run; keep only the README)
+R/bots/live_csv/*.csv
+R/bots/live_csv/*.log
 
 
 # Data cache & artifacts
