@@ -1,4 +1,6 @@
 {
+    "_metadata": {"note": "CIN entry added 2026-07-21 to fix bug #2 (missing team, key never existed). Tier fields (run_block_tier/pass_block_tier/run_stuff_tier/pass_rush_tier) are confirmed dead code as of the v0.4.0 trench migration -- see docs/sims/inputs/README.md §1/§4.1 -- so CIN's tier fields are neutral placeholders (3). qb_cpoe_z is still live (game_engine.py pass_mult calc) -- set to 2.0, an estimate reflecting Joe Burrow's career CPOE (qb_dna.json: 4.597, the highest of any 2025 starter sampled), in line with the KC/BUF/SF tier. Revisit if a real per-team qb_cpoe_z pipeline is ever built."},
+    "CIN": {"run_block_tier": 3, "pass_block_tier": 3, "run_stuff_tier": 3, "pass_rush_tier": 3, "qb_cpoe_z": 2.0},
     "DET": {"run_block_tier": 1, "pass_block_tier": 2, "run_stuff_tier": 2, "pass_rush_tier": 3, "qb_cpoe_z": 1.4},
     "KC": {"run_block_tier": 3, "pass_block_tier": 2, "run_stuff_tier": 1, "pass_rush_tier": 1, "qb_cpoe_z": 2.1},
     "SF": {"run_block_tier": 1, "pass_block_tier": 3, "run_stuff_tier": 2, "pass_rush_tier": 2, "qb_cpoe_z": 1.8},
@@ -16,7 +18,7 @@
     "ATL": {"run_block_tier": 2, "pass_block_tier": 2, "run_stuff_tier": 4, "pass_rush_tier": 4, "qb_cpoe_z": 0.5},
     "TB": {"run_block_tier": 4, "pass_block_tier": 3, "run_stuff_tier": 2, "pass_rush_tier": 3, "qb_cpoe_z": 0.4},
     "SEA": {"run_block_tier": 4, "pass_block_tier": 5, "run_stuff_tier": 3, "pass_rush_tier": 3, "qb_cpoe_z": 0.3},
-    "LAR": {"run_block_tier": 2, "pass_block_tier": 3, "run_stuff_tier": 4, "pass_rush_tier": 4, "qb_cpoe_z": 0.7},
+    "LA": {"run_block_tier": 2, "pass_block_tier": 3, "run_stuff_tier": 4, "pass_rush_tier": 4, "qb_cpoe_z": 0.7},
     "ARI": {"run_block_tier": 3, "pass_block_tier": 4, "run_stuff_tier": 5, "pass_rush_tier": 5, "qb_cpoe_z": 0.6},
     "LAC": {"run_block_tier": 2, "pass_block_tier": 3, "run_stuff_tier": 3, "pass_rush_tier": 3, "qb_cpoe_z": 0.5},
     "MIA": {"run_block_tier": 3, "pass_block_tier": 3, "run_stuff_tier": 4, "pass_rush_tier": 3, "qb_cpoe_z": 0.6},
