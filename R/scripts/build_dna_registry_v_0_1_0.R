@@ -2,19 +2,23 @@
 # DNA Registry Population Build — V.0.1.0
 # Script: R/scripts/build_dna_registry_v_0_1_0.R
 #
-# Purpose: Computes all nflfastR-derivable DNA fields for QB, Skill, Coach,
-#   and Trench DNA registries. NGS-only fields are written as null and flagged.
-#   Output overwrites the seed JSON files in data/dna/.
+# Purpose: Computes nflfastR-derivable Coach DNA and Trench DNA (legacy
+#   fields) registries. build_qb_dna()/build_skill_dna() are kept below for
+#   reference but are NOT called in MAIN as of 2026-07-22 -- qb_dna.json/
+#   skill_dna.json (plus rb/wr/te splits) are now owned by
+#   scripts/roster_management/build_full_name_dna.py, which adds real NGS
+#   fields this script only writes as null. Only run those two functions
+#   again if that Python pipeline is ever retired.
 #
 # Inputs:
-#   - nflfastR PBP 2015-2024 (wider window for career avg reliability)
-#   - nflreadr rosters 2015-2024 (for player position mapping)
+#   - nflfastR PBP (see SEASONS below)
+#   - nflreadr rosters (for player position mapping, build_skill_dna only)
 #
 # Outputs:
-#   - data/dna/qb_dna.json
-#   - data/dna/skill_dna.json
-#   - data/dna/coach_dna.json
-#   - data/dna/trench_dna.json
+#   - data/dna/coach_dna.json (written directly)
+#   - data/dna/_trench_dna_legacy_staging.json (staged -- see merge step in
+#     scripts/roster_management/merge_trench_dna_legacy.py, does NOT touch
+#     trench_dna.json's composite fields from the separate v0.4.0 pipeline)
 #
 # Thresholds:
 #   QB    : >= 100 pass attempts in a season to count as observed
@@ -30,8 +34,18 @@ library(jsonlite)
 library(purrr)
 
 # --- CONFIG ------------------------------------------------------------------
-SEASONS        <- 2015:2024
+# NOTE (2026-07-22): qb_dna.json/skill_dna.json are now owned by
+# scripts/roster_management/build_full_name_dna.py (V.0.3.0, adds NGS fields
+# this R build writes as null) -- this script no longer builds or writes
+# those two files, only coach_dna.json and trench_dna.json (see MAIN below).
+# trench_dna.json also gets composite fields (run_block_off_z etc.) from a
+# separate Python pipeline (scripts/eda/build_trench_dna_composites*.py) for
+# 2025+ -- this script writes its legacy fields to a staging file that a
+# merge step folds in, rather than overwriting trench_dna.json directly, so
+# those composite fields are never at risk from this script.
+SEASONS        <- 2015:2025
 DNA_DIR        <- "data/dna"
+TRENCH_STAGING_PATH <- "data/dna/_trench_dna_legacy_staging.json"
 QB_MIN_ATT     <- 100   # min pass attempts per season
 SKILL_MIN_TGT  <- 30    # min targets per season
 COACH_MIN_PLAYS <- 100  # min pass plays per season
@@ -168,7 +182,7 @@ build_qb_dna <- function(pbp) {
     `_metadata` = list(
       version        = "V.0.1.0",
       created        = as.character(Sys.Date()),
-      source         = "nflfastR PBP 2015-2024",
+      source         = paste0("nflfastR PBP ", paste(range(SEASONS), collapse = "-")),
       seasons        = paste(range(SEASONS), collapse = "-"),
       min_attempts   = QB_MIN_ATT,
       ngs_fields_null = list("ngs_aggressiveness_index", "avg_time_to_throw_sec"),
@@ -298,7 +312,7 @@ build_skill_dna <- function(pbp, rosters) {
     `_metadata` = list(
       version   = "V.0.1.0",
       created   = as.character(Sys.Date()),
-      source    = "nflfastR PBP 2015-2024",
+      source    = paste0("nflfastR PBP ", paste(range(SEASONS), collapse = "-")),
       min_targets = SKILL_MIN_TGT,
       ngs_fields_null = list("avg_separation_yds", "top_speed_mph"),
       deprecation_notice = paste(
@@ -413,7 +427,7 @@ build_coach_dna <- function(pbp, league_ay) {
     `_metadata` = list(
       version   = "V.0.1.0",
       created   = as.character(Sys.Date()),
-      source    = "nflfastR PBP 2015-2024",
+      source    = paste0("nflfastR PBP ", paste(range(SEASONS), collapse = "-")),
       key       = "Coach name (offensive play-caller, HC-level)",
       min_pass_plays = COACH_MIN_PLAYS,
       deprecation_notice = paste(
@@ -504,7 +518,7 @@ build_trench_dna <- function(pbp) {
     `_metadata` = list(
       version   = "V.0.1.0",
       created   = as.character(Sys.Date()),
-      source    = "nflfastR PBP 2015-2024",
+      source    = paste0("nflfastR PBP ", paste(range(SEASONS), collapse = "-")),
       structure = "season > team_abbreviation > metrics",
       ngs_fields_null = list("off_pass_block_win_rate", "times_to_pressure_sec"),
       blitz_note = "blitz_rate is NA if nflfastR version does not include blitz column",
@@ -542,22 +556,18 @@ build_trench_dna <- function(pbp) {
 # =============================================================================
 # MAIN — RUN ALL BUILDS AND WRITE JSON
 # =============================================================================
-message("\n=== STARTING DNA REGISTRY BUILD ===\n")
+message("\n=== STARTING DNA REGISTRY BUILD (coach_dna + trench_dna legacy fields only) ===\n")
 
-qb_dna     <- build_qb_dna(pbp_pass)
-skill_dna  <- build_skill_dna(pbp_pass, rosters)
 coach_dna  <- build_coach_dna(pbp_pass, league_ay)
 trench_dna <- build_trench_dna(pbp_pass)
 
-# Write JSON files
-write_json(qb_dna,     file.path(DNA_DIR, "qb_dna.json"),     pretty = TRUE, auto_unbox = TRUE, na = "null")
-write_json(skill_dna,  file.path(DNA_DIR, "skill_dna.json"),  pretty = TRUE, auto_unbox = TRUE, na = "null")
+# Write JSON files -- coach_dna.json is fully owned by this script, safe to
+# overwrite directly. trench_dna.json is NOT -- write to a staging file for
+# a separate merge step (see scripts/roster_management/merge_trench_dna_legacy.py)
+# so the composite fields another pipeline already wrote for 2025 survive.
 write_json(coach_dna,  file.path(DNA_DIR, "coach_dna.json"),  pretty = TRUE, auto_unbox = TRUE, na = "null")
-write_json(trench_dna, file.path(DNA_DIR, "trench_dna.json"), pretty = TRUE, auto_unbox = TRUE, na = "null")
+write_json(trench_dna, TRENCH_STAGING_PATH, pretty = TRUE, auto_unbox = TRUE, na = "null")
 
 message("\n=== DNA BUILD COMPLETE ===")
-message("Files written to: ", DNA_DIR)
-message("  qb_dna.json     — ", length(qb_dna)    - 1, " QBs")
-message("  skill_dna.json  — ", length(skill_dna) - 1, " skill players")
-message("  coach_dna.json  — ", length(coach_dna) - 1, " coaches")
-message("  trench_dna.json — ", length(trench_dna) - 1, " seasons")
+message("  coach_dna.json — ", length(coach_dna) - 1, " coaches (written directly)")
+message("  trench legacy fields — ", length(trench_dna) - 1, " seasons (staged at ", TRENCH_STAGING_PATH, ", NOT yet merged into trench_dna.json)")

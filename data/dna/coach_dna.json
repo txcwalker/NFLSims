@@ -1,11 +1,22 @@
 {
   "_metadata": {
     "version": "V.0.1.0",
-    "created": "2026-05-15",
-    "source": "nflfastR PBP 2015-2024",
+    "created": "2026-07-22",
+    "source": "nflfastR PBP 2015-2025",
     "key": "Coach name (offensive play-caller, HC-level)",
     "min_pass_plays": 100,
     "deprecation_notice": "coordinator_atlas.json (off_proe, def_proe_allowed) remains active for play_selection overlay. This file supersedes it for Air Yards modeling."
+  },
+  "Aaron Glenn": {
+    "air_yards_tendency": -0.9116,
+    "deep_shot_rate": 0.0916,
+    "screen_rate": 0.1792,
+    "play_action_rate": 0,
+    "no_huddle_rate": 0.1039,
+    "rpo_rate": 0,
+    "conservative_score_bias": 0.052,
+    "seasons_observed": 1,
+    "total_pass_plays": 491
   },
   "Adam Gase": {
     "air_yards_tendency": -0.0444,
@@ -19,15 +30,15 @@
     "total_pass_plays": 2577
   },
   "Andy Reid": {
-    "air_yards_tendency": -0.6143,
-    "deep_shot_rate": 0.1087,
-    "screen_rate": 0.2572,
+    "air_yards_tendency": -0.5693,
+    "deep_shot_rate": 0.1106,
+    "screen_rate": 0.2591,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.0291,
+    "no_huddle_rate": 0.0299,
     "rpo_rate": 0,
-    "conservative_score_bias": 0.0074,
-    "seasons_observed": 10,
-    "total_pass_plays": 6807
+    "conservative_score_bias": -0.0008,
+    "seasons_observed": 11,
+    "total_pass_plays": 7388
   },
   "Anthony Lynn": {
     "air_yards_tendency": -0.1035,
@@ -61,6 +72,17 @@
     "conservative_score_bias": 0.0044,
     "seasons_observed": 3,
     "total_pass_plays": 1509
+  },
+  "Ben Johnson": {
+    "air_yards_tendency": 1.0484,
+    "deep_shot_rate": 0.1571,
+    "screen_rate": 0.1798,
+    "play_action_rate": 0,
+    "no_huddle_rate": 0.0665,
+    "rpo_rate": 0,
+    "conservative_score_bias": -0.074,
+    "seasons_observed": 1,
+    "total_pass_plays": 662
   },
   "Ben McAdoo": {
     "air_yards_tendency": -0.5807,
@@ -118,26 +140,26 @@
     "total_pass_plays": 1939
   },
   "Brian Callahan": {
-    "air_yards_tendency": 0.403,
-    "deep_shot_rate": 0.1195,
-    "screen_rate": 0.2391,
+    "air_yards_tendency": -0.2005,
+    "deep_shot_rate": 0.1088,
+    "screen_rate": 0.2441,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1025,
+    "no_huddle_rate": 0.1197,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0612,
-    "seasons_observed": 1,
-    "total_pass_plays": 527
+    "conservative_score_bias": -0.0154,
+    "seasons_observed": 2,
+    "total_pass_plays": 1094
   },
   "Brian Daboll": {
-    "air_yards_tendency": -0.8499,
-    "deep_shot_rate": 0.0878,
-    "screen_rate": 0.2125,
+    "air_yards_tendency": -0.4858,
+    "deep_shot_rate": 0.0995,
+    "screen_rate": 0.215,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1558,
+    "no_huddle_rate": 0.1664,
     "rpo_rate": 0,
-    "conservative_score_bias": 0.0155,
-    "seasons_observed": 3,
-    "total_pass_plays": 1675
+    "conservative_score_bias": 0.0054,
+    "seasons_observed": 4,
+    "total_pass_plays": 2200
   },
   "Brian Flores": {
     "air_yards_tendency": -0.0054,
@@ -149,6 +171,17 @@
     "conservative_score_bias": -0.0749,
     "seasons_observed": 3,
     "total_pass_plays": 1779
+  },
+  "Brian Schottenheimer": {
+    "air_yards_tendency": 0.3231,
+    "deep_shot_rate": 0.1127,
+    "screen_rate": 0.2013,
+    "play_action_rate": 0,
+    "no_huddle_rate": 0.1208,
+    "rpo_rate": 0,
+    "conservative_score_bias": -0.0892,
+    "seasons_observed": 1,
+    "total_pass_plays": 621
   },
   "Bruce Arians": {
     "air_yards_tendency": 1.3762,
@@ -195,26 +228,26 @@
     "total_pass_plays": 1681
   },
   "Dan Campbell": {
-    "air_yards_tendency": -1.0499,
-    "deep_shot_rate": 0.0876,
-    "screen_rate": 0.2201,
+    "air_yards_tendency": -1.1176,
+    "deep_shot_rate": 0.0838,
+    "screen_rate": 0.2219,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.0674,
+    "no_huddle_rate": 0.069,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0329,
-    "seasons_observed": 4,
-    "total_pass_plays": 2476
+    "conservative_score_bias": -0.0246,
+    "seasons_observed": 5,
+    "total_pass_plays": 3056
   },
   "Dan Quinn": {
-    "air_yards_tendency": 0.105,
-    "deep_shot_rate": 0.1072,
-    "screen_rate": 0.1637,
+    "air_yards_tendency": 0.1761,
+    "deep_shot_rate": 0.1095,
+    "screen_rate": 0.1675,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1847,
+    "no_huddle_rate": 0.2352,
     "rpo_rate": 0,
-    "conservative_score_bias": 0.0122,
-    "seasons_observed": 7,
-    "total_pass_plays": 3984
+    "conservative_score_bias": 0.0139,
+    "seasons_observed": 8,
+    "total_pass_plays": 4447
   },
   "Darrell Bevell": {
     "air_yards_tendency": 0.9793,
@@ -228,15 +261,15 @@
     "total_pass_plays": 315
   },
   "Dave Canales": {
-    "air_yards_tendency": 0.45,
-    "deep_shot_rate": 0.1115,
-    "screen_rate": 0.2029,
+    "air_yards_tendency": -0.2525,
+    "deep_shot_rate": 0.1,
+    "screen_rate": 0.2109,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.0969,
+    "no_huddle_rate": 0.0809,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0911,
-    "seasons_observed": 1,
-    "total_pass_plays": 547
+    "conservative_score_bias": -0.0639,
+    "seasons_observed": 2,
+    "total_pass_plays": 1100
   },
   "David Culley": {
     "air_yards_tendency": -0.4112,
@@ -250,15 +283,15 @@
     "total_pass_plays": 543
   },
   "DeMeco Ryans": {
-    "air_yards_tendency": 0.7983,
-    "deep_shot_rate": 0.1172,
-    "screen_rate": 0.1857,
+    "air_yards_tendency": 0.6864,
+    "deep_shot_rate": 0.114,
+    "screen_rate": 0.169,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.0858,
+    "no_huddle_rate": 0.0747,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0276,
-    "seasons_observed": 2,
-    "total_pass_plays": 1271
+    "conservative_score_bias": -0.0404,
+    "seasons_observed": 3,
+    "total_pass_plays": 1929
   },
   "Dennis Allen": {
     "air_yards_tendency": 0.6523,
@@ -459,15 +492,15 @@
     "total_pass_plays": 1824
   },
   "Jim Harbaugh": {
-    "air_yards_tendency": 1.137,
-    "deep_shot_rate": 0.1317,
-    "screen_rate": 0.1855,
+    "air_yards_tendency": 0.6331,
+    "deep_shot_rate": 0.1304,
+    "screen_rate": 0.1877,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.0612,
+    "no_huddle_rate": 0.0617,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0207,
-    "seasons_observed": 1,
-    "total_pass_plays": 539
+    "conservative_score_bias": -0.0156,
+    "seasons_observed": 2,
+    "total_pass_plays": 1135
   },
   "Jim Tomsula": {
     "air_yards_tendency": -0.9948,
@@ -514,15 +547,15 @@
     "total_pass_plays": 1547
   },
   "John Harbaugh": {
-    "air_yards_tendency": 0.1232,
-    "deep_shot_rate": 0.1193,
-    "screen_rate": 0.1893,
+    "air_yards_tendency": 0.137,
+    "deep_shot_rate": 0.1188,
+    "screen_rate": 0.1888,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.0898,
+    "no_huddle_rate": 0.0857,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0025,
-    "seasons_observed": 10,
-    "total_pass_plays": 5626
+    "conservative_score_bias": 0.0006,
+    "seasons_observed": 11,
+    "total_pass_plays": 6045
   },
   "Jon Gruden": {
     "air_yards_tendency": -0.5835,
@@ -536,15 +569,15 @@
     "total_pass_plays": 1814
   },
   "Jonathan Gannon": {
-    "air_yards_tendency": -0.5435,
-    "deep_shot_rate": 0.1049,
-    "screen_rate": 0.2263,
+    "air_yards_tendency": -0.5842,
+    "deep_shot_rate": 0.1015,
+    "screen_rate": 0.2242,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1259,
+    "no_huddle_rate": 0.1279,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0087,
-    "seasons_observed": 2,
-    "total_pass_plays": 1096
+    "conservative_score_bias": -0.0197,
+    "seasons_observed": 3,
+    "total_pass_plays": 1744
   },
   "Josh McDaniels": {
     "air_yards_tendency": 0.9799,
@@ -556,6 +589,17 @@
     "conservative_score_bias": 0.0061,
     "seasons_observed": 2,
     "total_pass_plays": 847
+  },
+  "Kellen Moore": {
+    "air_yards_tendency": 0.3402,
+    "deep_shot_rate": 0.1265,
+    "screen_rate": 0.1863,
+    "play_action_rate": 0,
+    "no_huddle_rate": 0.2274,
+    "rpo_rate": 0,
+    "conservative_score_bias": -0.0197,
+    "seasons_observed": 1,
+    "total_pass_plays": 585
   },
   "Ken Whisenhunt": {
     "air_yards_tendency": 0.4752,
@@ -569,26 +613,26 @@
     "total_pass_plays": 546
   },
   "Kevin O'Connell": {
-    "air_yards_tendency": 0.1756,
-    "deep_shot_rate": 0.1117,
-    "screen_rate": 0.1949,
+    "air_yards_tendency": 0.1272,
+    "deep_shot_rate": 0.1143,
+    "screen_rate": 0.2032,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1622,
+    "no_huddle_rate": 0.1521,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0425,
-    "seasons_observed": 3,
-    "total_pass_plays": 1924
+    "conservative_score_bias": -0.0421,
+    "seasons_observed": 4,
+    "total_pass_plays": 2407
   },
   "Kevin Stefanski": {
-    "air_yards_tendency": 0.4186,
-    "deep_shot_rate": 0.1152,
-    "screen_rate": 0.1923,
+    "air_yards_tendency": 0.1876,
+    "deep_shot_rate": 0.1132,
+    "screen_rate": 0.1992,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1118,
+    "no_huddle_rate": 0.1109,
     "rpo_rate": 0,
-    "conservative_score_bias": 0.0154,
-    "seasons_observed": 5,
-    "total_pass_plays": 2943
+    "conservative_score_bias": 0.0187,
+    "seasons_observed": 6,
+    "total_pass_plays": 3499
   },
   "Kliff Kingsbury": {
     "air_yards_tendency": -0.4417,
@@ -602,15 +646,26 @@
     "total_pass_plays": 2402
   },
   "Kyle Shanahan": {
-    "air_yards_tendency": -0.4353,
-    "deep_shot_rate": 0.0932,
-    "screen_rate": 0.1978,
+    "air_yards_tendency": -0.4135,
+    "deep_shot_rate": 0.0939,
+    "screen_rate": 0.1919,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.066,
+    "no_huddle_rate": 0.0645,
     "rpo_rate": 0,
-    "conservative_score_bias": 0.0105,
-    "seasons_observed": 8,
-    "total_pass_plays": 4529
+    "conservative_score_bias": 0.0043,
+    "seasons_observed": 9,
+    "total_pass_plays": 5163
+  },
+  "Liam Coen": {
+    "air_yards_tendency": 0.9217,
+    "deep_shot_rate": 0.1356,
+    "screen_rate": 0.1814,
+    "play_action_rate": 0,
+    "no_huddle_rate": 0.0966,
+    "rpo_rate": 0,
+    "conservative_score_bias": -0.0169,
+    "seasons_observed": 1,
+    "total_pass_plays": 590
   },
   "Lovie Smith": {
     "air_yards_tendency": 0.6467,
@@ -646,15 +701,15 @@
     "total_pass_plays": 1451
   },
   "Matt LaFleur": {
-    "air_yards_tendency": 0.3806,
-    "deep_shot_rate": 0.1497,
-    "screen_rate": 0.2632,
+    "air_yards_tendency": 0.4684,
+    "deep_shot_rate": 0.1502,
+    "screen_rate": 0.2592,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.0692,
+    "no_huddle_rate": 0.0732,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0109,
-    "seasons_observed": 6,
-    "total_pass_plays": 3567
+    "conservative_score_bias": -0.0032,
+    "seasons_observed": 7,
+    "total_pass_plays": 4101
   },
   "Matt Nagy": {
     "air_yards_tendency": 0.2482,
@@ -690,15 +745,15 @@
     "total_pass_plays": 1304
   },
   "Mike Macdonald": {
-    "air_yards_tendency": -0.7464,
-    "deep_shot_rate": 0.1184,
-    "screen_rate": 0.2403,
+    "air_yards_tendency": -0.2819,
+    "deep_shot_rate": 0.1165,
+    "screen_rate": 0.2079,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.2386,
+    "no_huddle_rate": 0.1657,
     "rpo_rate": 0,
-    "conservative_score_bias": 0.024,
-    "seasons_observed": 1,
-    "total_pass_plays": 591
+    "conservative_score_bias": 0.0292,
+    "seasons_observed": 2,
+    "total_pass_plays": 1159
   },
   "Mike McCarthy": {
     "air_yards_tendency": 0.0244,
@@ -723,15 +778,15 @@
     "total_pass_plays": 1243
   },
   "Mike McDaniel": {
-    "air_yards_tendency": 0.0181,
-    "deep_shot_rate": 0.1089,
-    "screen_rate": 0.242,
+    "air_yards_tendency": -0.1511,
+    "deep_shot_rate": 0.1063,
+    "screen_rate": 0.2475,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.06,
+    "no_huddle_rate": 0.0588,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0159,
-    "seasons_observed": 3,
-    "total_pass_plays": 1818
+    "conservative_score_bias": -0.0193,
+    "seasons_observed": 4,
+    "total_pass_plays": 2295
   },
   "Mike Mularkey": {
     "air_yards_tendency": 0.9106,
@@ -756,26 +811,26 @@
     "total_pass_plays": 607
   },
   "Mike Tomlin": {
-    "air_yards_tendency": -0.0094,
-    "deep_shot_rate": 0.1304,
-    "screen_rate": 0.2295,
+    "air_yards_tendency": -0.154,
+    "deep_shot_rate": 0.1277,
+    "screen_rate": 0.2369,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1682,
+    "no_huddle_rate": 0.1663,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0035,
-    "seasons_observed": 10,
-    "total_pass_plays": 6248
+    "conservative_score_bias": -0.0078,
+    "seasons_observed": 11,
+    "total_pass_plays": 6830
   },
   "Mike Vrabel": {
-    "air_yards_tendency": 0.3049,
-    "deep_shot_rate": 0.114,
-    "screen_rate": 0.1945,
+    "air_yards_tendency": 0.5225,
+    "deep_shot_rate": 0.1213,
+    "screen_rate": 0.188,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1275,
+    "no_huddle_rate": 0.114,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0163,
-    "seasons_observed": 6,
-    "total_pass_plays": 2956
+    "conservative_score_bias": -0.0032,
+    "seasons_observed": 7,
+    "total_pass_plays": 3579
   },
   "Mike Zimmer": {
     "air_yards_tendency": -0.7291,
@@ -800,15 +855,15 @@
     "total_pass_plays": 508
   },
   "Nick Sirianni": {
-    "air_yards_tendency": 0.5949,
-    "deep_shot_rate": 0.1252,
-    "screen_rate": 0.2124,
+    "air_yards_tendency": 0.7094,
+    "deep_shot_rate": 0.1279,
+    "screen_rate": 0.2037,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1919,
+    "no_huddle_rate": 0.1962,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0322,
-    "seasons_observed": 4,
-    "total_pass_plays": 2293
+    "conservative_score_bias": -0.0272,
+    "seasons_observed": 5,
+    "total_pass_plays": 2823
   },
   "Pat Shurmur": {
     "air_yards_tendency": -0.416,
@@ -822,26 +877,26 @@
     "total_pass_plays": 1188
   },
   "Pete Carroll": {
-    "air_yards_tendency": 0.6782,
-    "deep_shot_rate": 0.1382,
-    "screen_rate": 0.1993,
+    "air_yards_tendency": 0.4692,
+    "deep_shot_rate": 0.1345,
+    "screen_rate": 0.204,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1023,
+    "no_huddle_rate": 0.1041,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0515,
-    "seasons_observed": 9,
-    "total_pass_plays": 5013
+    "conservative_score_bias": -0.0325,
+    "seasons_observed": 10,
+    "total_pass_plays": 5525
   },
   "Raheem Morris": {
-    "air_yards_tendency": 0.2801,
-    "deep_shot_rate": 0.1177,
-    "screen_rate": 0.1863,
+    "air_yards_tendency": 0.1258,
+    "deep_shot_rate": 0.1152,
+    "screen_rate": 0.1968,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.13,
+    "no_huddle_rate": 0.1363,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0765,
-    "seasons_observed": 2,
-    "total_pass_plays": 977
+    "conservative_score_bias": -0.052,
+    "seasons_observed": 3,
+    "total_pass_plays": 1519
   },
   "Rex Ryan": {
     "air_yards_tendency": 1.4527,
@@ -899,48 +954,48 @@
     "total_pass_plays": 5259
   },
   "Sean McDermott": {
-    "air_yards_tendency": 0.8729,
-    "deep_shot_rate": 0.1424,
-    "screen_rate": 0.1992,
+    "air_yards_tendency": 0.7448,
+    "deep_shot_rate": 0.1395,
+    "screen_rate": 0.2046,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1147,
+    "no_huddle_rate": 0.1066,
     "rpo_rate": 0,
-    "conservative_score_bias": 0.0019,
-    "seasons_observed": 8,
-    "total_pass_plays": 4900
+    "conservative_score_bias": -0.0027,
+    "seasons_observed": 9,
+    "total_pass_plays": 5468
   },
   "Sean McVay": {
-    "air_yards_tendency": -0.1642,
-    "deep_shot_rate": 0.1069,
-    "screen_rate": 0.2058,
+    "air_yards_tendency": 0.0637,
+    "deep_shot_rate": 0.1136,
+    "screen_rate": 0.197,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1895,
+    "no_huddle_rate": 0.1794,
     "rpo_rate": 0,
-    "conservative_score_bias": 0.0038,
-    "seasons_observed": 8,
-    "total_pass_plays": 5025
+    "conservative_score_bias": 0.0031,
+    "seasons_observed": 9,
+    "total_pass_plays": 5737
   },
   "Sean Payton": {
-    "air_yards_tendency": -0.9674,
-    "deep_shot_rate": 0.1081,
-    "screen_rate": 0.2328,
+    "air_yards_tendency": -0.928,
+    "deep_shot_rate": 0.1093,
+    "screen_rate": 0.2357,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.0657,
+    "no_huddle_rate": 0.0771,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.033,
-    "seasons_observed": 9,
-    "total_pass_plays": 5339
+    "conservative_score_bias": -0.036,
+    "seasons_observed": 10,
+    "total_pass_plays": 6028
   },
   "Shane Steichen": {
-    "air_yards_tendency": 1.1918,
-    "deep_shot_rate": 0.1438,
-    "screen_rate": 0.176,
+    "air_yards_tendency": 0.8583,
+    "deep_shot_rate": 0.1301,
+    "screen_rate": 0.1834,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.1364,
+    "no_huddle_rate": 0.1104,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0776,
-    "seasons_observed": 2,
-    "total_pass_plays": 1085
+    "conservative_score_bias": -0.0541,
+    "seasons_observed": 3,
+    "total_pass_plays": 1630
   },
   "Steve Spagnuolo": {
     "air_yards_tendency": -1.5226,
@@ -965,15 +1020,15 @@
     "total_pass_plays": 786
   },
   "Todd Bowles": {
-    "air_yards_tendency": 0.032,
-    "deep_shot_rate": 0.1233,
-    "screen_rate": 0.2123,
+    "air_yards_tendency": 0.0565,
+    "deep_shot_rate": 0.1234,
+    "screen_rate": 0.2145,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.107,
+    "no_huddle_rate": 0.102,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0305,
-    "seasons_observed": 7,
-    "total_pass_plays": 4226
+    "conservative_score_bias": -0.0302,
+    "seasons_observed": 8,
+    "total_pass_plays": 4783
   },
   "Tom Coughlin": {
     "air_yards_tendency": -0.8382,
@@ -1020,14 +1075,14 @@
     "total_pass_plays": 1597
   },
   "Zac Taylor": {
-    "air_yards_tendency": -0.4959,
-    "deep_shot_rate": 0.0972,
-    "screen_rate": 0.2218,
+    "air_yards_tendency": -0.4901,
+    "deep_shot_rate": 0.0996,
+    "screen_rate": 0.2206,
     "play_action_rate": 0,
-    "no_huddle_rate": 0.044,
+    "no_huddle_rate": 0.0425,
     "rpo_rate": 0,
-    "conservative_score_bias": -0.0227,
-    "seasons_observed": 6,
-    "total_pass_plays": 3860
+    "conservative_score_bias": -0.018,
+    "seasons_observed": 7,
+    "total_pass_plays": 4497
   }
 }

@@ -20,12 +20,12 @@ def clean_name(name):
 
 def main():
     print("=== STARTING FULL NAME DNA REGISTRY BUILD ===")
-    seasons = list(range(2021, 2025))
+    seasons = list(range(2021, 2026))
     dna_dir = "data/dna"
     os.makedirs(dna_dir, exist_ok=True)
-    
+
     # 1. LOAD ROSTERS
-    print("Loading rosters (2021-2024)...")
+    print(f"Loading rosters ({seasons[0]}-{seasons[-1]})...")
     rosters_raw = nfl.import_seasonal_rosters(seasons)
     # Deduplicate rosters by gsis_id (or player_id) taking the most common position and full name
     roster_lookup = rosters_raw.dropna(subset=['player_id', 'player_name']).copy()
@@ -44,7 +44,7 @@ def main():
     print(f"Loaded {len(player_id_to_name)} unique player profiles from rosters.")
 
     # 2. LOAD PLAY-BY-PLAY DATA
-    print("Loading Play-by-Play data (2016-2024)...")
+    print(f"Loading Play-by-Play data ({seasons[0]}-{seasons[-1]})...")
     pbp_raw = nfl.import_pbp_data(seasons)
     
     pbp = pbp_raw[pbp_raw['play_type'].isin(['pass', 'run'])].copy()
@@ -409,9 +409,9 @@ def main():
     
     # Metadata block
     metadata = {
-        "version": "V.0.2.0",
-        "created": "2026-06-01",
-        "source": "nflfastR / NGS 2016-2024",
+        "version": "V.0.3.0",
+        "created": "2026-07-22",
+        "source": f"nflfastR / NGS {seasons[0]}-{seasons[-1]}",
         "name_format": "Unique Full Display Name (Cleaned Suffixes)"
     }
     
