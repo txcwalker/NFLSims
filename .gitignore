@@ -4,8 +4,25 @@
 # Tracked (NOT ignored): data/dna, data/current_rosters, data/external
 #   — JSON/CSV inputs the Python engine actually consumes.
 # Ignored below: regeneratable caches, runtime state, and legacy R data.
+# Ignored below (2026-07-22): a handful of data/dna and data/current_rosters
+#   files that ARE large AND fully, deterministically regeneratable by
+#   scripts/roster_management/regenerate_dna_v_0_1_0.py (run that after a
+#   fresh clone). Everything else in data/dna/current_rosters stays tracked
+#   — either it's small, or it contains real hand-curated judgment (rookie
+#   projections, coach maps, trench_tiers estimates) with no regeneration
+#   script, or (trench_dna.json specifically) part of its content depends on
+#   an unverified upstream chain — see regenerate_dna_v_0_1_0.py's docstring.
 # NOTE: .gitignore does NOT support trailing/inline comments — every pattern
 # must be alone on its line, or the comment becomes part of the pattern.
+
+# Regenerate via scripts/roster_management/regenerate_dna_v_0_1_0.py
+data/dna/qb_dna.json
+data/dna/rb_dna.json
+data/dna/wr_dna.json
+data/dna/te_dna.json
+data/dna/skill_dna.json
+data/dna/coach_dna.json
+data/current_rosters/*_traits_2026.json
 
 # 295MB training-master CSV + pools (regenerated from nflverse pulls)
 data/processed/

@@ -20,6 +20,12 @@ def clean_name(name):
 
 def main():
     print("=== STARTING FULL NAME DNA REGISTRY BUILD ===")
+    # Fixed seed: top_speed_mph/contested_catch_rate fallbacks below use
+    # np.random for players with no real NGS data. Without a seed, rerunning
+    # this script produces different placeholder values each time -- harmless
+    # for a one-off build, but breaks reproducibility if this file is ever
+    # gitignored and regenerated from scratch instead of version-controlled.
+    np.random.seed(2026)
     seasons = list(range(2021, 2026))
     dna_dir = "data/dna"
     os.makedirs(dna_dir, exist_ok=True)
