@@ -1,11 +1,13 @@
 import json
 import os
 import glob
+import sys
 
 def main():
-    print("=== STARTING ROSTER INTEGRITY VALIDATION ===")
+    year = sys.argv[1] if len(sys.argv) > 1 else "2025"
+    print(f"=== STARTING ROSTER INTEGRITY VALIDATION ({year}) ===")
     rosters_dir = "data/current_rosters"
-    roster_files = glob.glob(os.path.join(rosters_dir, "*_traits_2025.json"))
+    roster_files = glob.glob(os.path.join(rosters_dir, f"*_traits_{year}.json"))
     
     passed_teams = 0
     failed_teams = 0
