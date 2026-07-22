@@ -37,14 +37,14 @@ class NFLGameEngine:
             'trench': self._load_json('data/dna/trench_dna.json')
         }
         
-        self.team_coaches = team_coaches if team_coaches is not None else self._load_json('data/dna/team_to_coach_2025.json')
+        self.team_coaches = team_coaches if team_coaches is not None else self._load_json(f'data/dna/team_to_coach_{self.year}.json')
         self.rosters = rosters if rosters is not None else {
             away_team: self._load_json(f"data/current_rosters/{away_team}_traits_{self.year}.json").get('traits', {}),
             home_team: self._load_json(f"data/current_rosters/{home_team}_traits_{self.year}.json").get('traits', {})
         }
         
         # Trench Tiers
-        self.trench_tiers = trench_tiers if trench_tiers is not None else self._load_json('data/dna/trench_tiers_2025.json')
+        self.trench_tiers = trench_tiers if trench_tiers is not None else self._load_json(f'data/dna/trench_tiers_{self.year}.json')
         
         # Precompute static coach aggression adjustments
         self.coach_aggression = {}
