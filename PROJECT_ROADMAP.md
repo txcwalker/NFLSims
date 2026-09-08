@@ -12,7 +12,7 @@
 *Everything in the platform is downstream of an accurate, validated season simulator. This ships first.*
 
 ### Phase 0 — Model Documentation Audit *(Gate: Required before any model is considered production-ready)*
-> See `MODEL_DEVELOPMENT_STANDARD.md` for the full EDA → Decision → Evaluation pipeline.
+> See the Model Development Standard (Cam's cross-project modeling standard, kept outside this repo — see `AGENTS.md` §2) for the full EDA → Decision → Evaluation pipeline.
 - [x] Play type selection — EDA doc, Decision doc, Eval doc
 - [x] Air yards — EDA doc, Decision doc, Eval doc
 - [x] Rush yards — EDA doc, Decision doc, Eval doc

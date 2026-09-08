@@ -9,7 +9,7 @@ function Standings() {
   useEffect(() => {
     async function loadStandings() {
       try {
-        const fullList = await ApiService.getFullStandings();
+        const fullList = await ApiService.getSeason2026Standings();
         setStandings(fullList || []);
       } catch (err) {
         console.error('Failed to load full standings', err);
@@ -23,8 +23,8 @@ function Standings() {
   // Helper to group teams by Conference and Division
   const getTeamsByDiv = (conf, div) => {
     return standings
-      .filter(t => t.conference === conf && t.division === div)
-      .sort((a, b) => b.wins - a.wins);
+      .filter(t => t.Conference === conf && t.Division === div)
+      .sort((a, b) => b.Wins_Expected - a.Wins_Expected);
   };
 
   const divisions = ['East', 'North', 'South', 'West'];
@@ -57,29 +57,29 @@ function Standings() {
                   <tbody>
                     {teams.map((t, idx) => {
                       const isLeader = idx === 0;
-                      const hasGlow = t.playoff_pct > 75.0;
+                      const hasGlow = t['Playoffs_%'] > 75.0;
                       return (
-                        <tr 
-                          key={t.team} 
+                        <tr
+                          key={t.Team}
                           style={hasGlow ? { backgroundColor: 'rgba(0, 242, 254, 0.02)' } : {}}
                         >
-                          <td style={{ 
-                            padding: '10px 12px', 
+                          <td style={{
+                            padding: '10px 12px',
                             fontWeight: isLeader ? '700' : '400',
                             color: isLeader ? 'var(--accent-cyan)' : 'var(--text-primary)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '4px'
                           }}>
-                            {t.team} {isLeader && <Trophy size={10} style={{ color: 'var(--accent-orange)' }} />}
+                            {t.Team} {isLeader && <Trophy size={10} style={{ color: 'var(--accent-orange)' }} />}
                           </td>
-                          <td style={{ padding: '10px 12px' }}>{t.wins.toFixed(1)}-{t.losses.toFixed(1)}</td>
+                          <td style={{ padding: '10px 12px' }}>{t.Wins_Expected.toFixed(1)}-{t.Losses_Expected.toFixed(1)}</td>
                           <td style={{ padding: '10px 12px' }}>
-                            <span className={t.playoff_pct > 50.0 ? 'badge badge-green' : 'badge badge-outline'} style={{ fontSize: '10px', padding: '1px 4px' }}>
-                              {t.playoff_pct}%
+                            <span className={t['Playoffs_%'] > 50.0 ? 'badge badge-green' : 'badge badge-outline'} style={{ fontSize: '10px', padding: '1px 4px' }}>
+                              {t['Playoffs_%'].toFixed(0)}%
                             </span>
                           </td>
-                          <td style={{ padding: '10px 12px', color: 'var(--accent-orange)', fontWeight: '600' }}>{t.super_bowl_pct}%</td>
+                          <td style={{ padding: '10px 12px', color: 'var(--accent-orange)', fontWeight: '600' }}>{t['Champion_%'].toFixed(1)}%</td>
                         </tr>
                       );
                     })}
@@ -97,7 +97,7 @@ function Standings() {
     <div>
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '24px' }}>Simulated Playoff Standings</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>10,000 full-season runs predicting simulated record ranges, division leadership, and championship rates.</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>272 real matchups x 1,000 iterations, 100-season Monte Carlo predicting simulated record ranges, division leadership, and championship rates.</p>
       </div>
 
       {loading ? (

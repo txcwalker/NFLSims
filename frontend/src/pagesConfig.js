@@ -40,6 +40,22 @@ export const PAGES = [
     description: 'Build optimal DraftKings and FanDuel lineups using mathematical constraints (knapsack solver) on simulated projections.'
   },
   {
+    id: 'cash_lineups',
+    label: 'Cash Lineups',
+    showInNavbar: true,
+    category: 'tool',
+    icon: '💰',
+    description: "This slate's own top cash-optimal (pure median, zero-variance) lineup builds -- also the consensus signal feeding ownership projections."
+  },
+  {
+    id: 'leverage',
+    label: 'Ownership Leverage',
+    showInNavbar: true,
+    category: 'tool',
+    icon: '🎯',
+    description: 'Median, ceiling, optimal-lineup rate, and projected ownership for every player -- leverage = optimal% - own%.'
+  },
+  {
     id: 'props',
     label: 'Prop Bet Finder',
     showInNavbar: true,

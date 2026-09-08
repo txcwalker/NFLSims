@@ -1,0 +1,516 @@
+"""Live NFL salary feed from DraftKings' public lobby/draftgroups JSON endpoints.
+
+There is no official DraftKings developer API for salaries or contests -- this
+calls the same unauthenticated, undocumented endpoints DK's own website calls
+(see docs/todo/dk_contest_api.md for background/history). No auth required as
+of writing, but the shape or availability could change without notice, so
+every public function here fails soft (returns empty/stale data) rather than
+raising -- callers (src/api/app.py's get_week_salaries() and get_rosters())
+always have calculate_dfs_salary()'s synthetic estimate to fall back to per
+player when a real salary isn't found.
+
+Validated 2026-08-22 against DK's live "Main Slate" Classic contest (draft
+group 151307): 638/678 (94%) of 2026 roster players matched by name+team after
+normalization; the rest are deep bench/practice-squad players DK's salary pool
+doesn't include at all (expected, not a matching bug).
+
+Salaries live at the draft-group level, not the contest level -- every
+contest built on the same draft group (Millionaire Maker, Double-Ups, single-
+entry, etc.) draws from one identical player pool, so a single draftables
+fetch per slate covers every contest on it. The lobby fetch is only needed to
+discover which draft group IDs exist and which contests hang off each one.
+"""
+
+import difflib
+import json
+import os
+import re
+import time
+from typing import Any, Dict, List, Optional, Tuple
+
+import requests
+
+LOBBY_URL = "https://www.draftkings.com/lobby/getcontests?sport=NFL"
+DRAFTABLES_URL = "https://api.draftkings.com/draftgroups/v1/draftgroups/{draft_group_id}/draftables"
+CONTEST_DETAIL_URL = "https://api.draftkings.com/contests/v1/contests/{contest_id}?format=json"
+HEADERS = {"User-Agent": "Mozilla/5.0"}
+REQUEST_TIMEOUT_SECONDS = 8
+CACHE_TTL_SECONDS = 30 * 60
+
+# Auto-accept threshold for a fuzzy name match (difflib ratio, 0-1). A wrong
+# fuzzy match silently assigns the wrong player's salary -- much worse than a
+# miss, which just falls back to the visible synthetic estimate -- so this is
+# set high and deliberately not user-configurable without touching the code.
+FUZZY_MATCH_THRESHOLD = 0.90
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ALIAS_FILE_PATH = os.path.join(BASE_DIR, "data", "dna", "dk_name_aliases.json")
+
+_SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "v"}
+
+# In-process cache, split in two because the two DK calls have different
+# scopes: the lobby (contests + slate list) is one fetch that covers every
+# slate, while draftables (salaries) is one fetch per slate and only needed
+# for slates someone actually asked for. Both share the same 30-minute TTL.
+# Neither is ever cleared to empty on a failed refresh -- a stale salary is
+# far more useful than none.
+_lobby_cache: Dict[str, Any] = {
+    "fetched_at": None,
+    "contests_by_dg": {},          # {draft_group_id: [contest dict, ...]}
+    "slates": [],                  # see get_dk_slates()
+    "default_draft_group_id": None,
+}
+_slate_caches: Dict[int, Dict[str, Any]] = {}  # draft_group_id -> {fetched_at, players, defense, player_ids, defense_ids, teams}
+
+_alias_cache: Optional[Dict[str, Dict[str, Any]]] = None
+
+
+def normalize_player_name(name: str) -> str:
+    """Case/punctuation/suffix-insensitive key for matching a DK displayName
+    against our internal roster traits name (e.g. DK's "Amon-Ra St. Brown" vs
+    our "Amon-Ra St Brown"; DK's "James Cook III" vs our "James Cook")."""
+    name = name.replace(".", "")
+    name = re.sub(r"\s+", " ", name).strip().lower()
+    parts = name.split(" ")
+    if parts and parts[-1] in _SUFFIXES:
+        parts = parts[:-1]
+    return " ".join(parts)
+
+
+def _load_aliases() -> Dict[str, Dict[str, Any]]:
+    """Persisted internal-name -> DK-name overrides, built up automatically
+    by resolve_dk_salary()'s fuzzy-match step so a given naming mismatch
+    (nickname, missing hyphen, etc.) only ever needs to be resolved once --
+    every later week reads the alias straight back instead of re-running
+    difflib. Missing/corrupt file both just mean 'no aliases yet'."""
+    global _alias_cache
+    if _alias_cache is not None:
+        return _alias_cache
+    if os.path.exists(ALIAS_FILE_PATH):
+        try:
+            with open(ALIAS_FILE_PATH, "r") as f:
+                _alias_cache = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            _alias_cache = {}
+    else:
+        _alias_cache = {}
+    return _alias_cache
+
+
+def _save_alias(internal_key: str, dk_name_norm: str, confidence: float) -> None:
+    aliases = _load_aliases()
+    aliases[internal_key] = {
+        "dk_name": dk_name_norm,
+        "confidence": round(confidence, 4),
+        "matched_on": time.strftime("%Y-%m-%d"),
+    }
+    try:
+        os.makedirs(os.path.dirname(ALIAS_FILE_PATH), exist_ok=True)
+        with open(ALIAS_FILE_PATH, "w") as f:
+            json.dump(aliases, f, indent=2, sort_keys=True)
+    except OSError as e:
+        print(f"DK scraper: failed to persist name alias for {internal_key}: {e}")
+
+
+def resolve_dk_salary(name: str, team: str, dk: Dict[str, Any]) -> Tuple[Optional[int], Optional[int]]:
+    """Resolves a real DK salary + draftableId for one internal roster player,
+    trying progressively looser matches so a DK naming quirk doesn't silently
+    fall back to the synthetic salary estimate when a real one is available:
+
+      1. Exact match on normalize_player_name(name) + team (the common case,
+         ~94% of a roster per this module's 2026-08-22 validation).
+      2. A previously-confirmed alias for this exact (name, team) pair, from
+         data/dna/dk_name_aliases.json -- built by step 3 below, so the fuzzy
+         match only ever has to run once per mismatched player.
+      3. A fuzzy match (difflib ratio) against every DK player on the same
+         team, auto-accepted only at FUZZY_MATCH_THRESHOLD (0.90) or above
+         and immediately persisted to the alias file. Scoped to team, not
+         the whole slate, to keep the candidate pool small (~10-20 names)
+         and avoid cross-team false positives.
+
+    Returns (salary, draftable_id) -- both None if nothing cleared the bar,
+    same as a straight dict-lookup miss, so callers fall back to
+    calculate_dfs_salary() exactly as before.
+    """
+    name_norm = normalize_player_name(name)
+    key = (name_norm, team)
+    if key in dk["players"]:
+        return dk["players"][key], dk["player_ids"].get(key)
+
+    internal_key = f"{name_norm}|{team}"
+    alias = _load_aliases().get(internal_key)
+    if alias:
+        alias_key = (alias["dk_name"], team)
+        if alias_key in dk["players"]:
+            return dk["players"][alias_key], dk["player_ids"].get(alias_key)
+
+    team_dk_names = [n for (n, t) in dk["players"].keys() if t == team]
+    if not team_dk_names:
+        return None, None
+    best = difflib.get_close_matches(name_norm, team_dk_names, n=1, cutoff=FUZZY_MATCH_THRESHOLD)
+    if not best:
+        return None, None
+
+    dk_name = best[0]
+    ratio = difflib.SequenceMatcher(None, name_norm, dk_name).ratio()
+    _save_alias(internal_key, dk_name, ratio)
+    print(f"DK scraper: fuzzy-matched '{name}' ({team}) -> DK's '{dk_name}' (ratio={ratio:.3f}), saved as alias.")
+    fuzzy_key = (dk_name, team)
+    return dk["players"].get(fuzzy_key), dk["player_ids"].get(fuzzy_key)
+
+
+def _find_main_slate_draft_group_id(contests: List[Dict[str, Any]]) -> Optional[int]:
+    """The NFL 'Main Slate' Classic draft group -- DK's flagship Sunday
+    contests (Millionaire, etc). Identified as the Classic (non-Showdown,
+    non-Snake, non-preseason) draft group appearing in the most contests,
+    since side-slates (single-game Showdown, 3-player Snake) are a small
+    fraction of the Main Slate's contest count."""
+    classic = [
+        c for c in contests
+        if c.get("gameType") == "Classic" and "Preseason" not in c.get("n", "")
+    ]
+    if not classic:
+        return None
+    counts: Dict[int, int] = {}
+    for c in classic:
+        dg = c.get("dg")
+        if dg is not None:
+            counts[dg] = counts.get(dg, 0) + 1
+    if not counts:
+        return None
+    return max(counts, key=counts.get)
+
+
+def _fetch_json(url: str) -> Optional[Dict[str, Any]]:
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT_SECONDS)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        print(f"DK scraper: request to {url} failed: {e}")
+        return None
+
+
+def _extract_contests(contests: List[Dict[str, Any]], draft_group_id: int) -> List[Dict[str, Any]]:
+    """Every live contest in the Main Slate draft group, with entry fee /
+    payout / size fields pulled straight out of the same lobby listing
+    already fetched to identify the draft group -- no extra request needed.
+    Field mapping confirmed 2026-08-22 by cross-referencing DK's own contest
+    names (e.g. "NFL GIANT $5 Double Up" -> a=5.0, "NFL MASSIVE $25 Double
+    Up" -> a=25.0) against the raw lobby JSON, since DK ships no field-name
+    documentation for this undocumented endpoint:
+      a    = entry fee (dollars)
+      po   = total prize pool (dollars)
+      m    = max total entries (contest size cap)
+      nt   = current number of entries
+      mec  = max entries allowed per user
+      pd   = short payout description (e.g. {"Cash": "$3,500,000"})
+    Does NOT include the full rank-by-rank payout table (1st/2nd/.../min-cash
+    $ amounts) -- that requires a separate per-contest call, not built yet.
+    """
+    out = []
+    for c in contests:
+        if c.get("dg") != draft_group_id:
+            continue
+        out.append({
+            "contest_id": c.get("id"),
+            "name": c.get("n"),
+            "entry_fee": c.get("a"),
+            "prize_pool": c.get("po"),
+            "max_entries": c.get("m"),
+            "current_entries": c.get("nt"),
+            "max_entries_per_user": c.get("mec"),
+            "payout_summary": c.get("pd"),
+            "start_time": c.get("sdstring"),
+            "guaranteed": c.get("attr", {}).get("IsGuaranteed") == "true",
+        })
+    out.sort(key=lambda c: c["current_entries"] or 0, reverse=True)
+    return out
+
+
+def _label_slate(game_type: Optional[str], dg_contests: List[Dict[str, Any]], is_default: bool) -> str:
+    """Best-effort human label for a draft group DK doesn't itself name.
+    Only the Main Slate branch is validated (2026-08-22, draft group
+    151307) -- Showdown/Snake/other-slate labels are an educated guess from
+    gameType + earliest contest start time, unvalidated until a live week
+    actually has one of those slates to check against."""
+    if is_default:
+        return "Main Slate (Classic)"
+    times = [c.get("sdstring") for c in dg_contests if c.get("sdstring")]
+    suffix = f" - {min(times)}" if times else ""
+    label = game_type or "Slate"
+    return f"{label}{suffix}"
+
+
+def _build_slates(contests: List[Dict[str, Any]], dg_ids: set, default_dg: Optional[int]) -> List[Dict[str, Any]]:
+    slates = []
+    for dg in dg_ids:
+        dg_contests = [c for c in contests if c.get("dg") == dg]
+        if not dg_contests:
+            continue
+        is_default = dg == default_dg
+        slates.append({
+            "draft_group_id": dg,
+            "game_type": dg_contests[0].get("gameType"),
+            "label": _label_slate(dg_contests[0].get("gameType"), dg_contests, is_default),
+            "contest_count": len(dg_contests),
+            "total_entries": sum(c.get("nt") or 0 for c in dg_contests),
+            "is_default": is_default,
+        })
+    slates.sort(key=lambda s: (not s["is_default"], -s["contest_count"]))
+    return slates
+
+
+def _refresh_lobby() -> None:
+    """Fetches the lobby once and populates every slate's contest list plus
+    the discoverable slate menu -- this is the only call needed to answer
+    'what slates exist right now' or 'what contests are on slate X', since
+    contests carry no salary data of their own (see module docstring)."""
+    lobby = _fetch_json(LOBBY_URL)
+    if lobby is None:
+        return
+    contests = lobby.get("Contests", [])
+    default_dg = _find_main_slate_draft_group_id(contests)
+    dg_ids = {c.get("dg") for c in contests if c.get("dg") is not None}
+    contests_by_dg = {dg: _extract_contests(contests, dg) for dg in dg_ids}
+    slates = _build_slates(contests, dg_ids, default_dg)
+
+    _lobby_cache.update({
+        "fetched_at": time.time(),
+        "contests_by_dg": contests_by_dg,
+        "slates": slates,
+        "default_draft_group_id": default_dg,
+    })
+    print(f"DK scraper: refreshed lobby -- {len(slates)} slate(s) found, "
+          f"default draft group {default_dg}.")
+
+
+def _maybe_refresh_lobby(force_refresh: bool) -> None:
+    stale = _lobby_cache["fetched_at"] is None or (time.time() - _lobby_cache["fetched_at"] > CACHE_TTL_SECONDS)
+    if force_refresh or stale:
+        _refresh_lobby()
+
+
+def _refresh_slate(draft_group_id: int) -> None:
+    draftables_resp = _fetch_json(DRAFTABLES_URL.format(draft_group_id=draft_group_id))
+    if draftables_resp is None:
+        return
+    draftables = draftables_resp.get("draftables", [])
+
+    players: Dict[Tuple[str, str], int] = {}
+    defense: Dict[str, int] = {}
+    player_ids: Dict[Tuple[str, str], int] = {}
+    defense_ids: Dict[str, int] = {}
+    teams: set = set()
+
+    for d in draftables:
+        team = d.get("teamAbbreviation")
+        salary = d.get("salary")
+        pos = d.get("position")
+        draftable_id = d.get("draftableId")
+        if not team or salary is None:
+            continue
+        teams.add(team)
+        if pos == "DST":
+            defense[team] = salary
+            if draftable_id is not None:
+                defense_ids[team] = draftable_id
+        else:
+            name = d.get("displayName", "")
+            if name:
+                key = (normalize_player_name(name), team)
+                players[key] = salary
+                if draftable_id is not None:
+                    player_ids[key] = draftable_id
+
+    if not players:
+        print(f"DK scraper: draft group {draft_group_id} returned no usable player salaries.")
+        return
+
+    _slate_caches[draft_group_id] = {
+        "fetched_at": time.time(),
+        "players": players,
+        "defense": defense,
+        "player_ids": player_ids,
+        "defense_ids": defense_ids,
+        "teams": teams,
+    }
+    print(f"DK scraper: refreshed salaries for draft group {draft_group_id} "
+          f"({len(players)} players, {len(defense)} defenses, {len(teams)} teams).")
+
+
+def get_dk_slates(force_refresh: bool = False) -> Dict[str, Any]:
+    """Every distinct slate DK currently has live -- Main Slate (Classic) is
+    always present when there's any live NFL contest at all; other entries
+    (Showdown, Snake, split Sunday slates) come and go depending on the day
+    of week / bye weeks / how far into the week it is. One lobby fetch, no
+    per-slate draftables calls, so this is cheap to call just to populate a
+    picker before the user has chosen anything.
+
+        {
+          "is_live": bool,
+          "fetched_at": float | None,
+          "default_draft_group_id": int | None,   # the Main Slate, when found
+          "slates": [{draft_group_id, game_type, label, contest_count,
+                      total_entries, is_default}, ...],
+        }
+
+    Never raises -- same fail-soft contract as the rest of this module.
+    """
+    _maybe_refresh_lobby(force_refresh)
+    return {
+        "is_live": _lobby_cache["fetched_at"] is not None,
+        "fetched_at": _lobby_cache["fetched_at"],
+        "default_draft_group_id": _lobby_cache["default_draft_group_id"],
+        "slates": _lobby_cache["slates"],
+    }
+
+
+def get_dk_salaries(draft_group_id: Optional[int] = None, force_refresh: bool = False) -> Dict[str, Any]:
+    """Returns the salary feed for one slate -- the Main Slate by default,
+    or whichever draft_group_id the caller picked from get_dk_slates():
+
+        {
+          "draft_group_id": int | None,
+          "fetched_at": float | None,   # unix timestamp of last successful fetch
+          "is_live": bool,              # False if we've never fetched successfully
+          "players": {(normalized_name, team_abbrev): salary},
+          "defense": {team_abbrev: salary},
+          "player_ids": {(normalized_name, team_abbrev): draftableId},
+          "defense_ids": {team_abbrev: draftableId},
+          "main_slate_teams": {team_abbrev, ...},
+        }
+
+    draftableId is DK's own per-slate player identifier -- the same numeric
+    ID DK's own downloadable salary CSV shows as "Name (ID)" and the same ID
+    DK's lineup-upload CSV template expects in each roster-slot cell. Needed
+    for exporting a lineup that can actually be uploaded to DK, not just a
+    human-readable summary.
+
+    Never raises. On any network/parsing failure, returns the last successful
+    fetch for that slate (or all-empty on first-ever failure) so callers can
+    unconditionally fall back to calculate_dfs_salary() per player without
+    special-casing.
+    """
+    _maybe_refresh_lobby(force_refresh)
+    dg = draft_group_id if draft_group_id is not None else _lobby_cache["default_draft_group_id"]
+    empty = {"draft_group_id": dg, "fetched_at": None, "is_live": False, "players": {}, "defense": {},
+             "player_ids": {}, "defense_ids": {}, "main_slate_teams": set()}
+    if dg is None:
+        return empty
+
+    entry = _slate_caches.get(dg)
+    stale = entry is None or (time.time() - entry["fetched_at"] > CACHE_TTL_SECONDS)
+    if force_refresh or stale:
+        _refresh_slate(dg)
+        entry = _slate_caches.get(dg)
+    if entry is None:
+        return empty
+
+    return {
+        "draft_group_id": dg,
+        "fetched_at": entry["fetched_at"],
+        "is_live": True,
+        "players": entry["players"],
+        "defense": entry["defense"],
+        "player_ids": entry["player_ids"],
+        "defense_ids": entry["defense_ids"],
+        "main_slate_teams": entry["teams"],
+    }
+
+
+def get_dk_contests(draft_group_id: Optional[int] = None, force_refresh: bool = False) -> Dict[str, Any]:
+    """Returns every live contest on one slate -- the Main Slate by default --
+    with entry fee / prize pool / size / current-entries -- see
+    _extract_contests()'s docstring for the exact field mapping. Shares the
+    lobby cache with get_dk_slates(), so calling this after get_dk_slates()
+    in the same refresh window is free.
+
+        {
+          "draft_group_id": int | None,
+          "fetched_at": float | None,
+          "is_live": bool,
+          "contests": [{contest_id, name, entry_fee, prize_pool, max_entries,
+                        current_entries, max_entries_per_user, payout_summary,
+                        start_time, guaranteed}, ...],
+        }
+
+    Never raises -- same fail-soft contract as get_dk_salaries().
+    """
+    _maybe_refresh_lobby(force_refresh)
+    dg = draft_group_id if draft_group_id is not None else _lobby_cache["default_draft_group_id"]
+    return {
+        "draft_group_id": dg,
+        "fetched_at": _lobby_cache["fetched_at"],
+        "is_live": _lobby_cache["fetched_at"] is not None,
+        "contests": _lobby_cache["contests_by_dg"].get(dg, []) if dg is not None else [],
+    }
+
+
+def _parse_cash_amount(s: str) -> float:
+    """'$1,000,000.00' -> 1000000.0. Non-cash payout descriptions (tickets,
+    swag, etc.) don't parse as a dollar amount -- returns 0.0 for those
+    rather than raising, since a contest can mix cash and non-cash tiers."""
+    try:
+        return float(s.replace("$", "").replace(",", ""))
+    except (ValueError, AttributeError):
+        return 0.0
+
+
+def get_dk_contest_payout(contest_id: int) -> Dict[str, Any]:
+    """Fetches the REAL rank-by-rank payout table for one specific contest --
+    the exact dollar amount paid at every finishing position, not the
+    contest-type-shaped percentage guess _get_default_payout_structure() in
+    src/api/app.py falls back to. Unlike get_dk_salaries()/get_dk_contests(),
+    this is a live per-request call with no cache: a contest's own entry
+    count changes constantly as people enter, and the payout call is only
+    made when a user actually picks a specific contest in the Optimizer, not
+    on every page load.
+
+    Endpoint discovered 2026-08-22 by testing against a live Millionaire
+    Maker contest ($5 entry, 34 payout tiers from $1,000,000 at 1st down to
+    $8 at the last paying rank) -- matches the exact shape DK's own contest
+    rules popup renders, confirmed field-by-field.
+
+        {
+          "contest_id": int,
+          "entries": int | None,          # current entries
+          "max_entries": int | None,
+          "entry_fee": float | None,
+          "tiers": [{"rank_start": int, "rank_end": int, "payout": float}, ...],
+          "error": str | None,            # set (tiers == []) on any failure
+        }
+
+    Fails soft like the rest of this module: never raises, "error" is set
+    and "tiers" is empty on any network/parsing failure so callers can
+    unconditionally fall back to _get_default_payout_structure().
+    """
+    data = _fetch_json(CONTEST_DETAIL_URL.format(contest_id=contest_id))
+    if data is None:
+        return {"contest_id": contest_id, "entries": None, "max_entries": None,
+                "entry_fee": None, "tiers": [], "error": "request failed"}
+
+    cd = data.get("contestDetail")
+    if not cd or data.get("errorStatus"):
+        return {"contest_id": contest_id, "entries": None, "max_entries": None,
+                "entry_fee": None, "tiers": [], "error": str(data.get("errorStatus") or "no contestDetail in response")}
+
+    tiers = []
+    for tier in cd.get("payoutSummary", []):
+        cash_desc = tier.get("tierPayoutDescriptions", {}).get("Cash")
+        if cash_desc is None:
+            continue  # non-cash tier (tickets/swag) -- not usable for EV math
+        tiers.append({
+            "rank_start": tier.get("minPosition"),
+            "rank_end": tier.get("maxPosition"),
+            "payout": _parse_cash_amount(cash_desc),
+        })
+
+    return {
+        "contest_id": contest_id,
+        "entries": cd.get("entries"),
+        "max_entries": cd.get("maximumEntries"),
+        "entry_fee": cd.get("entryFee"),
+        "tiers": tiers,
+        "error": None if tiers else "no cash payout tiers found",
+    }

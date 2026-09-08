@@ -94,7 +94,7 @@ Where:
 
 **Choosing k:** The `k` value encodes your belief about how many current observations it takes to "outweigh" the prior. If you believe a coach's play-calling style is very stable year-to-year, use a large k (e.g., k=16). If you think it can change quickly, use a smaller k (e.g., k=4).
 
-**NFLSims usage:** Applied to coach PROE (Pass Rate Over Expected) in the play type selection overlay. Prior = historical PROE from `coordinator_atlas.json`. k=8 means the prior year is worth 8 current-season games.
+**NFLSims usage:** Applied to coach PROE (Pass Rate Over Expected) in the play type selection overlay. Prior = historical PROE from `coach_dna.json`'s `"proe"` field (formerly `coordinator_atlas.json`, retired 2026-07-16). k=8 means the prior year is worth 8 current-season games.
 
 | Week | n_current | Weight on Current | Weight on Prior |
 |:---|:---|:---|:---|

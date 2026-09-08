@@ -24,8 +24,8 @@ TEAM_DIVISIONS = {
 
 def generate_matchup_boxscore(away, home, week, game_df, player_df, iterations):
     """Generates a detailed statistical boxscore for the given matchup."""
-    avg_away_score = game_df['off_score'].mean()
-    avg_home_score = game_df['def_score'].mean()
+    avg_away_score = game_df['away_score'].mean()
+    avg_home_score = game_df['home_score'].mean()
     away_win_pct = (game_df['winner'] == away).mean() * 100
     home_win_pct = (game_df['winner'] == home).mean() * 100
     

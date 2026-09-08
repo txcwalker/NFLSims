@@ -3,10 +3,11 @@ tests/test_dna_blender.py
 ==========================
 # Status: live | v1.0.0 | 2026-07-22
 
-Unit tests for the 2026 DNA blending pipeline (Phase 2):
+Unit tests for the 2026 DNA blending pipeline (Phases 2 and 7a):
   - taper_weights() / steady_state_blend() / blend_player_dna() (dna_blender_v_0_1_0)
   - interpolate_curve() / resolve_rookie_curves() (rookie_curves_v_0_1_0)
   - rolling_average() and n<4-games handling (rolling_stats_v_0_1_0)
+  - classify_zone() boundary conditions (rolling_stats_v_0_1_0)
 
 Run from repo root:
     python -m pytest tests/test_dna_blender.py -v
@@ -22,7 +23,10 @@ from src.data_pipeline.dna_blender_v_0_1_0 import (
     taper_weights, steady_state_blend, blend_player_dna, blend_team_dna,
 )
 from src.data_pipeline.rookie_curves_v_0_1_0 import interpolate_curve, resolve_rookie_curves
-from src.data_pipeline.rolling_stats_v_0_1_0 import rolling_average, compute_season_to_date, compute_l4
+from src.data_pipeline.rolling_stats_v_0_1_0 import (
+    rolling_average, compute_season_to_date, compute_l4, classify_zone,
+    GOALLINE_YARDLINE, REDZONE_YARDLINE,
+)
 
 
 class TestTaperWeights(unittest.TestCase):
@@ -165,6 +169,19 @@ class TestRollingAverage(unittest.TestCase):
             compute_l4(game_values, through_week=4),
             compute_season_to_date(game_values, through_week=4),
         )
+
+
+class TestClassifyZone(unittest.TestCase):
+    def test_goalline_boundary(self):
+        self.assertEqual(classify_zone(GOALLINE_YARDLINE), "goalline")
+        self.assertEqual(classify_zone(GOALLINE_YARDLINE + 1), "redzone")
+
+    def test_redzone_boundary(self):
+        self.assertEqual(classify_zone(REDZONE_YARDLINE), "redzone")
+        self.assertEqual(classify_zone(REDZONE_YARDLINE + 1), "primary")
+
+    def test_deep_primary(self):
+        self.assertEqual(classify_zone(75), "primary")
 
 
 if __name__ == "__main__":

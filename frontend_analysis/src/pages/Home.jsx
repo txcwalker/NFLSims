@@ -2,30 +2,68 @@ import { useState, useEffect } from 'react';
 import { ApiService } from '../api';
 import { Play, TrendingUp, Cpu, Award, Trophy, ArrowRight } from 'lucide-react';
 
+// Formats a Date as ESPN's YYYYMMDD scoreboard param.
+function toEspnDate(d) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}`;
+}
+
+// Reverse of toEspnDate, for display -- "20260818" -> "Aug 18, 2026".
+function formatEspnDate(yyyymmdd) {
+  const y = yyyymmdd.slice(0, 4), m = yyyymmdd.slice(4, 6), d = yyyymmdd.slice(6, 8);
+  const date = new Date(`${y}-${m}-${d}T12:00:00`);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 function Home({ navigateTo }) {
   const [liveGames, setLiveGames] = useState([]);
   const [contenders, setContenders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [gamesLoading, setGamesLoading] = useState(false);
+  // '' = today (live default). Otherwise an ESPN YYYYMMDD string, driven by
+  // the date picker below -- lets us review a past day's slate (e.g. to
+  // troubleshoot the live bot against yesterday's real games) without
+  // waiting for the next live window.
+  const [gameDate, setGameDate] = useState('');
 
   useEffect(() => {
-    async function loadData() {
+    async function loadStandings() {
       try {
-        const [games, standings] = await Promise.all([
-          ApiService.getLiveGames(),
-          ApiService.getPlayoffOdds()
-        ]);
-        setLiveGames(games || []);
-        // Sort standings to get top contenders for summary block
-        const sortedContenders = (standings || []).sort((a, b) => b.playoff_pct - a.playoff_pct);
+        const standings = await ApiService.getSeason2026Standings();
+        const sortedContenders = (standings || []).sort((a, b) => b['Playoffs_%'] - a['Playoffs_%']);
         setContenders(sortedContenders.slice(0, 5));
       } catch (err) {
-        console.error('Failed to load home data', err);
+        console.error('Failed to load standings', err);
       } finally {
         setLoading(false);
       }
     }
-    loadData();
+    loadStandings();
   }, []);
+
+  useEffect(() => {
+    async function loadGames() {
+      setGamesLoading(true);
+      try {
+        const games = await ApiService.getLiveGames(gameDate || undefined);
+        setLiveGames(games || []);
+      } catch (err) {
+        console.error('Failed to load live games', err);
+      } finally {
+        setGamesLoading(false);
+      }
+    }
+    loadGames();
+  }, [gameDate]);
+
+  const yesterdayEspn = toEspnDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  // The backend tags every game with is_fallback/fallback_date when today (or
+  // the requested date) had no games and it walked back to the most recent
+  // real slate instead -- surface that plainly so these never read as live.
+  const isFallback = !gameDate && liveGames.length > 0 && liveGames[0].is_fallback;
+  const fallbackDate = isFallback ? liveGames[0].fallback_date : null;
 
   return (
     <div>
@@ -44,17 +82,52 @@ function Home({ navigateTo }) {
           
           {/* Left Column: Live Matches & Tools */}
           <div>
-            <h2 style={{ fontSize: '18px', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live Matchup Feeds</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+              <h2 style={{ fontSize: '18px', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                {isFallback ? 'Most Recent Games' : 'Live Matchup Feeds'}{' '}
+                {gameDate && <span style={{ color: 'var(--text-muted)', fontSize: '12px', textTransform: 'none', letterSpacing: 'normal' }}>({gameDate})</span>}
+                {isFallback && <span style={{ color: 'var(--text-muted)', fontSize: '12px', textTransform: 'none', letterSpacing: 'normal' }}>(no games today — showing {formatEspnDate(fallbackDate)})</span>}
+              </h2>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <button
+                  className={`btn ${!gameDate ? 'btn-cyan' : 'btn-outline'}`}
+                  style={{ fontSize: '11px', padding: '5px 10px' }}
+                  onClick={() => setGameDate('')}
+                >
+                  Today
+                </button>
+                <button
+                  className={`btn ${gameDate === yesterdayEspn ? 'btn-cyan' : 'btn-outline'}`}
+                  style={{ fontSize: '11px', padding: '5px 10px' }}
+                  onClick={() => setGameDate(yesterdayEspn)}
+                >
+                  Yesterday
+                </button>
+                <input
+                  type="date"
+                  style={{ fontSize: '11px', padding: '4px 6px', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '4px' }}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const [y, m, d] = e.target.value.split('-');
+                    setGameDate(`${y}${m}${d}`);
+                  }}
+                />
+              </div>
+            </div>
             <div className="games-grid" style={{ marginBottom: '24px' }}>
+              {gamesLoading && <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Loading games...</div>}
+              {!gamesLoading && liveGames.length === 0 && (
+                <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No games found for this date.</div>
+              )}
               {liveGames.map(game => (
                 <div 
                   key={game.game_id} 
                   className="panel" 
                   style={{ display: 'flex', flexDirection: 'column', gap: '12px', cursor: 'pointer' }}
-                  onClick={() => navigateTo('game-summary', { id: game.game_id })}
+                  onClick={() => navigateTo('game-summary', { id: game.game_id, date: gameDate || fallbackDate || '' })}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)' }}>
-                    <span>Q{game.quarter} | {game.time_remaining}</span>
+                    <span>{game.quarter ? `Q${game.quarter} | ` : ''}{game.time_remaining}</span>
                     <span className="badge badge-cyan" style={{ fontSize: '9px' }}>{game.leverage} Leverage</span>
                   </div>
                   
@@ -92,7 +165,7 @@ function Home({ navigateTo }) {
 
                   {game.down && (
                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-tertiary)', padding: '6px 8px', borderRadius: '4px', textAlign: 'center' }}>
-                      Active state: <strong style={{ color: 'var(--accent-orange)' }}>{game.down}nd & {game.distance}</strong> at {game.yardline}
+                      Active state: <strong style={{ color: 'var(--accent-orange)' }}>{game.down}{game.down === 1 ? 'st' : game.down === 2 ? 'nd' : game.down === 3 ? 'rd' : 'th'} & {game.distance}</strong> at {game.yardline}
                     </div>
                   )}
 
@@ -100,7 +173,7 @@ function Home({ navigateTo }) {
                     <button className="btn btn-outline" style={{ flex: 1, fontSize: '11px', padding: '6px' }} onClick={() => navigateTo('live-wp')}>
                       <TrendingUp size={12} /> WP Graph
                     </button>
-                    <button className="btn btn-cyan" style={{ flex: 1, fontSize: '11px', padding: '6px' }} onClick={() => navigateTo('game-summary', { id: game.game_id })}>
+                    <button className="btn btn-cyan" style={{ flex: 1, fontSize: '11px', padding: '6px' }} onClick={() => navigateTo('game-summary', { id: game.game_id, date: gameDate || fallbackDate || '' })}>
                       <Play size={12} /> Analyze Center
                     </button>
                   </div>
@@ -138,14 +211,14 @@ function Home({ navigateTo }) {
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {contenders.map(row => (
-                  <div key={row.team} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                  <div key={row.Team} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontWeight: '700', fontSize: '14px' }}>{row.team}</span>
-                      <span style={{ color: 'var(--text-muted)' }}>Wins: {row.wins.toFixed(1)}</span>
+                      <span style={{ fontWeight: '700', fontSize: '14px' }}>{row.Team}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>Wins: {row.Wins_Expected.toFixed(1)}</span>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <span className="badge badge-cyan">Playoffs: {row.playoff_pct}%</span>
-                      <span className="badge badge-orange">SB: {row.super_bowl_pct}%</span>
+                      <span className="badge badge-cyan">Playoffs: {row['Playoffs_%'].toFixed(0)}%</span>
+                      <span className="badge badge-orange">SB: {row['Champion_%'].toFixed(1)}%</span>
                     </div>
                   </div>
                 ))}

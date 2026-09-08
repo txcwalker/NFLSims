@@ -1,5 +1,5 @@
 {
-  "version": "V.0.1.0",
+  "version": "V.0.1.1",
   "model_type": "xgb.XGBRegressor",
   "features": [
     "yardline_100",
@@ -21,14 +21,14 @@
     "seed": 42
   },
   "metrics": {
-    "val_rmse": 0.3675178587436676,
-    "val_mae": 0.265149861574173,
-    "test_rmse": 0.3665143847465515,
-    "test_mae": 0.26542747020721436,
-    "n_train": 64901,
-    "n_val": 13908,
-    "n_test": 13908,
-    "best_iteration": 299
+    "val_rmse": 0.36843940698778865,
+    "val_mae": 0.2653110921382904,
+    "test_rmse": 0.3753211910883638,
+    "test_mae": 0.26797592639923096,
+    "n_train": 64996,
+    "n_val": 13524,
+    "n_test": 14197,
+    "best_iteration": 285
   },
   "data_source": "data/processed/hardened_pass_training_master_v2_5.csv"
 }

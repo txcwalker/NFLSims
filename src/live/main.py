@@ -15,9 +15,11 @@ import csv
 # Add the project root to path if running directly
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.live.state_store import init_db, is_play_processed, mark_play_processed, log_post
+from src.live.state_store import (
+    init_db, is_play_processed, mark_play_processed, log_post, record_evaluated_play,
+)
 from src.live.espn_adapter import parse_plays_to_fd_rows
-from src.live.simulator_bridge import run_simulation
+from src.live.decision_engine import evaluate_fourth_down
 from src.live.posting_policy import should_post_decision, format_post
 from src.live.post_targets import post_everywhere
 
@@ -33,37 +35,121 @@ logging.basicConfig(
 )
 logger = logging.getLogger("4thDownBot.Main")
 
-SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
-PBP_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/playbyplay?event={game_id}"
+ESPN_HOSTS = ["site.api.espn.com", "site.web.api.espn.com"]
+SCOREBOARD_PATH = "/apis/site/v2/sports/football/nfl/scoreboard"
+# NOTE: the lighter-weight /playbyplay endpoint was found (2026-08-14) to return
+# an empty {} for at least some completed games (confirmed on a real finished
+# preseason game) while still returning HTTP 200 -- /summary is more complete
+# (includes drives + header in one call, matches what other ESPN-hidden-API
+# consumers use) and was verified to reliably have real drive/play data on the
+# same game. Used for both live polling and any completed-game lookups.
+PBP_PATH = "/apis/site/v2/sports/football/nfl/summary"
 CSV_CACHE_DIR = "data/live"
 
+# ESPN's undocumented API has had intermittent, unannounced 403s since ~2026-08-05
+# (a known, widely-reported issue, not something specific to us -- verified via
+# burst testing that both site.api.espn.com and the site.web.api.espn.com
+# fallback recover cleanly within a few retries). This helper absorbs both:
+# transient failures get retried with backoff, and a host that's actively
+# misbehaving gets swapped for the fallback host on the next attempt.
+_ESPN_RETRIES = 3
+_ESPN_BACKOFF_BASE = 1.0  # seconds; doubles each retry (1s, 2s, 4s)
 
-def fetch_scoreboard() -> Optional[Dict[str, Any]]:
+
+def _espn_get(path: str, params: Optional[Dict[str, Any]] = None, timeout: int = 10) -> Optional[Dict[str, Any]]:
     """
-    Fetches the live NFL scoreboard from ESPN.
+    GETs an ESPN endpoint with retry-with-backoff and a fallback host, since
+    the primary host has had intermittent unannounced 403s recently.
     """
-    try:
-        resp = requests.get(SCOREBOARD_URL, timeout=10)
-        if resp.status_code == 200:
-            return resp.json()
-        logger.error(f"Scoreboard request failed: HTTP {resp.status_code}")
-    except Exception as e:
-        logger.error(f"Error fetching scoreboard: {e}")
+    last_err = None
+    for attempt in range(_ESPN_RETRIES):
+        host = ESPN_HOSTS[min(attempt, len(ESPN_HOSTS) - 1)]
+        url = f"https://{host}{path}"
+        try:
+            resp = requests.get(url, params=params, timeout=timeout)
+            if resp.status_code == 200:
+                return resp.json()
+            last_err = f"HTTP {resp.status_code} from {host}"
+            logger.warning(f"ESPN request to {host} failed (attempt {attempt + 1}/{_ESPN_RETRIES}): {last_err}")
+        except Exception as e:
+            last_err = str(e)
+            logger.warning(f"ESPN request to {host} errored (attempt {attempt + 1}/{_ESPN_RETRIES}): {e}")
+
+        if attempt < _ESPN_RETRIES - 1:
+            time.sleep(_ESPN_BACKOFF_BASE * (2 ** attempt))
+
+    logger.error(f"ESPN request to {path} failed after {_ESPN_RETRIES} attempts: {last_err}")
     return None
+
+
+# Short-lived in-process cache for the two ESPN calls everything else is built
+# on. Two independent reasons this exists:
+#   1. A single GameSummary page load fires 5 detail endpoints (play-by-play,
+#      stats, fourth-downs, player-stats, positional-eval) that each call
+#      get_game_pbp() for the SAME game_id -- without this, that's 5 real
+#      ESPN hits per page load, not 1.
+#   2. The frontend's 30s live-game auto-refresh (added 2026-08-22) would
+#      otherwise poll ESPN directly every 30s per open tab, on top of the
+#      live bot's own polling once it's live -- ESPN's undocumented API has
+#      had intermittent unannounced 403s under load (see _espn_get above),
+#      so this is deliberately conservative.
+# TTL is kept under the 30s auto-refresh interval so a poll always gets
+# genuinely fresh data; it only dedupes calls that land within the same
+# ~20s window (a page load's parallel fetches, or repeated navigation).
+# Purely in-memory and intentionally NOT a growing log -- each cache write
+# also prunes anything older than 10 minutes, so process memory stays
+# bounded by "how many distinct games/dates you've looked at recently."
+_CACHE_TTL_SECONDS = 20.0
+_CACHE_PRUNE_AGE_SECONDS = 600.0
+_scoreboard_cache: Dict[str, tuple] = {}  # key -> (fetched_at, data)
+_pbp_cache: Dict[str, tuple] = {}  # game_id -> (fetched_at, data)
+
+
+def _prune_stale(cache: Dict[str, tuple], now: float) -> None:
+    stale_keys = [k for k, (fetched_at, _) in cache.items() if now - fetched_at > _CACHE_PRUNE_AGE_SECONDS]
+    for k in stale_keys:
+        del cache[k]
+
+
+def fetch_scoreboard(dates: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Fetches the NFL scoreboard from ESPN. Defaults to today; pass dates as
+    an ESPN-format YYYYMMDD string (e.g. "20260814") to fetch a specific
+    day's slate instead -- used by /api/live-games?date= for reviewing a
+    past day's slate without waiting for the next live window.
+
+    Cached for _CACHE_TTL_SECONDS (see module comment above).
+    """
+    cache_key = dates or "__today__"
+    now = time.time()
+    cached = _scoreboard_cache.get(cache_key)
+    if cached and (now - cached[0]) < _CACHE_TTL_SECONDS:
+        return cached[1]
+
+    params = {"dates": dates} if dates else None
+    data = _espn_get(SCOREBOARD_PATH, params=params)
+    if data is not None:
+        _scoreboard_cache[cache_key] = (now, data)
+        _prune_stale(_scoreboard_cache, now)
+    return data
 
 
 def get_game_pbp(game_id: str) -> Optional[Dict[str, Any]]:
     """
     Fetches play-by-play logs for a specific game ID.
+
+    Cached for _CACHE_TTL_SECONDS (see module comment above).
     """
-    try:
-        resp = requests.get(PBP_URL.format(game_id=game_id), timeout=10)
-        if resp.status_code == 200:
-            return resp.json()
-        logger.error(f"PBP request for {game_id} failed: HTTP {resp.status_code}")
-    except Exception as e:
-        logger.error(f"Error fetching PBP for {game_id}: {e}")
-    return None
+    now = time.time()
+    cached = _pbp_cache.get(game_id)
+    if cached and (now - cached[0]) < _CACHE_TTL_SECONDS:
+        return cached[1]
+
+    data = _espn_get(PBP_PATH, params={"event": game_id})
+    if data is not None:
+        _pbp_cache[game_id] = (now, data)
+        _prune_stale(_pbp_cache, now)
+    return data
 
 
 def write_csv_archive(row: Dict[str, Any], reason: str) -> None:
@@ -124,11 +210,12 @@ def process_active_game(game_id: str, team_map: Dict[str, str], is_standalone_pr
             continue
             
         logger.info(f"New 4th Down play detected: Game {game_id}, Play {play_id} - {play['text']}")
-        
-        # Run Simulator
-        sim_res = run_simulation(play)
-        if "error" in sim_res:
-            logger.error(f"Skipping play {play_id} due to simulator bridge error: {sim_res['error']}")
+
+        # Run Simulator (in-process Python decision engine -- see decision_engine.py)
+        try:
+            sim_res = evaluate_fourth_down(play)
+        except Exception as e:
+            logger.error(f"Skipping play {play_id} due to decision engine error: {e}", exc_info=True)
             # Mark as processed to prevent endless loops on broken plays
             mark_play_processed(game_id, play_id)
             continue
@@ -154,25 +241,35 @@ def process_active_game(game_id: str, team_map: Dict[str, str], is_standalone_pr
         wp_gap = 0.0
         if wp_called is not None and wp_called != "NA" and best_wp is not None and best_wp != "NA":
             wp_gap = float(best_wp) - float(wp_called)
-            
+        play["wp_gap"] = wp_gap
+
         # Deduplicate permanently in SQLite
         mark_play_processed(game_id, play_id)
         processed_count += 1
-        
+
         # Gated Posting Policy Evaluation
         game_meta = {"is_standalone_prime": is_standalone_prime}
         should_post, reason = should_post_decision(play, game_meta)
-        
+
+        # Revisionist mistake flag -- lowercase both sides. called_action comes
+        # from espn_adapter.infer_called_action() ("go"/"fg"/"punt"); best_action
+        # comes from decision_engine's recommendation (also lowercase as of the
+        # Python port, but compare defensively in case that ever changes).
+        is_revisionist = (
+            str(called_action or "").lower() != str(play.get("best_action") or "").lower()
+        ) and (wp_gap >= 0.03)
+        post_text = format_post(play, revisionist=is_revisionist)
+
+        # Full audit trail: every evaluated 4th down gets saved for review,
+        # regardless of whether the posting-policy gate approved it.
+        record_evaluated_play(play, sim_res, should_post, reason, post_text)
+
         if should_post:
             logger.info(f"Play {play_id} matches posting gate: '{reason}'. Preparing social post.")
-            
-            # Revisionist mistake flag
-            is_revisionist = (called_action != play["best_action"]) and (wp_gap >= 0.03)
-            post_text = format_post(play, revisionist=is_revisionist)
-            
+
             # Post everywhere!
             post_results = post_everywhere(post_text)
-            
+
             if post_results.get("any"):
                 # Record successful post and append to CSV archive
                 log_post(game_id, play["drive_id"], play_id, reason, wp_gap)
@@ -180,7 +277,7 @@ def process_active_game(game_id: str, team_map: Dict[str, str], is_standalone_pr
                 logger.info(f"Social post successfully published for play {play_id}.")
         else:
             logger.info(f"Play {play_id} evaluated but skipped (Reason: {reason}).")
-            
+
     return processed_count
 
 

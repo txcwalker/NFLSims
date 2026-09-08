@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect, useCallback, Fragment } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, Fragment } from 'react';
 import { ApiService } from '../api';
 import { ALL_ROSTERS } from '../allRosters';
+import { fmtSpreadNum } from '../bettingLines';
 
 // ─── Team Colors ─────────────────────────────────────────────────────────────
 const TEAM_COLORS = {
@@ -44,6 +45,40 @@ function computeGppProj(p, weights) {
     (weights.p95 || 0) * p95
   ).toFixed(1));
 }
+
+const OPTIMIZER_SEASON = 2026;
+
+// A fresh, empty optimizer overlay (the user's manual layer on top of the sim
+// pool). Factory so each reset gets its own object.
+const emptyOverlay = () => ({
+  players: {}, excludedTeams: [], excludedGames: [], gameExclusions: {},
+  ownershipFrozen: false, ownershipFrozenAt: null,
+});
+
+// Drop player-overlay entries that carry nothing but defaults, so the persisted
+// state (and the diff that gates autosave) stays lean.
+// Short "3m ago" / "Fri 2:14p" style stamp for a build row.
+const relStamp = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  if (mins < 24 * 60) return `${Math.round(mins / 60)}h ago`;
+  return d.toLocaleDateString([], { weekday: 'short' }) + ' ' +
+    d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+};
+
+const pruneOverlay = (ov) => {
+  const players = {};
+  for (const [id, p] of Object.entries(ov.players || {})) {
+    const meaningful = (p.projAdjust != null && p.projAdjust !== 0)
+      || p.projAbsolute != null || p.ownershipPct != null
+      || p.ownershipFrozenValue != null || p.locked || p.excluded;
+    if (meaningful) players[id] = p;
+  }
+  return { ...ov, players };
+};
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const cardStyle = {
@@ -114,6 +149,21 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
   const seen = new Set();
   const pool = [];
 
+  // Teams on the live DK slate (dk_main, from /api/games -- itself sourced
+  // from dk["main_slate_teams"]). A team missing from this set has no real
+  // DK price yet (game not posted to the slate, not a bye), so its players
+  // must not appear at all -- not with a real projection and a guessed
+  // salary. Empty when games haven't loaded yet, in which case nothing is
+  // filtered (better to show everyone than hide everyone on a slow load).
+  const mainSlateTeams = new Set();
+  (games || []).forEach(g => {
+    if (g.dk_main) {
+      mainSlateTeams.add(g.away_team);
+      mainSlateTeams.add(g.home_team);
+    }
+  });
+  const onSlate = team => mainSlateTeams.size === 0 || mainSlateTeams.has(team);
+
   // Helper to standardize game labels as AWAY@HOME
   const getStandardGameLabel = (team, opponent) => {
     let label = gameMap[team];
@@ -128,6 +178,7 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
   Object.values(allSimResults || {}).forEach(res => {
     if (!res?.projections) return;
     res.projections.forEach(p => {
+      if (!onSlate(p.team)) return;
       const key = `${p.name}_${p.team}`;
       if (seen.has(key)) return;
       seen.add(key);
@@ -139,7 +190,7 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
         name: p.name,
         pos: p.pos,
         team: p.team,
-        salary: p.salary || 5000,
+        salary: p.salary ?? null,
         projection: parseFloat((median || 0).toFixed(1)),
         simProjection: parseFloat((median || 0).toFixed(1)),
         p25:  pcts ? parseFloat((pcts[25] ?? 0).toFixed(1)) : null,
@@ -165,6 +216,7 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
 
   wpList.forEach(p => {
     if (!p.name || !p.pos) return;
+    if (!onSlate(p.team)) return;
     const pos = (p.pos || '').replace(/\d/g, '').toUpperCase();
     if (!['QB','RB','WR','TE','DST'].includes(pos)) return;
     const key = `${p.name}_${p.team}`;
@@ -178,7 +230,7 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
       name: p.name,
       pos,
       team: p.team,
-      salary: p.salary || 5000,
+      salary: p.salary ?? null,
       projection: parseFloat((median || 0).toFixed(1)),
       simProjection: parseFloat((median || 0).toFixed(1)),
       // DK percentiles
@@ -200,6 +252,7 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
       ownershipPct: p.ownership_proj ?? null,
       game: gameLabel,
       dk_pcts_all: pcts,
+      dk_id: p.dk_id ?? null,
     });
   });
 
@@ -252,12 +305,14 @@ function GameBar({ games, allSimResults, gameExclusions, onToggleGame }) {
           (r.projections && r.projections.some(p => p.team === g.away_team || p.team === g.home_team))
         );
         const vegasTotal = g.total_line;
-        const vegasSpread = g.spread_line;
-        
+        // Home-side spread (see bettingLines.js): nflverse spread_line is the
+        // home margin, so the home-side line is its negative.
+        const vegasSpread = g.spread_line != null ? -g.spread_line : null;
+
         const simTotal = simData?.summary
           ? (simData.summary.away_avg_score + simData.summary.home_avg_score).toFixed(1)
           : null;
-          
+
         const simSpread = simData?.summary
           ? (simData.summary.away_avg_score - simData.summary.home_avg_score)
           : null;
@@ -298,7 +353,7 @@ function GameBar({ games, allSimResults, gameExclusions, onToggleGame }) {
               cursor: 'pointer',
               textAlign: 'left',
               transition: 'all 0.2s',
-              minWidth: '160px',
+              minWidth: '180px',
               boxSizing: 'border-box',
             }}
           >
@@ -332,13 +387,13 @@ function GameBar({ games, allSimResults, gameExclusions, onToggleGame }) {
             </div>
             {/* Vegas Stats row */}
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '2px' }}>
-              Veg: <span style={{ color: 'var(--text-white)', fontWeight: 600 }}>{vegasSpread > 0 ? '+' : ''}{vegasSpread}</span> · <span style={{ color: 'var(--text-white)', fontWeight: 600 }}>{vegasTotal} O/U</span>
+              Veg: <span style={{ color: 'var(--text-white)', fontWeight: 600 }}>{g.home_team} {fmtSpreadNum(vegasSpread)}</span> · <span style={{ color: 'var(--text-white)', fontWeight: 600 }}>{vegasTotal} O/U</span>
             </div>
             {/* Sim Stats row */}
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
               Sim: {simTotal ? (
                 <>
-                  <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{simSpread > 0 ? '+' : ''}{simSpread.toFixed(1)}</span> · <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{simTotal} O/U</span>
+                  <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{g.home_team} {fmtSpreadNum(simSpread)}</span> · <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{simTotal} O/U</span>
                 </>
               ) : (
                 <span style={{ color: 'rgba(255, 255, 255, 0.2)' }}>—</span>
@@ -361,7 +416,97 @@ function GameBar({ games, allSimResults, gameExclusions, onToggleGame }) {
 }
 
 // ─── Settings Panel ───────────────────────────────────────────────────────────
-function SettingsPanel({ settings, setSettings, allTeams, allGames, excludedTeams, setExcludedTeams, excludedGames, setExcludedGames }) {
+// ─── Live DK contest search ────────────────────────────────────────────────
+// Full contest list for the selected slate is already in memory (one lobby
+// fetch covers every contest on it -- see dk_scraper.py), so filtering by
+// name is a free client-side operation, not a new network call per keystroke.
+function ContestPicker({ dkContests, setSettings }) {
+  const [filter, setFilter] = useState('');
+  const [selectedId, setSelectedId] = useState('');
+  const [payoutStatus, setPayoutStatus] = useState(''); // '', 'loading', 'ok', 'error'
+
+  const matches = filter.trim()
+    ? dkContests.filter(c => c.name && c.name.toLowerCase().includes(filter.trim().toLowerCase()))
+    : dkContests.slice(0, 100); // unfiltered default view: biggest contests first (dkContests is pre-sorted by entries)
+
+  const applyContest = async (contestId) => {
+    const c = dkContests.find(c => String(c.contest_id) === contestId);
+    if (!c) return;
+    setSelectedId(contestId);
+    setSettings(s => ({
+      ...s,
+      contestSize: c.max_entries ?? s.contestSize,
+      entryFee: c.entry_fee ?? s.entryFee,
+      // Cleared until the real payout table below either lands or fails --
+      // stops a stale tier table from a previous contest silently steering
+      // this one's EV math.
+      payoutStructure: null,
+      // Identity of the contest this build targets -- carried into the saved
+      // state and (Phase 3) frozen into each build for end-of-season review.
+      contest: {
+        dk_contest_id: String(c.contest_id),
+        name: c.name ?? null,
+        entry_fee: c.entry_fee ?? null,
+        field_size: c.max_entries ?? null,
+        prize_pool: c.prize_pool ?? null,
+      },
+    }));
+
+    // Real rank-by-rank $ payout table, one call per contest (see
+    // dk_scraper.get_dk_contest_payout docstring -- not cached, since a
+    // contest's entry count changes constantly). Falls back to the
+    // percentage-shaped default (src/api/app.py _get_default_payout_structure)
+    // if this contest has no cash tiers yet or the request fails.
+    setPayoutStatus('loading');
+    const payout = await ApiService.getDkContestPayout(contestId);
+    if (payout.tiers && payout.tiers.length > 0) {
+      const payingPositions = Math.max(...payout.tiers.map(t => t.rank_end));
+      setSettings(s => ({
+        ...s, payingPositions, payoutStructure: payout.tiers,
+        contest: { ...(s.contest || {}), paying_positions: payingPositions },
+      }));
+      setPayoutStatus('ok');
+    } else {
+      setPayoutStatus('error');
+    }
+  };
+
+  return (
+    <div style={{ marginBottom: '10px' }}>
+      <label style={labelStyle}>Live DK Contest</label>
+      <input
+        type="text"
+        placeholder="Search contests by name…"
+        value={filter}
+        onChange={e => setFilter(e.target.value)}
+        style={{ ...inputStyle, marginBottom: '4px' }}
+      />
+      <select
+        style={inputStyle}
+        value={selectedId}
+        onChange={e => applyContest(e.target.value)}
+      >
+        <option value="" disabled>
+          {filter.trim() ? `${matches.length} match${matches.length === 1 ? '' : 'es'}...` : 'Select a live contest to auto-fill...'}
+        </option>
+        {matches.map(c => (
+          <option key={c.contest_id} value={c.contest_id}>
+            {c.name} — ${c.entry_fee} entry, ${Number(c.prize_pool).toLocaleString()} pool
+          </option>
+        ))}
+      </select>
+      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+        {payoutStatus === 'loading' && 'Fetching exact payout table…'}
+        {payoutStatus === 'ok' && 'Contest Size / Entry Fee / Payout Positions filled, and the EV math will use this contest\'s real rank-by-rank payout table.'}
+        {payoutStatus === 'error' && 'Contest Size / Entry Fee filled. No cash payout table found for this contest — Payout Positions defaults to the estimate below; edit if you know the real figure.'}
+        {payoutStatus === '' && 'Fills Contest Size / Entry Fee / Payout Positions from DraftKings\' live data.'}
+      </div>
+    </div>
+  );
+}
+
+function SettingsPanel({ settings, setSettings, allTeams, allGames, excludedTeams, setExcludedTeams, excludedGames, setExcludedGames, dkContests = [] }) {
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   return (
     <div style={{
       ...cardStyle,
@@ -375,56 +520,82 @@ function SettingsPanel({ settings, setSettings, allTeams, allGames, excludedTeam
       <div>
         <div style={sectionTitleStyle}>Contest Settings</div>
 
-        <label style={labelStyle}>Platform</label>
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-          {['DK', 'FD'].map(plat => (
-            <button key={plat}
-              onClick={() => setSettings(s => ({ ...s, platform: plat }))}
-              style={{
-                ...pillBtnBase, flex: 1,
-                background: settings.platform === plat ? 'rgba(0,242,254,0.15)' : 'rgba(255,255,255,0.04)',
-                color: settings.platform === plat ? 'var(--accent-primary)' : 'var(--text-white)',
-                borderColor: settings.platform === plat ? 'rgba(0,242,254,0.4)' : 'rgba(255,255,255,0.1)',
-                padding: '6px 10px', cursor: 'pointer',
-              }}
-            >{plat}</button>
-          ))}
-        </div>
+        {/* Platform (DK/FD) now lives in the page's top Control Bar --
+            it's an earlier, page-level choice (which slate/pool loads at
+            all), not a per-optimize-run setting buried in here. */}
 
-        <label style={labelStyle}>Contest Type</label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
-          {[
-            { value: 'cash', label: 'Cash (50/50)' },
-            { value: 'flat', label: 'Flat GPP' },
-            { value: 'top_heavy', label: 'Top-Heavy GPP' },
-            { value: 'extreme_top_heavy', label: 'Extreme Top-Heavy' },
-          ].map(opt => (
-            <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: settings.contestType === opt.value ? 'var(--text-white)' : 'var(--text-muted)' }}>
-              <input type="radio" name="contestType" value={opt.value}
-                checked={settings.contestType === opt.value}
-                onChange={() => setSettings(s => ({ ...s, contestType: opt.value }))}
-                style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
-              />
-              {opt.label}
-            </label>
-          ))}
-        </div>
+        <button
+          onClick={() => setAdvancedOpen(o => !o)}
+          style={{
+            ...pillBtnBase, width: '100%', textAlign: 'left',
+            background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)',
+            borderColor: 'rgba(255,255,255,0.1)', padding: '6px 10px', cursor: 'pointer',
+          }}
+        >
+          Advanced Settings {advancedOpen ? '▲' : '▼'}
+        </button>
+
+        {advancedOpen && (
+          <>
+            <label style={{ ...labelStyle, marginTop: '10px' }}>Contest Type</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
+              {[
+                { value: 'cash', label: 'Cash (50/50)' },
+                { value: 'flat', label: 'Flat GPP' },
+                { value: 'top_heavy', label: 'Top-Heavy GPP' },
+                { value: 'extreme_top_heavy', label: 'Extreme Top-Heavy' },
+              ].map(opt => (
+                <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: settings.contestType === opt.value ? 'var(--text-white)' : 'var(--text-muted)' }}>
+                  <input type="radio" name="contestType" value={opt.value}
+                    checked={settings.contestType === opt.value}
+                    onChange={() => setSettings(s => ({ ...s, contestType: opt.value }))}
+                    style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Contest Numbers ── */}
       <div>
         <div style={sectionTitleStyle}>Contest Numbers</div>
-        {[
+
+        {settings.platform === 'DK' && dkContests.length > 0 && (
+          <ContestPicker dkContests={dkContests} setSettings={setSettings} />
+        )}
+
+        {settings.payoutStructure && (
+          <div style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', marginBottom: '8px' }}>
+            ✓ Using this contest's real payout table ({settings.payoutStructure.length} tiers). Editing a field below reverts to the estimated curve.
+          </div>
+        )}
+
+        {!advancedOpen && (
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Contest Size ${settings.contestSize.toLocaleString()} · Entry Fee ${settings.entryFee} · {settings.payingPositions.toLocaleString()} paid — open Advanced Settings to edit.
+          </div>
+        )}
+
+        {advancedOpen && [
           { key: 'contestSize', label: 'Contest Size', type: 'int' },
           { key: 'entryFee', label: 'Entry Fee ($)', type: 'float' },
           { key: 'payingPositions', label: 'Payout Positions', type: 'int' },
-          { key: 'totalEntries', label: 'Total Entries', type: 'int' },
         ].map(({ key, label, type }) => (
           <div key={key} style={{ marginBottom: '8px' }}>
             <label style={labelStyle}>{label}</label>
             <input type="number" style={inputStyle}
               value={settings[key]}
-              onChange={e => setSettings(s => ({ ...s, [key]: type === 'float' ? parseFloat(e.target.value) || 0 : parseInt(e.target.value) || 0 }))}
+              onChange={e => setSettings(s => ({
+                ...s,
+                [key]: type === 'float' ? parseFloat(e.target.value) || 0 : parseInt(e.target.value) || 0,
+                // A hand-edited number no longer matches the fetched contest's
+                // real tiers, so drop back to the contest-type-shaped estimate
+                // rather than silently feeding the solver a mismatched table.
+                payoutStructure: null,
+              }))}
             />
           </div>
         ))}
@@ -515,30 +686,93 @@ export default function Optimizer({
   simResults,
   weekProjections,
   games,
-  weeks,
-  selectedWeek,
-  setSelectedWeek,
+  weeks = [],
+  selectedWeek = 1,
+  setSelectedWeek = () => {},
   optimizerLineups,
   setOptimizerLineups,
   optimizerSettings,
   setOptimizerSettings,
   setCurrentPage,
+  dkSlates = [],
+  selectedDraftGroupId = null,
+  setSelectedDraftGroupId = () => {},
 }) {
   const [view, setView] = useState('pool');
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // ── Build player pool
+  // ── Live DK contest list (entry fee / prize pool / size) for the selected
+  // slate -- lets the Settings panel auto-populate Contest Numbers from a
+  // real live contest instead of requiring every field hand-typed. Refetches
+  // whenever the slate picker above changes.
+  const [dkContests, setDkContests] = useState([]);
+  useEffect(() => {
+    ApiService.getDkContests(selectedDraftGroupId).then(res => setDkContests(res.contests || [])).catch(() => {});
+  }, [selectedDraftGroupId]);
+
+  // ── Player pool = PURE sim output. Never mutated by user actions. Rebuilt
+  // whenever the week's projections / sims / games change. All of the user's
+  // manual work lives in `overlay` below and is re-applied on top in
+  // `enrichedPool`, so a mid-week sim refresh no longer wipes it.
   const [playerPool, setPlayerPool] = useState(() =>
     buildPlayerPool(weekProjections, allSimResults, games)
   );
 
-  // ── Re-init player pool when week projections, simulation results, or games update (e.g. week change or sim runs)
   useEffect(() => {
     const wpList = Array.isArray(weekProjections) ? weekProjections : (weekProjections?.players || []);
     if (wpList.length > 0 || Object.keys(allSimResults || {}).length > 0) {
       setPlayerPool(buildPlayerPool(weekProjections, allSimResults, games));
     }
   }, [weekProjections, allSimResults, games]);
+
+  // ── Overlay: the user's manual layer on top of the sim pool.
+  //   players[id] = { projAdjust?, projAbsolute?, ownershipPct?, ownershipFrozenValue?, locked?, excluded? }
+  //   projAdjust      additive points delta vs the sim median (see enrichedPool)
+  //   ownershipPct    a genuine manual override (always wins)
+  //   ownershipFrozenValue  snapshot taken by "Freeze ownership" (see below)
+  // Hydrated from / persisted to the backend per week (see the persistence
+  // effects further down).
+  const [overlay, setOverlay] = useState(emptyOverlay);
+
+  // Set-shaped views + setters so SettingsPanel / GameBar keep their current API
+  const excludedTeams = useMemo(() => new Set(overlay.excludedTeams), [overlay.excludedTeams]);
+  const excludedGames = useMemo(() => new Set(overlay.excludedGames), [overlay.excludedGames]);
+  const setExcludedTeams = (nextSet) => setOverlay(o => ({ ...o, excludedTeams: [...nextSet] }));
+  const setExcludedGames = (nextSet) => setOverlay(o => ({ ...o, excludedGames: [...nextSet] }));
+  const gameExclusions = overlay.gameExclusions;
+  const setGameExclusions = (updater) => setOverlay(o => ({
+    ...o, gameExclusions: typeof updater === 'function' ? updater(o.gameExclusions) : updater,
+  }));
+
+  const _patchPlayer = (id, patch) => setOverlay(o => ({
+    ...o, players: { ...o.players, [id]: { ...(o.players[id] || {}), ...patch } },
+  }));
+
+  // ── Sticky ownership: snapshot every player's current live ownership into the
+  // overlay so the optimize payload always carries an explicit value and the
+  // backend's _compute_ownership (seeded partly by projections) stops reshuffling
+  // the portfolio math between runs. Manual Own% edits still win; unfreeze drops
+  // the snapshot and reverts to the live weekly number.
+  const ownershipHandEdits = useMemo(
+    () => Object.values(overlay.players).filter(ov => ov.ownershipPct != null).length,
+    [overlay.players]
+  );
+  const freezeOwnership = () => setOverlay(o => {
+    const players = { ...o.players };
+    playerPool.forEach(p => {
+      players[p.id] = { ...(players[p.id] || {}), ownershipFrozenValue: (p.ownershipPct ?? 0.5) };
+    });
+    return { ...o, players, ownershipFrozen: true, ownershipFrozenAt: new Date().toISOString() };
+  });
+  const unfreezeOwnership = () => setOverlay(o => {
+    const players = {};
+    for (const [id, ov] of Object.entries(o.players)) {
+      const rest = { ...ov };
+      delete rest.ownershipFrozenValue;
+      if (Object.keys(rest).length) players[id] = rest;
+    }
+    return { ...o, players, ownershipFrozen: false, ownershipFrozenAt: null };
+  });
 
   const hasSimData = (Array.isArray(weekProjections) ? weekProjections : (weekProjections?.players || [])).length > 0
     || Object.keys(allSimResults || {}).length > 0;
@@ -547,7 +781,11 @@ export default function Optimizer({
   const defaultSettings = {
     platform: 'DK', contestType: 'top_heavy',
     contestSize: 11000, entryFee: 18,
-    payingPositions: 2200, totalEntries: 11000,
+    payingPositions: 2200,
+    // No separate "total entries" input -- an NFL DK/FD contest is assumed
+    // full by lock (see handleOptimize's payload build), so contestSize
+    // doubles as the entry count fed to the backend's EV math.
+    payoutStructure: null, // real rank-by-rank tiers from a picked live contest; null = use the contest-type-shaped estimate
     nLineups: 20, minUnique: 2,
     includeDstUnique: false, maxExposure: 40,
     projThreshold: 0,
@@ -557,13 +795,15 @@ export default function Optimizer({
   // ── Filters
   const [playerSearch, setPlayerSearch] = useState('');
   const [posFilter, setPosFilter] = useState('ALL');
-  const [excludedTeams, setExcludedTeams] = useState(new Set());
-  const [excludedGames, setExcludedGames] = useState(new Set());
-  const [gameExclusions, setGameExclusions] = useState({});
 
   // ── Sorting
   const [sortField, setSortField] = useState('projection');
   const [sortAsc, setSortAsc] = useState(false);
+
+  // ── The GPP-blend column reads alarmingly next to the real projections
+  // (ceiling blend inflates the top plays well past their median), so it's
+  // collapsed by default -- toggle it on when you actually want to sort/inspect it.
+  const [showGppCol, setShowGppCol] = useState(false);
   const [resSortField, setResSortField] = useState('ev_pct');
   const [resSortAsc, setResSortAsc] = useState(false);
 
@@ -582,6 +822,95 @@ export default function Optimizer({
   // ── Sync settings to parent
   useEffect(() => { setOptimizerSettings(settings); }, [settings]);
 
+  // ── Per-week persistence (see src/api/optimizer_store.py). On week change we
+  // load that week's saved settings + overlay; while working, a debounced PUT
+  // keeps the file in sync. `hydratingRef` + a serialized-baseline compare stop
+  // a freshly-loaded state from immediately echoing itself back to disk.
+  const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
+  const [autosaveBuilds, setAutosaveBuilds] = useState(true);
+  const hydratingRef = useRef(false);
+  const savedBaselineRef = useRef(null);
+  const prevWeekRef = useRef(null);
+  const canonState = (s, ov, slate, prefs) => JSON.stringify({ settings: s, overlay: pruneOverlay(ov), slate, prefs });
+  // Compact, order-stable fingerprint of the optimize inputs -- used to gate
+  // autosaved builds (a pure re-run has the same fingerprint).
+  const cheapHash = (str) => {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (Math.imul(h, 31) + str.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36);
+  };
+  const inputsFingerprint = (s, ov, slate, prefs) => cheapHash(canonState(s, ov, slate, prefs));
+
+  // ── Saved builds (see Builds panel below)
+  const [builds, setBuilds] = useState([]);          // summaries, newest first
+  const [buildsOpen, setBuildsOpen] = useState(false);
+  const [selectedBuildIds, setSelectedBuildIds] = useState(() => new Set());
+  const [buildToast, setBuildToast] = useState('');
+  const lastBuildHashRef = useRef(null);
+
+  useEffect(() => {
+    if (!Number.isInteger(selectedWeek) || selectedWeek < 1 || selectedWeek > 22) return;
+    let cancelled = false;
+    hydratingRef.current = true;
+    setSaveStatus('idle');
+
+    // End-of-week tidy: silently drop the *previous* week's throwaway autosaves
+    // (not pinned / labeled / submitted) when moving on to a new week.
+    const leaving = prevWeekRef.current;
+    if (leaving && leaving !== selectedWeek) {
+      ApiService.pruneOptimizerBuilds(leaving, OPTIMIZER_SEASON).then(r => {
+        const n = (r.removed || []).length;
+        if (n && !cancelled) setBuildToast(`Pruned ${n} throwaway autosave${n > 1 ? 's' : ''} from Week ${leaving}`);
+      });
+    }
+    prevWeekRef.current = selectedWeek;
+
+    ApiService.getOptimizerState(selectedWeek, OPTIMIZER_SEASON).then(st => {
+      if (cancelled) return;
+      const nextOverlay = st && st.overlay ? st.overlay : emptyOverlay();
+      const nextAutosave = st && st.prefs && st.prefs.autosaveBuilds != null ? !!st.prefs.autosaveBuilds : true;
+      setOverlay(nextOverlay);
+      setAutosaveBuilds(nextAutosave);
+      setSettings(prev => {
+        const merged = st && st.settings ? { ...prev, ...st.settings } : prev;
+        const slate = { draft_group_id: selectedDraftGroupId, platform: merged.platform };
+        savedBaselineRef.current = canonState(merged, nextOverlay, slate, { autosaveBuilds: nextAutosave });
+        return merged;
+      });
+      setTimeout(() => { if (!cancelled) hydratingRef.current = false; }, 0);
+    });
+    ApiService.listOptimizerBuilds(selectedWeek, OPTIMIZER_SEASON).then(bs => {
+      if (cancelled) return;
+      setBuilds(bs);
+      setSelectedBuildIds(new Set());
+      lastBuildHashRef.current = bs[0] ? bs[0].inputs_hash ?? null : null;
+    });
+    return () => { cancelled = true; };
+  }, [selectedWeek]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const slate = { draft_group_id: selectedDraftGroupId, platform: settings.platform };
+    const prefs = { autosaveBuilds };
+    const serial = canonState(settings, overlay, slate, prefs);
+    if (hydratingRef.current) { savedBaselineRef.current = serial; return; }
+    if (serial === savedBaselineRef.current) return;
+    const t = setTimeout(async () => {
+      setSaveStatus('saving');
+      const state = {
+        schema_version: 1,
+        season: OPTIMIZER_SEASON,
+        week: selectedWeek,
+        updated_at: new Date().toISOString(),
+        slate, settings, prefs,
+        overlay: pruneOverlay(overlay),
+      };
+      const ok = await ApiService.putOptimizerState(selectedWeek, state, OPTIMIZER_SEASON);
+      if (ok) { savedBaselineRef.current = serial; setSaveStatus('saved'); }
+      else setSaveStatus('error');
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [settings, overlay, selectedDraftGroupId, selectedWeek, autosaveBuilds]);
+
   // ── GPP projection weights from contest type
   const contestWeights = useMemo(
     () => GPP_WEIGHTS_BY_TYPE[settings.contestType] || GPP_WEIGHTS_BY_TYPE.top_heavy,
@@ -595,30 +924,67 @@ export default function Optimizer({
   // When FD is selected, swap DK percentiles for FD percentiles so the ILP
   // objective and all displayed columns reflect FD scoring.
   const enrichedPool = useMemo(() => {
+    const frozen = overlay.ownershipFrozen;
     return playerPool.map(p => {
+      const ov = overlay.players[p.id] || {};
       const isFD = settings.platform === 'FD';
-      // Active percentile values — switch to FD if needed
-      const ap25 = isFD ? (p.fd_p25 ?? p.p25) : p.p25;
-      const ap50 = isFD ? (p.fd_p50 ?? p.p50) : p.p50;
-      const ap75 = isFD ? (p.fd_p75 ?? p.p75) : p.p75;
-      const ap95 = isFD ? (p.fd_p95 ?? p.p95) : p.p95;
-      const activePcts = isFD ? (p.fd_pcts_all ?? p.dk_pcts_all) : p.dk_pcts_all;
-      const baseProj  = isFD ? (ap50 ?? p.projection) : p.projection;
+      // Sim (unshifted) percentile values — switch to FD if needed
+      const s25 = isFD ? (p.fd_p25 ?? p.p25) : p.p25;
+      const s50 = isFD ? (p.fd_p50 ?? p.p50) : p.p50;
+      const s75 = isFD ? (p.fd_p75 ?? p.p75) : p.p75;
+      const s95 = isFD ? (p.fd_p95 ?? p.p95) : p.p95;
+      const basePcts = isFD ? (p.fd_pcts_all ?? p.dk_pcts_all) : p.dk_pcts_all;
+
+      // Manual median override. `projAdjust` (overlay) is an additive points
+      // delta vs the sim median, so the whole distribution slides left/right by
+      // that amount -- shape, spread and correlation untouched. 0 = sim as-is.
+      // `projAbsolute` is the fallback for players with no sim distribution.
+      const adj = ov.projAdjust || 0;
+      const shift1 = (v) => (v == null ? v : parseFloat(Math.max(0, v + adj).toFixed(1)));
+      const ap25 = shift1(s25), ap50 = shift1(s50), ap75 = shift1(s75), ap95 = shift1(s95);
+      const activePcts = (adj !== 0 && basePcts)
+        ? basePcts.map(v => Math.max(0, v + adj))
+        : basePcts;
+
+      const baseProj = ap50 ?? ov.projAbsolute ?? p.projection;
+
+      // Ownership resolution: manual override > frozen snapshot > live weekly.
+      const liveOwn = p.ownershipPct;  // = ownership_proj from the weekly sim (may be null)
+      const ownershipPct = ov.ownershipPct != null
+        ? ov.ownershipPct
+        : (frozen ? (ov.ownershipFrozenValue ?? 0.5) : liveOwn);
+
       const enriched  = {
         ...p,
         projection:   parseFloat((baseProj ?? 0).toFixed(1)),
         p25: ap25, p50: ap50, p75: ap75, p95: ap95,
+        mean: (adj !== 0 && p.mean != null) ? parseFloat(Math.max(0, p.mean + adj).toFixed(1)) : p.mean,
         hasPcts: !!(ap50 != null),
         active_pcts_all: activePcts,
+        projAdjust: adj,
+        ownershipPct,
+        locked: !!ov.locked,
+        excluded: !!ov.excluded,
+        // Sim (pre-shift) percentiles, kept so the "you've projected this
+        // player above their sim ceiling" tint stays meaningful after a shift.
+        simP50: s50, simP75: s75, simP95: s95,
       };
       enriched.gppProjection = computeGppProj(enriched, contestWeights);
       return enriched;
     });
-  }, [playerPool, settings.platform, contestWeights]);
+  }, [playerPool, overlay, settings.platform, contestWeights]);
 
   // ── Derived lists
   const allTeams = useMemo(() => [...new Set(enrichedPool.map(p => p.team))].sort(), [enrichedPool]);
   const allGames = useMemo(() => [...new Set(enrichedPool.map(p => p.game).filter(Boolean))].sort(), [enrichedPool]);
+
+  // Main Slate-only games for the game strip -- dk_main comes straight from
+  // /api/games (src/api/app.py get_games()), which prefers DK's live
+  // main_slate_teams roster and falls back to a weekday/time heuristic
+  // (Thu/Fri/Sat/Mon and Sun-night games excluded) when the live feed isn't
+  // up yet. Keeps Thursday/Monday/international games out of a strip whose
+  // whole point is "what's in this slate", not "every game this week".
+  const mainSlateGames = useMemo(() => (games || []).filter(g => g.dk_main), [games]);
 
   const isPlayerExcluded = useCallback((p) => {
     if (p.excluded) return true;
@@ -666,32 +1032,44 @@ export default function Optimizer({
     else { setResSortField(field); setResSortAsc(false); }
   };
 
-  // ── Pool mutations
-  const toggleLock    = (id) => setPlayerPool(prev => prev.map(p => p.id === id ? { ...p, locked: !p.locked } : p));
-  const toggleExclude = (id) => setPlayerPool(prev => prev.map(p => p.id === id ? { ...p, excluded: !p.excluded } : p));
-  const setProjection = (id, val) => setPlayerPool(prev => prev.map(p => p.id === id ? { ...p, projection: parseFloat(val) || 0 } : p));
-  const setOwnership  = (id, val) => setPlayerPool(prev => prev.map(p => p.id === id ? { ...p, ownershipPct: parseFloat(val) || null } : p));
-  const setProjToPct  = (id, pctVal) => setPlayerPool(prev => prev.map(p => p.id === id ? { ...p, projection: pctVal } : p));
+  // ── Pool mutations -- all write to `overlay`, never to `playerPool`.
+  const toggleLock    = (id) => _patchPlayer(id, { locked:   !(overlay.players[id]?.locked) });
+  const toggleExclude = (id) => _patchPlayer(id, { excluded: !(overlay.players[id]?.excluded) });
+
+  // Manual median edits are stored as `projAdjust` -- an additive delta vs the
+  // sim median -- so enrichedPool can slide the player's whole distribution
+  // (percentiles, GPP blend, the array sent to the optimizer) by that amount.
+  // Clearing the field resets to the sim. Players with no sim distribution fall
+  // back to an absolute override (`projAbsolute`).
+  const _simMedian = (p) => (settings.platform === 'FD' ? (p.fd_p50 ?? p.p50) : p.p50);
+  const setProjOverride = (id, absVal) => {
+    const poolP = playerPool.find(p => p.id === id);
+    const base = poolP ? _simMedian(poolP) : null;
+    const raw = parseFloat(absVal);
+    if (!isFinite(raw))     return _patchPlayer(id, { projAdjust: 0, projAbsolute: null });
+    if (base == null)       return _patchPlayer(id, { projAdjust: 0, projAbsolute: raw });
+    return _patchPlayer(id, { projAdjust: parseFloat((raw - base).toFixed(1)), projAbsolute: null });
+  };
+  const setProjection = (id, val) => setProjOverride(id, val);
+  const setProjToPct  = (id, pctVal) => setProjOverride(id, pctVal);
+  const setOwnership  = (id, val) => _patchPlayer(id, { ownershipPct: parseFloat(val) || null });
 
   // ── Game bar toggle (4-state click cycle: 0 -> 1 (away) -> 2 (home) -> 3 (both) -> 0)
   const toggleGame = (gameLabel) => {
-    setGameExclusions(prev => {
-      const current = prev[gameLabel] || 0;
-      const next = (current + 1) % 4;
-      return {
-        ...prev,
-        [gameLabel]: next
-      };
-    });
+    setGameExclusions(prev => ({ ...prev, [gameLabel]: ((prev[gameLabel] || 0) + 1) % 4 }));
   };
 
-  // ── Projection tint
+  // ── Projection tint -- flags how far a manual override has pushed the
+  // player past where the SIM had them (compared to the unshifted sim
+  // percentiles, so it still means something after the distribution slides).
   const getProjTint = (p) => {
-    if (!p.hasPcts || p.p75 == null || p.p50 == null) return {};
+    const s50 = p.simP50 ?? p.p50, s75 = p.simP75 ?? p.p75;
+    if (!p.hasPcts || s75 == null || s50 == null) return {};
     const val = p.projection;
-    if (val > p.p75) return { background: 'rgba(239,68,68,0.3)' };
-    if (val > p.p50 * 1.15) return { background: 'rgba(245,158,11,0.25)' };
-    if (val > p.p50 * 1.05) return { background: 'rgba(245,197,66,0.18)' };
+    if (val > s75) return { background: 'rgba(239,68,68,0.3)' };
+    if (val > s50 * 1.15) return { background: 'rgba(245,158,11,0.25)' };
+    if (val > s50 * 1.05) return { background: 'rgba(245,197,66,0.18)' };
+    if (p.projAdjust < 0) return { background: 'rgba(59,130,246,0.14)' };
     return {};
   };
 
@@ -706,19 +1084,27 @@ export default function Optimizer({
     //                    Both our lineup AND the field are scored on this scale so
     //                    comparisons are apples-to-apples. This fixes the -98% EV bug
     //                    where sending gppProjection here inflated the field cutoff.
+    //                    p.p50 here is already the manually-shifted median (see
+    //                    enrichedPool / projAdjust), so overrides flow through.
     //   gpp_projection = blended ceiling value — used ONLY by the ILP objective to
     //                    steer the solver toward higher-ceiling players. null for cash.
+    //                    Also computed off the shifted percentiles.
     const isCash = settings.contestType === 'cash';
     const payload = {
-      players: enrichedPool.map(p => ({
+      // A null-salary player (DK hasn't priced their team yet) can't be put
+      // in a real lineup, so they're kept out of the solver's candidate
+      // pool entirely -- still visible in the Player Pool table above, just
+      // not selectable here.
+      players: enrichedPool.filter(p => p.salary != null).map(p => ({
         name: p.name, team: p.team, pos: p.pos,
         salary: p.salary,
-        projection: p.p50 ?? p.simProjection ?? p.projection,   // always P50 for evaluation
+        projection: p.p50 ?? p.projection ?? p.simProjection,   // shifted P50 for evaluation
         gpp_projection: isCash ? null : (p.gppProjection ?? null), // blended for ILP only
         locked: p.locked,
         excluded: isPlayerExcluded(p),
         ownership_pct: p.ownershipPct,
         dk_pcts_all: p.active_pcts_all || p.dk_pcts_all || null,
+        dk_id: p.dk_id ?? null,
       })),
       n_lineups: settings.nLineups,
       salary_cap: salaryCap,
@@ -728,8 +1114,19 @@ export default function Optimizer({
       include_dst_in_unique: settings.includeDstUnique,
       max_exposure: settings.maxExposure / 100,
       entry_fee: settings.entryFee,
-      total_entries: settings.totalEntries,
+      // An NFL DK/FD contest is assumed full by game lock, so contest size
+      // doubles as the entry count for the backend's EV math -- no separate
+      // "total entries" input to keep in sync.
+      total_entries: settings.contestSize,
       paying_positions: settings.payingPositions,
+      // Real rank-by-rank tiers from a picked live contest, when we have
+      // them -- otherwise omitted so the backend falls back to its
+      // contest-type-shaped estimate (_get_default_payout_structure).
+      payout_structure: settings.payoutStructure || undefined,
+      // Lets the backend find this week's cached archetype-composed field
+      // sample (see field_simulator.py) instead of falling back to a
+      // uniform-random field.
+      week: selectedWeek,
     };
 
     try {
@@ -737,6 +1134,15 @@ export default function Optimizer({
       setOptimizerLineups(result.lineups || []);
       setPortfolioStats(result.portfolio || null);
       setView('results');
+      setLastResult(result);
+      // Auto-save this run as a build -- but only when the inputs actually
+      // changed since the last saved build (a pure re-run of the same pool
+      // just produces a new RNG draw and isn't worth its own record).
+      const slate = { draft_group_id: selectedDraftGroupId, platform: settings.platform };
+      const hash = inputsFingerprint(settings, overlay, slate, { autosaveBuilds });
+      if (autosaveBuilds && hash !== lastBuildHashRef.current) {
+        await saveBuild(result, hash, slate, 'autosave');
+      }
     } catch (err) {
       console.error('Optimizer error:', err);
     } finally {
@@ -744,6 +1150,108 @@ export default function Optimizer({
       setOptimizeProgress('');
     }
   };
+
+  // ── Builds -------------------------------------------------------------
+  const [lastResult, setLastResult] = useState(null); // most recent /optimize response, for a manual "Save build"
+
+  // Freeze everything needed to reconstruct + later review one Optimize run.
+  const assembleBuild = (result, hash, slate, source) => {
+    const poolById = Object.fromEntries(enrichedPool.map(p => [p.id, p]));
+    const players_used = {};
+    // Slim the lineup player rows -- the /optimize response carries the full
+    // 101-pt dk_pcts_all array per player, ~130 KB of noise in a saved build.
+    // players_used already keeps p25/p50/p75/p95 for review.
+    const lineups = (result.lineups || []).map(lu => ({
+      ...lu,
+      players: (lu.players || []).map(pl => ({
+        name: pl.name, pos: pl.pos, team: pl.team, slot: pl.slot,
+        salary: pl.salary, projection: pl.projection, ownership_pct: pl.ownership_pct,
+      })),
+    }));
+    lineups.forEach(lu => lu.players.forEach(pl => {
+      const id = `${pl.name}_${pl.team}`;
+      if (players_used[id]) return;
+      const p = poolById[id];
+      players_used[id] = p ? {
+        name: p.name, team: p.team, pos: p.pos, salary: p.salary,
+        proj: p.projection, gpp_proj: p.gppProjection,
+        p25: p.p25, p50: p.p50, p75: p.p75, p95: p.p95,
+        proj_adjust: p.projAdjust || 0, ownership_pct: p.ownershipPct,
+      } : { name: pl.name, team: pl.team, pos: pl.pos, salary: pl.salary };
+    }));
+    return {
+      schema_version: 1,
+      source,
+      inputs_hash: hash,
+      slate,
+      settings,
+      overlay: pruneOverlay(overlay),
+      players_used,
+      lineups,
+      portfolio: result.portfolio || null,
+      label: null, pinned: false, submitted: false,
+    };
+  };
+
+  const saveBuild = async (result, hash, slate, source) => {
+    const build = assembleBuild(result, hash, slate, source);
+    const saved = await ApiService.createOptimizerBuild(selectedWeek, build, OPTIMIZER_SEASON);
+    if (saved) {
+      lastBuildHashRef.current = hash;
+      const bs = await ApiService.listOptimizerBuilds(selectedWeek, OPTIMIZER_SEASON);
+      setBuilds(bs);
+    }
+    return saved;
+  };
+
+  const manualSaveBuild = async () => {
+    if (!lastResult) return;
+    const slate = { draft_group_id: selectedDraftGroupId, platform: settings.platform };
+    const hash = inputsFingerprint(settings, overlay, slate, { autosaveBuilds });
+    await saveBuild(lastResult, hash, slate, 'manual');
+    setBuildToast('Build saved');
+  };
+
+  const patchBuildRow = async (buildId, patch) => {
+    const saved = await ApiService.patchOptimizerBuild(selectedWeek, buildId, patch, OPTIMIZER_SEASON);
+    if (saved) {
+      setBuilds(bs => bs.map(b => b.build_id === buildId
+        ? { ...b, label: saved.label, pinned: !!saved.pinned, submitted: !!saved.submitted }
+        : b));
+    }
+  };
+
+  const deleteBuildRows = async (ids) => {
+    for (const id of ids) await ApiService.deleteOptimizerBuild(selectedWeek, id, OPTIMIZER_SEASON);
+    setBuilds(bs => bs.filter(b => !ids.includes(b.build_id)));
+    setSelectedBuildIds(new Set());
+  };
+
+  const restoreBuild = async (buildId) => {
+    if (!window.confirm("Load this build's settings and adjustments into your working state? Your current changes will be replaced (they're already saved as their own build if you've optimized).")) return;
+    const b = await ApiService.getOptimizerBuild(selectedWeek, buildId, OPTIMIZER_SEASON);
+    if (!b) return;
+    if (b.overlay) setOverlay(b.overlay);
+    if (b.settings) setSettings(s => ({ ...s, ...b.settings }));
+    if (b.slate && b.slate.draft_group_id && b.slate.draft_group_id !== selectedDraftGroupId) {
+      setSelectedDraftGroupId(b.slate.draft_group_id);
+    }
+    setBuildToast('Restored — the debounced save will persist it as your working state');
+  };
+
+  const pruneBuildsNow = async () => {
+    const r = await ApiService.pruneOptimizerBuilds(selectedWeek, OPTIMIZER_SEASON);
+    const n = (r.removed || []).length;
+    setBuildToast(n ? `Pruned ${n} throwaway autosave${n > 1 ? 's' : ''}` : 'Nothing to prune');
+    const bs = await ApiService.listOptimizerBuilds(selectedWeek, OPTIMIZER_SEASON);
+    setBuilds(bs);
+  };
+
+  useEffect(() => {
+    if (!buildToast) return;
+    const t = setTimeout(() => setBuildToast(''), 4000);
+    return () => clearTimeout(t);
+  }, [buildToast]);
 
   // ── Results helpers
   const sortedLineups = useMemo(() => {
@@ -759,7 +1267,7 @@ export default function Optimizer({
     if (!optimizerLineups || optimizerLineups.length === 0) return [];
     const counts = {};
     const poolMap = {};
-    playerPool.forEach(p => {
+    enrichedPool.forEach(p => {
       poolMap[p.id] = p;
       poolMap[p.name.toLowerCase()] = p;
     });
@@ -794,7 +1302,7 @@ export default function Optimizer({
         leverage
       };
     });
-  }, [optimizerLineups, playerPool]);
+  }, [optimizerLineups, enrichedPool]);
 
   const filteredExposures = useMemo(() => {
     return playerExposures
@@ -836,7 +1344,10 @@ export default function Optimizer({
     return [slots.QB[0], slots.RB[0], slots.RB[1], slots.WR[0], slots.WR[1], slots.WR[2], slots.FLEX[0], slots.TE[0], slots.DST[0]];
   };
 
-  const exportCSV = () => {
+  // Human-readable summary export (last-name only, salary + projected score) --
+  // useful for reviewing lineups, but NOT accepted by DK's lineup-upload form
+  // (no player IDs). See exportDkUploadCSV for the real upload format.
+  const exportSummaryCSV = () => {
     const header = 'QB,RB,RB,WR,WR,WR,FLEX,TE,DST,Salary,Projected Score';
     const rows = sortedLineups.map(lu => {
       const cols = getSlottedColumns(lu.players);
@@ -846,7 +1357,40 @@ export default function Optimizer({
     const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'optimizer_lineups.csv'; a.click();
+    a.href = url; a.download = 'optimizer_lineups_summary.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // DK's actual lineup-upload format: header column order QB,RB,RB,WR,WR,WR,
+  // TE,FLEX,DST (note TE before FLEX -- differs from getSlottedColumns' display
+  // order), each cell "PlayerName (draftableId)" -- the exact format DK's own
+  // "Bulk Upload" contest-entry tool expects. draftableId comes from the live
+  // DK scraper (src/scrapers/dk_scraper.py) via each player's dk_id field, so
+  // it's only correct for the CURRENT live Main Slate -- re-export if salaries
+  // refresh. A player DK's feed didn't match (dk_id null, e.g. a name-matching
+  // miss or someone outside the Main Slate pool) exports by name only, which
+  // DK's upload will not resolve -- flagged via the alert below rather than
+  // silently shipping a broken row.
+  const exportDkUploadCSV = () => {
+    const header = 'QB,RB,RB,WR,WR,WR,TE,FLEX,DST';
+    let missingIds = 0;
+    const rows = sortedLineups.map(lu => {
+      const bySlot = { QB: [], RB: [], WR: [], TE: [], FLEX: [], DST: [] };
+      lu.players.forEach(p => { const s = p.slot || p.pos; if (bySlot[s]) bySlot[s].push(p); });
+      const ordered = [bySlot.QB[0], bySlot.RB[0], bySlot.RB[1], bySlot.WR[0], bySlot.WR[1], bySlot.WR[2], bySlot.TE[0], bySlot.FLEX[0], bySlot.DST[0]];
+      return ordered.map(p => {
+        if (!p) return '';
+        if (p.dk_id == null) { missingIds++; return p.name; }
+        return `${p.name} (${p.dk_id})`;
+      }).join(',');
+    });
+    if (missingIds > 0) {
+      alert(`${missingIds} player slot(s) don't have a live DK ID (not matched to DK's current salary feed) and were exported by name only -- DK's upload will likely reject those rows. Refresh salaries or swap those players before uploading.`);
+    }
+    const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'dk_upload_lineups.csv'; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -882,7 +1426,7 @@ export default function Optimizer({
         gap: '15px'
       }}>
         {/* Slate selections */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <span style={{fontWeight: 700, color: 'var(--text-white)', marginRight: '10px'}}>Slate Focus:</span>
             <div className="slate-selector">
@@ -890,31 +1434,40 @@ export default function Optimizer({
               <button className="slate-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title="Showdown Single-Game Optimizer coming soon">Showdown Single-Game ✧</button>
             </div>
           </div>
+          {weeks.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{fontWeight: 700, color: 'var(--text-white)', marginRight: '10px'}}>Week:</span>
+              <select
+                value={selectedWeek}
+                onChange={e => setSelectedWeek(Number(e.target.value))}
+                title="Each week has its own saved settings, projection adjustments and (Phase 3) builds"
+                style={{ ...pillBtnBase, padding: '6px 10px', cursor: 'pointer', background: 'rgba(255,255,255,0.04)', color: 'var(--text-white)' }}
+              >
+                {weeks.map(w => <option key={w} value={w}>Week {w}</option>)}
+              </select>
+            </div>
+          )}
         </div>
 
-        {/* Week selection */}
+        {/* Platform -- an earlier, page-level choice than the in-Settings
+            contest numbers: it decides which pool/salary cap/scoring loads
+            at all, so it belongs up here rather than behind a Settings click. */}
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span style={{fontWeight: 600, color: 'var(--text-white)', marginRight: '10px'}}>Week:</span>
-          <select 
-            value={selectedWeek} 
-            onChange={(e) => {
-              if (setSelectedWeek) setSelectedWeek(parseInt(e.target.value));
-            }}
-            style={{
-              background: 'rgba(11, 17, 38, 0.6)',
-              border: '1px solid var(--border-glass)',
-              color: 'var(--text-white)',
-              borderRadius: '8px',
-              padding: '6px 12px',
-              fontWeight: 600,
-              outline: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            {(weeks && weeks.length > 0 ? weeks : Array.from({length: 18}, (_, i) => i + 1)).map(w => (
-              <option key={w} value={w}>{w}</option>
+          <span style={{fontWeight: 700, color: 'var(--text-white)', marginRight: '10px'}}>Platform:</span>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {['DK', 'FD'].map(plat => (
+              <button key={plat}
+                onClick={() => setSettings(s => ({ ...s, platform: plat }))}
+                style={{
+                  ...pillBtnBase,
+                  background: settings.platform === plat ? 'rgba(0,242,254,0.15)' : 'rgba(255,255,255,0.04)',
+                  color: settings.platform === plat ? 'var(--accent-primary)' : 'var(--text-white)',
+                  borderColor: settings.platform === plat ? 'rgba(0,242,254,0.4)' : 'rgba(255,255,255,0.1)',
+                  padding: '6px 14px', cursor: 'pointer',
+                }}
+              >{plat}</button>
             ))}
-          </select>
+          </div>
         </div>
       </div>
 
@@ -925,8 +1478,36 @@ export default function Optimizer({
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
             Multi-Game Slate · DraftKings Traditional
           </p>
+          {dkSlates.length > 0 && (
+            <div style={{ marginTop: '8px', maxWidth: '260px' }}>
+              <label style={labelStyle}>DK Slate</label>
+              <select
+                style={inputStyle}
+                value={selectedDraftGroupId ?? ''}
+                onChange={e => setSelectedDraftGroupId(e.target.value ? Number(e.target.value) : null)}
+              >
+                {dkSlates.map(s => (
+                  <option key={s.draft_group_id} value={s.draft_group_id} disabled={!s.is_default}>
+                    {s.label} ({s.contest_count} contest{s.contest_count === 1 ? '' : 's'}){s.is_default ? '' : ' — not yet supported'}
+                  </option>
+                ))}
+              </select>
+              {dkSlates.length > 1 && (
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                  Only Main Slate is wired up today — other live slates are visible but disabled until player-pool projections support them.
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Per-week autosave status */}
+          <span style={{ fontSize: '0.75rem', color: saveStatus === 'error' ? 'var(--accent-red)' : 'var(--text-muted)', minWidth: '52px' }}
+            title={`Week ${selectedWeek} settings & adjustments are saved automatically`}>
+            {saveStatus === 'saving' && '💾 Saving…'}
+            {saveStatus === 'saved' && '✓ Saved'}
+            {saveStatus === 'error' && '⚠ Save failed'}
+          </span>
           {view === 'results' && (
             <button onClick={() => setView('pool')} style={{
               padding: '8px 14px', background: 'rgba(255,255,255,0.06)',
@@ -986,6 +1567,108 @@ export default function Optimizer({
         </div>
       )}
 
+      {/* ── Builds panel (collapsible): every Optimize run, kept for reference and review */}
+      <div style={{ border: '1px solid var(--border-glass)', borderRadius: '10px', marginBottom: '12px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: 'rgba(255,255,255,0.03)', flexWrap: 'wrap' }}>
+          <button onClick={() => setBuildsOpen(o => !o)} style={{ ...pillBtnBase, background: 'transparent', border: 'none', color: 'var(--text-white)', fontWeight: 700, padding: 0, cursor: 'pointer' }}>
+            {buildsOpen ? '▾' : '▸'} Builds — Week {selectedWeek} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({builds.length})</span>
+          </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', color: 'var(--text-muted)', cursor: 'pointer', marginLeft: 'auto' }}>
+            <input type="checkbox" checked={autosaveBuilds} onChange={e => setAutosaveBuilds(e.target.checked)} />
+            Auto-save runs
+          </label>
+          {lastResult && (
+            <button onClick={manualSaveBuild} style={{ ...pillBtnBase, fontSize: '0.72rem', background: 'rgba(0,242,254,0.1)', color: 'var(--accent-primary)', borderColor: 'rgba(0,242,254,0.25)' }}>
+              Save current run
+            </button>
+          )}
+          <button onClick={pruneBuildsNow} title="Delete this week's autosave builds that aren't pinned, labeled or submitted"
+            style={{ ...pillBtnBase, fontSize: '0.72rem', background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.1)' }}>
+            Prune autosaves
+          </button>
+          {buildToast && <span style={{ fontSize: '0.72rem', color: 'var(--accent-green)' }}>{buildToast}</span>}
+        </div>
+
+        {buildsOpen && (
+          <div style={{ padding: '4px 6px 8px' }}>
+            {builds.length === 0 ? (
+              <div style={{ padding: '14px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                No builds yet this week. {autosaveBuilds ? 'Each Optimize run with changed inputs is saved here.' : 'Auto-save is off — use "Save current run".'}
+              </div>
+            ) : (
+              <>
+                {selectedBuildIds.size > 0 && (
+                  <div style={{ padding: '4px 8px' }}>
+                    <button onClick={() => deleteBuildRows([...selectedBuildIds])}
+                      style={{ ...pillBtnBase, fontSize: '0.72rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>
+                      Delete selected ({selectedBuildIds.size})
+                    </button>
+                  </div>
+                )}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', fontSize: '0.78rem', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ color: 'var(--text-muted)', textAlign: 'left' }}>
+                        <th style={{ padding: '4px 6px', width: '24px' }}></th>
+                        <th style={{ padding: '4px 6px' }}>When</th>
+                        <th style={{ padding: '4px 6px' }}>Label</th>
+                        <th style={{ padding: '4px 6px' }}>Contest</th>
+                        <th style={{ padding: '4px 6px', textAlign: 'right' }}>Lineups</th>
+                        <th style={{ padding: '4px 6px', textAlign: 'right' }}>Port. EV</th>
+                        <th style={{ padding: '4px 6px', textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {builds.map(b => (
+                        <tr key={b.build_id} style={{ borderTop: '1px solid var(--border-glass)' }}>
+                          <td style={{ padding: '4px 6px' }}>
+                            <input type="checkbox" checked={selectedBuildIds.has(b.build_id)}
+                              onChange={e => setSelectedBuildIds(prev => {
+                                const n = new Set(prev);
+                                e.target.checked ? n.add(b.build_id) : n.delete(b.build_id);
+                                return n;
+                              })} />
+                          </td>
+                          <td style={{ padding: '4px 6px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
+                            {relStamp(b.created_at)}
+                            <span style={{ marginLeft: '5px', fontSize: '0.62rem', color: 'var(--text-muted)' }}>{b.source === 'manual' ? 'saved' : 'auto'}</span>
+                          </td>
+                          <td style={{ padding: '4px 6px' }}>
+                            <input
+                              defaultValue={b.label || ''}
+                              placeholder="—"
+                              onBlur={e => { const v = e.target.value.trim() || null; if (v !== (b.label || null)) patchBuildRow(b.build_id, { label: v }); }}
+                              style={{ ...inputStyle, padding: '2px 6px', fontSize: '0.75rem', width: '110px' }}
+                            />
+                          </td>
+                          <td style={{ padding: '4px 6px', color: 'var(--text-muted)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b.contest_name || ''}>
+                            {b.contest_name || '—'}
+                          </td>
+                          <td style={{ padding: '4px 6px', textAlign: 'right' }}>{b.n_lineups}</td>
+                          <td style={{ padding: '4px 6px', textAlign: 'right', color: b.portfolio_ev > 0 ? 'var(--accent-green)' : 'var(--text-secondary)' }}>
+                            {b.portfolio_ev != null ? `${b.portfolio_ev > 0 ? '+' : ''}${b.portfolio_ev}%` : '—'}
+                          </td>
+                          <td style={{ padding: '4px 6px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <button onClick={() => patchBuildRow(b.build_id, { pinned: !b.pinned })} title={b.pinned ? 'Unpin' : 'Pin (kept on prune)'}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', opacity: b.pinned ? 1 : 0.35 }}>★</button>
+                            <button onClick={() => patchBuildRow(b.build_id, { submitted: !b.submitted })} title={b.submitted ? 'Unmark submitted' : 'Mark as submitted to a contest'}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', opacity: b.submitted ? 1 : 0.35 }}>✓</button>
+                            <button onClick={() => restoreBuild(b.build_id)} title="Load this build's settings + adjustments back into the working state"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>⟲</button>
+                            <button onClick={() => deleteBuildRows([b.build_id])} title="Delete this build"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.5 }}>🗑</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* ── Settings panel (collapsible) */}
       {settingsOpen && (
         <SettingsPanel
@@ -993,17 +1676,18 @@ export default function Optimizer({
           allTeams={allTeams} allGames={allGames}
           excludedTeams={excludedTeams} setExcludedTeams={setExcludedTeams}
           excludedGames={excludedGames} setExcludedGames={setExcludedGames}
+          dkContests={dkContests}
         />
       )}
 
       {/* ── Game Bar */}
-      {games && games.length > 0 && (
+      {mainSlateGames.length > 0 && (
         <div style={{ marginBottom: '14px' }}>
           <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-            This Week's Games — Click to Exclude
+            Main Slate Games — Click to Exclude
           </div>
           <GameBar
-            games={games}
+            games={mainSlateGames}
             allSimResults={allSimResults}
             gameExclusions={gameExclusions}
             onToggleGame={toggleGame}
@@ -1027,6 +1711,29 @@ export default function Optimizer({
                   {excludedCount} excluded
                 </span>
               )}
+              {/* Sticky-ownership control: freeze so the portfolio math stops
+                  drifting between runs; hand-edit the few players that move. */}
+              {overlay.ownershipFrozen ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--accent-gold)', background: 'rgba(255,170,0,0.1)', padding: '2px 4px 2px 8px', borderRadius: '20px', border: '1px solid rgba(255,170,0,0.25)' }}>
+                  Ownership FROZEN
+                  {overlay.ownershipFrozenAt && (
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      {new Date(overlay.ownershipFrozenAt).toLocaleDateString([], { weekday: 'short' })} {new Date(overlay.ownershipFrozenAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    </span>
+                  )}
+                  {ownershipHandEdits > 0 && <span style={{ color: 'var(--text-muted)' }}>· {ownershipHandEdits} edit{ownershipHandEdits > 1 ? 's' : ''}</span>}
+                  <button onClick={unfreezeOwnership} title="Revert to the live weekly ownership from the sim"
+                    style={{ ...pillBtnBase, padding: '1px 7px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', borderColor: 'rgba(255,255,255,0.12)' }}>
+                    Unfreeze
+                  </button>
+                </span>
+              ) : (
+                <button onClick={freezeOwnership}
+                  title="Snapshot every player's current ownership for the week so the portfolio/EV math is stable across optimize runs. Hand-edit individuals as news breaks."
+                  style={{ ...pillBtnBase, fontSize: '0.72rem', background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.08)', whiteSpace: 'nowrap' }}>
+                  Freeze ownership
+                </button>
+              )}
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               {/* Position filter pills */}
@@ -1040,6 +1747,21 @@ export default function Optimizer({
                   }}>{pos}</button>
                 ))}
               </div>
+              <button
+                onClick={() => setShowGppCol(v => {
+                  const next = !v;
+                  if (!next && sortField === 'gppProjection') { setSortField('projection'); setSortAsc(false); }
+                  return next;
+                })}
+                title="Show/hide the blended ceiling projection the optimizer uses for GPP contest types"
+                style={{
+                  ...pillBtnBase,
+                  background: showGppCol ? 'rgba(0,242,254,0.15)' : 'rgba(255,255,255,0.04)',
+                  color: showGppCol ? 'var(--accent-primary)' : 'var(--text-muted)',
+                  borderColor: showGppCol ? 'rgba(0,242,254,0.4)' : 'rgba(255,255,255,0.08)',
+                  whiteSpace: 'nowrap',
+                }}
+              >{showGppCol ? 'Hide' : 'Show'} GPP blend</button>
               <input
                 type="text" placeholder="Search player…"
                 value={playerSearch} onChange={e => setPlayerSearch(e.target.value)}
@@ -1063,10 +1785,12 @@ export default function Optimizer({
                       {label} {sortField === field ? (sortAsc ? '↑' : '↓') : ''}
                     </th>
                   ))}
-                  <th style={{ cursor: 'pointer', padding: '7px 8px', whiteSpace: 'nowrap', color: 'rgba(0,242,254,0.7)', fontSize: '0.72rem' }}
-                    onClick={() => handleSort('gppProjection')} title="Blended ceiling projection used by optimizer for GPP types">
-                    GPP Proj {sortField === 'gppProjection' ? (sortAsc ? '↑' : '↓') : '⬍'}
-                  </th>
+                  {showGppCol && (
+                    <th style={{ cursor: 'pointer', padding: '7px 8px', whiteSpace: 'nowrap', color: 'rgba(0,242,254,0.7)', fontSize: '0.72rem' }}
+                      onClick={() => handleSort('gppProjection')} title="Blended ceiling projection used by optimizer for GPP types">
+                      GPP Proj {sortField === 'gppProjection' ? (sortAsc ? '↑' : '↓') : '⬍'}
+                    </th>
+                  )}
                   <th style={{ padding: '7px 5px', fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>P25</th>
                   <th style={{ padding: '7px 5px', fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>P50</th>
                   <th style={{ padding: '7px 5px', fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>P75</th>
@@ -1074,16 +1798,16 @@ export default function Optimizer({
                   <th style={{ cursor: 'pointer', padding: '7px 8px' }} onClick={() => handleSort('mean')}>
                     Mean {sortField === 'mean' ? (sortAsc ? '↑' : '↓') : ''}
                   </th>
-                  <th style={{ padding: '7px 8px', minWidth: '55px' }}>Own%</th>
+                  <th style={{ padding: '7px 8px', minWidth: '68px', whiteSpace: 'nowrap' }}>Own%</th>
                 </tr>
               </thead>
               <tbody>
                 {visiblePool.length === 0 ? (
-                  <tr><td colSpan={14} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>No players match your filters.</td></tr>
+                  <tr><td colSpan={showGppCol ? 14 : 13} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>No players match your filters.</td></tr>
                 ) : visiblePool.map(p => {
                   const excluded = isPlayerExcluded(p);
                   const tint = getProjTint(p);
-                  const isAboveP75 = p.hasPcts && p.p75 != null && p.projection > p.p75;
+                  const isAboveP75 = p.hasPcts && (p.simP75 ?? p.p75) != null && p.projection > (p.simP75 ?? p.p75);
                   return (
                     <tr key={p.id} style={{
                       opacity: excluded ? 0.35 : 1,
@@ -1126,8 +1850,10 @@ export default function Optimizer({
                       <td style={{ padding: '5px 6px', fontWeight: 600 }}>{p.team}</td>
                       {/* Game */}
                       <td style={{ padding: '5px 6px', fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{p.game}</td>
-                      {/* Salary */}
-                      <td style={{ padding: '5px 6px', fontWeight: 600 }}>${(p.salary || 0).toLocaleString()}</td>
+                      {/* Salary -- "—" for a player DK hasn't priced yet, not a guessed number */}
+                      <td style={{ padding: '5px 6px', fontWeight: 600, color: p.salary == null ? 'var(--text-muted)' : undefined }}>
+                        {p.salary == null ? '—' : `$${p.salary.toLocaleString()}`}
+                      </td>
                       {/* Proj editable (median / platform projection) */}
                       <td style={{ padding: '3px 5px' }}>
                         <div title={isAboveP75 ? 'Above p75 — aggressive projection' : undefined}>
@@ -1144,22 +1870,24 @@ export default function Optimizer({
                         </div>
                       </td>
                       {/* GPP Proj — blended ceiling projection (read-only display, click to use as proj) */}
-                      <td style={{ padding: '3px 5px' }}>
-                        {p.hasPcts ? (
-                          <button
-                            onClick={() => setProjection(p.id, p.gppProjection)}
-                            title={`Set projection to GPP blend: ${p.gppProjection}`}
-                            style={{
-                              ...pillBtnBase, padding: '2px 7px', fontSize: '0.72rem', fontWeight: 700,
-                              background: 'rgba(0,242,254,0.08)',
-                              color: 'rgba(0,242,254,0.85)',
-                              borderColor: 'rgba(0,242,254,0.2)',
-                            }}
-                          >{p.gppProjection}</button>
-                        ) : (
-                          <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.18)' }}>—</span>
-                        )}
-                      </td>
+                      {showGppCol && (
+                        <td style={{ padding: '3px 5px' }}>
+                          {p.hasPcts ? (
+                            <button
+                              onClick={() => setProjection(p.id, p.gppProjection)}
+                              title={`Set projection to GPP blend: ${p.gppProjection}`}
+                              style={{
+                                ...pillBtnBase, padding: '2px 7px', fontSize: '0.72rem', fontWeight: 700,
+                                background: 'rgba(0,242,254,0.08)',
+                                color: 'rgba(0,242,254,0.85)',
+                                borderColor: 'rgba(0,242,254,0.2)',
+                              }}
+                            >{p.gppProjection}</button>
+                          ) : (
+                            <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.18)' }}>—</span>
+                          )}
+                        </td>
+                      )}
                       {/* Percentile pills: P25, P50, P75, P95 */}
                       {['p25', 'p50', 'p75', 'p95'].map(pctKey => (
                         <td key={pctKey} style={{ padding: '3px 3px', textAlign: 'center' }}>
@@ -1188,7 +1916,7 @@ export default function Optimizer({
                           value={p.ownershipPct ?? ''}
                           placeholder="—"
                           onChange={e => setOwnership(p.id, e.target.value)}
-                          style={{ ...inputStyle, width: '52px', padding: '3px 5px', fontSize: '0.75rem' }}
+                          style={{ ...inputStyle, width: '58px', padding: '3px 5px', fontSize: '0.75rem' }}
                         />
                       </td>
                     </tr>
@@ -1215,11 +1943,18 @@ export default function Optimizer({
                       ? ` (${portfolioStats.n_requested} requested)` : ''}
                   </div>
                 </div>
-                <button onClick={exportCSV} style={{
-                  padding: '7px 14px', background: 'rgba(0,242,254,0.1)', color: 'var(--accent-primary)',
-                  border: '1px solid rgba(0,242,254,0.25)', borderRadius: '8px', cursor: 'pointer',
-                  fontWeight: 600, fontSize: '0.82rem',
-                }}>↓ Export CSV</button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={exportSummaryCSV} title="Human-readable summary -- not accepted by DK's upload form" style={{
+                    padding: '7px 14px', background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)',
+                    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', cursor: 'pointer',
+                    fontWeight: 600, fontSize: '0.82rem',
+                  }}>↓ Export Summary</button>
+                  <button onClick={exportDkUploadCSV} title="DK's real Bulk Upload format (player IDs from the live salary feed)" style={{
+                    padding: '7px 14px', background: 'rgba(0,242,254,0.1)', color: 'var(--accent-primary)',
+                    border: '1px solid rgba(0,242,254,0.25)', borderRadius: '8px', cursor: 'pointer',
+                    fontWeight: 600, fontSize: '0.82rem',
+                  }}>↓ Export for DK Upload</button>
+                </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
                 {[
@@ -1273,7 +2008,7 @@ export default function Optimizer({
                       const slotted = getSlottedColumns(lu.players);
                       const isExpanded = expandedLineupIdx === idx;
                       const remaining = salaryCap - lu.total_salary;
-                      const hasLocked = lu.players.some(p => playerPool.find(pp => pp.name === p.name)?.locked);
+                      const hasLocked = lu.players.some(p => overlay.players[`${p.name}_${p.team}`]?.locked);
 
                       const renderSlot = (player) => {
                         if (!player) return <td style={{ padding: '5px 6px', color: 'rgba(255,255,255,0.2)' }}>—</td>;

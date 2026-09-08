@@ -25,7 +25,9 @@ import nfl_data_py as nfl
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from src.data_pipeline.rolling_stats_v_0_1_0 import (
-    build_team_week_totals, rolling_stats_for_player, rolling_stats_for_team,
+    build_team_week_totals, build_team_week_zone_totals,
+    rolling_stats_for_player, rolling_stats_for_player_zones, rolling_stats_for_team,
+    ZONES, ZONE_SPLIT_FIELDS,
 )
 from src.data_pipeline.dna_blender_v_0_1_0 import blend_player_dna, blend_team_dna
 from src.data_pipeline.rookie_curves_v_0_1_0 import resolve_rookie_curves
@@ -43,29 +45,56 @@ def load_rookie_projections(year):
     return json.load(open(path))
 
 
-def blend_one_player(traits, pbp, team_totals, completed_week, game_number, rookie_projections):
+def blend_one_player(traits, pbp, team_totals, team_zone_totals, ngs_pass_df, ngs_recv_df,
+                      completed_week, game_number, rookie_projections):
     pos = traits["pos"]
     player_id = traits.get("player_id")
 
     if player_id and len(pbp):
-        season_actual, l4_actual = rolling_stats_for_player(pbp, player_id, pos, completed_week, team_totals)
+        season_actual, l4_actual = rolling_stats_for_player(
+            pbp, player_id, pos, completed_week, team_totals,
+            ngs_pass_df=ngs_pass_df, ngs_recv_df=ngs_recv_df,
+        )
+        zone_season, zone_l4 = rolling_stats_for_player_zones(
+            pbp, player_id, pos, completed_week, team_zone_totals=team_zone_totals,
+        )
     else:
         season_actual, l4_actual = {}, {}
+        zone_season = {f: {z: None for z in ZONES} for f in ZONE_SPLIT_FIELDS}
+        zone_l4 = {f: {z: None for z in ZONES} for f in ZONE_SPLIT_FIELDS}
 
-    if traits.get("rookie") and traits.get("_name") in rookie_projections:
+    is_rookie = traits.get("rookie") and traits.get("_name") in rookie_projections
+    if is_rookie:
         rp = rookie_projections[traits["_name"]]
         projection = dict(rp.get("static_projection", {}))
         curve_override = {}
         curve_override.update(resolve_rookie_curves(rp.get("usage_curve", {}), game_number))
         curve_override.update(resolve_rookie_curves(rp.get("efficiency_curve", {}), game_number))
+        # No per-zone curves for rookies yet (Phase 4 didn't build that) --
+        # reuse the same flat curve-resolved value as every zone's projection
+        # baseline until real zone-specific data exists to blend against.
+        flat_projection_by_field = dict(projection)
+        flat_projection_by_field.update(curve_override)
+        zone_projection = {zone: {f: flat_projection_by_field[f] for f in ZONE_SPLIT_FIELDS if f in flat_projection_by_field} for zone in ZONES}
     else:
         projection = traits.get("preseason_projection", {})
         curve_override = None
+        zone_projection = projection.get("splits", {})
 
     blended = blend_player_dna(projection, l4_actual, season_actual, game_number, curve_override)
     for field, value in blended.items():
         if value is not None:
             traits[field] = round(value, 4) if isinstance(value, float) else value
+
+    traits.setdefault("splits", {})
+    for zone in ZONES:
+        zone_proj = zone_projection.get(zone, {})
+        zone_l4_actual = {f: zone_l4[f][zone] for f in ZONE_SPLIT_FIELDS if zone_l4[f].get(zone) is not None}
+        zone_season_actual = {f: zone_season[f][zone] for f in ZONE_SPLIT_FIELDS if zone_season[f].get(zone) is not None}
+        zone_blended = blend_player_dna(zone_proj, zone_l4_actual, zone_season_actual, game_number)
+        for field, value in zone_blended.items():
+            if value is not None:
+                traits["splits"].setdefault(zone, {})[field] = round(value, 4) if isinstance(value, float) else value
 
 
 def detect_starter_flips(team_traits, pbp, completed_week, lookback=STARTER_FLIP_LOOKBACK_WEEKS):
@@ -117,7 +146,12 @@ def refresh_team_defense(team, year, pbp, completed_week, game_number, trench_dn
     data, same taper/steady-state mechanism as players. Composite z-score
     fields (run_block_off_z etc.) are untouched -- see
     build_2026_trench_shell_v_0_1_0.py's scoping note. Mutates trench_dna
-    in place."""
+    in place.
+
+    Also persists RAW (unblended) def_sack_rate_l4/sack_rate_allowed_l4 --
+    Gate 2's off_sack_rate_l4/def_sack_rate_l4 model features (see Phase 7e)
+    want a genuine last-4-games rate specifically, not a taper-blended one;
+    these sit alongside the blended fields rather than replacing them."""
     entry = trench_dna.get(str(year), {}).get(team)
     if entry is None:
         return  # no shell built for this team/year yet
@@ -132,6 +166,11 @@ def refresh_team_defense(team, year, pbp, completed_week, game_number, trench_dn
     for field, value in blended.items():
         if value is not None:
             entry[field] = round(value, 4) if isinstance(value, float) else value
+
+    for raw_field in ("def_sack_rate", "sack_rate_allowed"):
+        raw_l4 = l4_actual.get(raw_field)
+        if raw_l4 is not None:
+            entry[f"{raw_field}_l4"] = round(raw_l4, 4)
 
 
 def refresh(year, completed_week):
@@ -151,6 +190,13 @@ def refresh(year, completed_week):
     pbp = pbp[pbp["play_type"].isin(["pass", "run"])]
     pbp = pbp[pbp["week"] <= completed_week]
     team_totals = build_team_week_totals(pbp) if len(pbp) else {}
+    team_zone_totals = build_team_week_zone_totals(pbp) if len(pbp) else {}
+
+    print(f"Pulling NGS passing/receiving for {year} through week {completed_week}...")
+    ngs_pass = nfl.import_ngs_data("passing", [year])
+    ngs_recv = nfl.import_ngs_data("receiving", [year])
+    ngs_pass = ngs_pass[ngs_pass["week"] <= completed_week] if len(ngs_pass) else ngs_pass
+    ngs_recv = ngs_recv[ngs_recv["week"] <= completed_week] if len(ngs_recv) else ngs_recv
 
     trench_path = os.path.join(DNA_DIR, "trench_dna.json")
     trench_dna = json.load(open(trench_path))
@@ -164,7 +210,8 @@ def refresh(year, completed_week):
 
         for name, traits in data["traits"].items():
             traits["_name"] = name  # transient, stripped before write
-            blend_one_player(traits, pbp, team_totals, completed_week, game_number, rookie_projections)
+            blend_one_player(traits, pbp, team_totals, team_zone_totals, ngs_pass, ngs_recv,
+                              completed_week, game_number, rookie_projections)
 
         detect_starter_flips(data["traits"], pbp, completed_week)
         refresh_team_defense(team, year, pbp, completed_week, game_number, trench_dna)

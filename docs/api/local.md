@@ -66,7 +66,7 @@ The primary goal of the local API is to act as a **high-performance bridge** bet
 * **Role:** Stores baseline team parameters, coach tendencies, and skill metrics collected from historical years (2015–2024).
 * **Files:**
   * `data/dna/trench_dna.json` (continuous team pressure and sack rates)
-  * `data/dna/coordinator_atlas.json` (coach pass rate overrides - PROE)
+  * `data/dna/coach_dna.json`'s `"proe"` field (coach pass rate overrides - PROE; consolidated from the retired `coordinator_atlas.json` on 2026-07-16)
   * `data/current_rosters/*_traits_2025.json` (player workload profiles)
 
 ### E. Monte Carlo Simulation Engine

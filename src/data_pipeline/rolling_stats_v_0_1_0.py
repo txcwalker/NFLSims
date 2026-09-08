@@ -1,17 +1,27 @@
 """Computes per-week rolling stats (season-to-date, last-4-games) for players
-and teams from raw play-by-play, feeding dna_blender_v_0_1_0's taper/steady-
-state blend.
+and teams from raw play-by-play + NGS data, feeding dna_blender_v_0_1_0's
+taper/steady-state blend.
 
-Two layers:
+Three layers:
   - rolling_average() / compute_season_to_date() / compute_l4(): generic,
     field-agnostic windowed-mean primitives over a {week: value} log. Used
     directly by tests and by anything that already has a per-week log.
-  - build_player_game_log() / build_team_game_log(): PBP -> per-week log for
-    the specific fields current_rosters/trench_dna consume live (see
-    docs/sims/inputs/README.md for which fields are actually read by the
-    engine -- dead/cosmetic fields are intentionally not built here).
+  - build_player_game_log() / build_team_game_log(): PBP -> per-week log,
+    flat (whole-game) fields.
+  - build_player_zone_game_log(): PBP -> per-week-per-zone log, for the
+    fields that feed game_engine.py's zone-conditioned ("_by_filter") model
+    features -- target_share, carry_share, cpoe, catch_rate.
 
-Entry points: rolling_stats_for_player(), rolling_stats_for_team().
+Field coverage matches what's confirmed LIVE in game_engine.py (Phase 7
+audit, see docs/sims/inputs/README.md) -- one confirmed exception:
+contested_catch_rate has no real signal in nfl_data_py (checked PBP and all
+three NGS categories, 2026-07-22) -- NFL's real Next Gen Stats tracks it,
+but this package doesn't expose it, so it stays a one-time synthetic value
+at roster-build time, not part of this module. Revisit if a source is ever
+found.
+
+Entry points: rolling_stats_for_player(), rolling_stats_for_team(),
+rolling_stats_for_player_zones().
 """
 
 # Fields with a real live consumer in game_engine.py per docs/sims/inputs/README.md.
@@ -23,9 +33,28 @@ Entry points: rolling_stats_for_player(), rolling_stats_for_team().
 PLAYER_RATE_FIELDS = [
     "target_share", "carry_share", "catch_rate", "ypc",
     "yac_per_rec", "cpoe", "sack_rate", "scramble_rate",
-    "adot",
+    "adot", "avg_air_yards_per_att", "deep_target_rate",
+    "elusiveness", "broken_tackle_rate",
 ]
+# NGS-sourced (import_ngs_data), not derivable from plain PBP.
+PLAYER_NGS_FIELDS = ["avg_time_to_throw_sec", "avg_separation_yds"]
 TEAM_RATE_FIELDS = ["def_pressure_rate", "def_sack_rate", "sack_rate_allowed"]
+ZONE_SPLIT_FIELDS = ["target_share", "carry_share", "cpoe", "catch_rate"]
+
+GOALLINE_YARDLINE = 5  # matches game_engine.py's constant of the same name
+REDZONE_YARDLINE = 20
+ZONES = ("primary", "redzone", "goalline")
+# Below this many real plays in a zone/window, the rolling value for that
+# zone is unreliable -- caller falls back to the flat (all-zone) value.
+MIN_ZONE_SAMPLES = 5
+
+
+def classify_zone(yardline_100):
+    if yardline_100 <= GOALLINE_YARDLINE:
+        return "goalline"
+    if yardline_100 <= REDZONE_YARDLINE:
+        return "redzone"
+    return "primary"
 
 
 def rolling_average(game_values, through_week, window=None):
@@ -82,8 +111,15 @@ def build_player_game_log(pbp, player_id, position, team_totals=None):
             by_week = p_pass.groupby("week")
             log["catch_rate"] = by_week["complete_pass"].mean().to_dict()
             log["adot"] = by_week["air_yards"].mean().to_dict()
+            log["deep_target_rate"] = by_week["air_yards"].apply(lambda s: (s >= 20).mean()).to_dict()
             complete = p_pass[p_pass["complete_pass"] == 1].groupby("week")
             log["yac_per_rec"] = complete["yards_after_catch"].mean().to_dict()
+            if "xyac_mean_yardage" in p_pass.columns:
+                completions = p_pass[p_pass["complete_pass"] == 1].copy()
+                completions["yac_over_expected"] = completions["yards_after_catch"] - completions["xyac_mean_yardage"]
+                by_week_completions = completions.groupby("week")
+                log["elusiveness"] = by_week_completions["yac_over_expected"].mean().to_dict()
+                log["broken_tackle_rate"] = by_week_completions["yac_over_expected"].apply(lambda s: (s > 3.0).mean()).to_dict()
             if team_totals is not None:
                 team = p_pass["posteam"].mode().iat[0] if len(p_pass["posteam"].mode()) else None
                 targets_by_week = by_week.size()
@@ -108,11 +144,30 @@ def build_player_game_log(pbp, player_id, position, team_totals=None):
         if len(p_pass):
             by_week = p_pass.groupby("week")
             log["cpoe"] = by_week["cpoe"].mean().to_dict()
+            log["avg_air_yards_per_att"] = by_week["air_yards"].mean().to_dict()
             n_att = by_week["pass_attempt"].sum()
             n_sack = by_week["sack"].sum()
             log["sack_rate"] = (n_sack / (n_sack + n_att)).to_dict()
             log["scramble_rate"] = by_week["qb_scramble"].mean().to_dict()
 
+    return log
+
+
+def build_player_ngs_game_log(ngs_pass_df, ngs_recv_df, player_id, position):
+    """NGS-sourced fields (not in PBP): avg_time_to_throw_sec (QB, from
+    import_ngs_data('passing', ...)), avg_separation_yds (receivers, from
+    import_ngs_data('receiving', ...)). Both frames have a real per-week
+    `week` column (0 = season aggregate, excluded here) keyed by
+    player_gsis_id. Pass ngs_pass_df/ngs_recv_df=None to skip either."""
+    log = {}
+    if position == "QB" and ngs_pass_df is not None:
+        p = ngs_pass_df[(ngs_pass_df["player_gsis_id"] == player_id) & (ngs_pass_df["week"] > 0)]
+        if len(p):
+            log["avg_time_to_throw_sec"] = dict(zip(p["week"], p["avg_time_to_throw"]))
+    elif position != "QB" and ngs_recv_df is not None:
+        p = ngs_recv_df[(ngs_recv_df["player_gsis_id"] == player_id) & (ngs_recv_df["week"] > 0)]
+        if len(p):
+            log["avg_separation_yds"] = dict(zip(p["week"], p["avg_separation"]))
     return log
 
 
@@ -128,6 +183,108 @@ def build_team_week_totals(pbp):
     for (team, wk), n in carries.items():
         out.setdefault((team, wk), {})["team_carries"] = n
     return out
+
+
+def build_team_week_zone_totals(pbp):
+    """(team, week, zone) -> {team_targets, team_carries} -- zone-aware
+    version of build_team_week_totals(), for zone-split target_share/
+    carry_share."""
+    pbp = pbp.copy()
+    pbp["zone"] = pbp["yardline_100"].apply(classify_zone)
+    pbp_pass = pbp[pbp["play_type"] == "pass"]
+    pbp_run = pbp[pbp["play_type"] == "run"]
+    targets = pbp_pass.groupby(["posteam", "week", "zone"]).size()
+    carries = pbp_run.groupby(["posteam", "week", "zone"]).size()
+    out = {}
+    for (team, wk, zone), n in targets.items():
+        out.setdefault((team, wk, zone), {})["team_targets"] = n
+    for (team, wk, zone), n in carries.items():
+        out.setdefault((team, wk, zone), {})["team_carries"] = n
+    return out
+
+
+def build_player_zone_game_log(pbp, player_id, position, team_zone_totals=None):
+    """Zone-bucketed version of build_player_game_log(), for
+    ZONE_SPLIT_FIELDS only (target_share, carry_share, cpoe, catch_rate --
+    the four that feed game_engine.py's "_by_filter" model features).
+    Returns {field: {zone: {week: value}}}."""
+    pbp = pbp.copy()
+    pbp["zone"] = pbp["yardline_100"].apply(classify_zone)
+    pbp_pass = pbp[pbp["play_type"] == "pass"]
+
+    log = {f: {z: {} for z in ZONES} for f in ZONE_SPLIT_FIELDS}
+
+    if position != "QB":
+        p_pass = pbp_pass[pbp_pass["receiver_player_id"] == player_id]
+        if len(p_pass):
+            for zone, zdf in p_pass.groupby("zone"):
+                by_week = zdf.groupby("week")
+                log["catch_rate"][zone] = by_week["complete_pass"].mean().to_dict()
+                if team_zone_totals is not None:
+                    team = zdf["posteam"].mode().iat[0] if len(zdf["posteam"].mode()) else None
+                    targets_by_week = by_week.size()
+                    log["target_share"][zone] = {
+                        wk: n / team_zone_totals.get((team, wk, zone), {}).get("team_targets", n)
+                        if team_zone_totals.get((team, wk, zone)) else None
+                        for wk, n in targets_by_week.items()
+                    }
+        pbp_run = pbp[pbp["play_type"] == "run"]
+        p_run = pbp_run[pbp_run["rusher_player_id"] == player_id]
+        if len(p_run) and team_zone_totals is not None:
+            for zone, zdf in p_run.groupby("zone"):
+                by_week = zdf.groupby("week")
+                team = zdf["posteam"].mode().iat[0] if len(zdf["posteam"].mode()) else None
+                carries_by_week = by_week.size()
+                log["carry_share"][zone] = {
+                    wk: n / team_zone_totals.get((team, wk, zone), {}).get("team_carries", n)
+                    if team_zone_totals.get((team, wk, zone)) else None
+                    for wk, n in carries_by_week.items()
+                }
+    else:
+        p_pass = pbp_pass[pbp_pass["passer_player_id"] == player_id]
+        if len(p_pass):
+            for zone, zdf in p_pass.groupby("zone"):
+                log["cpoe"][zone] = zdf.groupby("week")["cpoe"].mean().to_dict()
+
+    return log
+
+
+def rolling_stats_for_player_zones(pbp, player_id, position, through_week, team_zone_totals=None,
+                                    min_samples=MIN_ZONE_SAMPLES):
+    """Season/L4 rolling stats per zone for ZONE_SPLIT_FIELDS. A zone's
+    value is set to None (caller falls back to the flat blended value) when
+    fewer than `min_samples` real plays exist in that zone/window --
+    red-zone and especially goal-line sample sizes are thin, and a rolling
+    average over 2-3 plays is noise, not signal."""
+    zone_log = build_player_zone_game_log(pbp, player_id, position, team_zone_totals=team_zone_totals)
+    pbp_z = pbp.copy()
+    pbp_z["zone"] = pbp_z["yardline_100"].apply(classify_zone)
+
+    def _sample_count(field, zone, window_weeks):
+        if field in ("target_share", "catch_rate"):
+            mask = (pbp_z["play_type"] == "pass") & (pbp_z["zone"] == zone) & (pbp_z["week"].isin(window_weeks))
+            id_col = "receiver_player_id"
+        elif field == "carry_share":
+            mask = (pbp_z["play_type"] == "run") & (pbp_z["zone"] == zone) & (pbp_z["week"].isin(window_weeks))
+            id_col = "rusher_player_id"
+        else:  # cpoe
+            mask = (pbp_z["play_type"] == "pass") & (pbp_z["zone"] == zone) & (pbp_z["week"].isin(window_weeks))
+            id_col = "passer_player_id"
+        return int((pbp_z.loc[mask, id_col] == player_id).sum())
+
+    all_weeks = sorted(w for w in range(1, through_week + 1))
+    l4_weeks = all_weeks[-4:]
+
+    season = {f: {} for f in ZONE_SPLIT_FIELDS}
+    l4 = {f: {} for f in ZONE_SPLIT_FIELDS}
+    for field in ZONE_SPLIT_FIELDS:
+        for zone in ZONES:
+            gv = zone_log[field][zone]
+            season_val = compute_season_to_date(gv, through_week)
+            l4_val = compute_l4(gv, through_week)
+            season[field][zone] = season_val if _sample_count(field, zone, all_weeks) >= min_samples else None
+            l4[field][zone] = l4_val if _sample_count(field, zone, l4_weeks) >= min_samples else None
+    return season, l4
 
 
 def build_team_game_log(pbp, team):
@@ -154,8 +311,10 @@ def build_team_game_log(pbp, team):
     return log
 
 
-def rolling_stats_for_player(pbp, player_id, position, through_week, team_totals=None):
+def rolling_stats_for_player(pbp, player_id, position, through_week, team_totals=None,
+                              ngs_pass_df=None, ngs_recv_df=None):
     log = build_player_game_log(pbp, player_id, position, team_totals=team_totals)
+    log.update(build_player_ngs_game_log(ngs_pass_df, ngs_recv_df, player_id, position))
     return rolling_stats_for_fields(log, through_week)
 
 

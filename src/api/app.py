@@ -13,14 +13,17 @@ Full design rationale (endpoints, multiprocessing notes): see app.md.
 
 import os
 import json
+import glob
 import math
+import time
 import itertools
 import functools
+import hashlib
 import numpy as np
 import pandas as pd
 import pulp
 from typing import Dict, List, Any, Optional, Tuple
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -33,6 +36,9 @@ except ImportError:
 
 from src.nfl_sim.batch import BatchSimulator, StatAggregator
 from src.nfl_sim.scoring import calculate_fantasy_points
+from src.nfl_sim.field_simulator import build_field_sample, score_field_at_iteration, load_archetype_params
+from src.scrapers.dk_scraper import get_dk_salaries, get_dk_contests, get_dk_contest_payout, get_dk_slates, resolve_dk_salary
+from src.api import optimizer_store
 
 # Positional (chess-style) evaluator — lazily constructed singleton so the heavy
 # WP/EP model loads + KEP curve build happen once, not per request.
@@ -83,15 +89,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def no_store_cache_headers(request, call_next):
+    """Every /api/* response reflects data that changes underneath it (DK
+    salaries, live sim caches) on a timescale the browser's own HTTP cache
+    has no way to know about. Without this, a GET to an unchanged URL (e.g.
+    switching slates and back) can silently replay a stale response instead
+    of re-hitting the server -- caught live during DK integration testing,
+    where a browser reload kept re-displaying a salary from several backend
+    restarts ago purely because the URL hadn't changed."""
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
 # -------------------------------------------------------------------------
 # PATH RESOLUTION & DATA LOADERS
 # -------------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCHEDULE_CSV_PATH = os.path.join(BASE_DIR, "data", "external", "schedule_2025.csv")
-TEAM_COACHES_PATH = os.path.join(BASE_DIR, "data", "dna", "team_to_coach_2025.json")
-COORDINATOR_ATLAS_PATH = os.path.join(BASE_DIR, "data", "dna", "coordinator_atlas.json")
-GAMES_CACHE_PATH = os.path.join(BASE_DIR, "data", "interim", "sim_results_2025_games.parquet")
-PLAYERS_CACHE_PATH = os.path.join(BASE_DIR, "data", "interim", "sim_results_2025_players.parquet")
+# DFS site is scoped to 2026 Week 1 only for now (see /api/weeks below) -- that's
+# the only week with real DraftKings salaries live (get_dk_salaries()) and the
+# only one currently relevant to a pre-season dev build.
+SCHEDULE_CSV_PATH = os.path.join(BASE_DIR, "data", "external", "schedule_2026.csv")
+TEAM_COACHES_PATH = os.path.join(BASE_DIR, "data", "dna", "team_to_coach_2026.json")
+COACH_DNA_PATH = os.path.join(BASE_DIR, "data", "dna", "coach_dna.json")
+GAMES_CACHE_PATH = os.path.join(BASE_DIR, "data", "interim", "sim_results_2026_games.parquet")
+PLAYERS_CACHE_PATH = os.path.join(BASE_DIR, "data", "interim", "sim_results_2026_players.parquet")
 
 # Pre-load cached simulation data into memory and reload if files are updated on disk
 ALL_GAMES_CACHED = None
@@ -110,6 +132,42 @@ PLAYERS_BY_GAME_ID = {}
 
 # In-memory + disk cache for /api/week_sim_results — see that endpoint for details.
 WEEK_SIM_RESULTS_CACHE = {}
+
+# DFS-specific per-week simulation cache (2026-09-04) — separate from
+# ALL_GAMES_CACHED/ALL_PLAYERS_CACHED, which hold the SEASON-LONG sim (every
+# player at their healthy, "if everyone's available" usage). A week's real
+# availability (IR/PUP/suspensions/etc., see data/overrides/2026/week_NN/)
+# is compiled into its own roster tree (data/current_rosters/dfs/) by
+# apply_team_week_overrides_v_0_1_0.py and simulated by
+# scripts/simulation_runners/run_week_sim_2026.py into
+# data/interim/dfs_week_{N}_players.parquet — get_week_projections() below
+# prefers that file when it exists, so DFS projections reflect the week's
+# actual injury news instead of a slice of the season-long average.
+DFS_WEEK_PLAYERS_CACHE: Dict[int, Any] = {}     # week -> (mtime, DataFrame)
+
+
+def _get_dfs_week_players(week: int):
+    """Loads (and mtime-based-reloads) data/interim/dfs_week_{week}_players.parquet
+    if it exists. Returns None if there is no DFS-specific sim for this week
+    yet — callers should fall back to slicing the season-long cache."""
+    path = os.path.join(BASE_DIR, "data", "interim", f"dfs_week_{week}_players.parquet")
+    if not os.path.exists(path):
+        return None
+    mtime = os.path.getmtime(path)
+    cached = DFS_WEEK_PLAYERS_CACHE.get(week)
+    if cached is not None and cached[0] == mtime:
+        return cached[1]
+    df = pd.read_parquet(path)
+    DFS_WEEK_PLAYERS_CACHE[week] = (mtime, df)
+    return df
+
+# In-memory cache of built field samples (see src/nfl_sim/field_simulator.py),
+# keyed by (week, draft_group_id). Built once inside get_week_sim_results()
+# (expensive -- K archetype-weighted lineups), then reused by both
+# /api/field_sample (inspection) and /api/optimize (scoring against it) so
+# repeated small optimizer edits don't pay the field-construction cost again
+# -- see the implementation plan's "build/score cache split".
+FIELD_SAMPLE_CACHE: Dict[Tuple[int, Optional[int]], Dict[str, Any]] = {}
 
 # Full-response cache for /api/simulate, keyed on the exact request parameters
 # (see build_simulate_cache_key). The expensive part of this endpoint isn't the
@@ -185,6 +243,87 @@ def reload_cache_if_changed():
 # Initial load on startup
 reload_cache_if_changed()
 
+# -------------------------------------------------------------------------
+# 2026 SEASON REPORTS (frontend_analysis Season2026 page)
+# -------------------------------------------------------------------------
+# Read-only pass-through of the report files scripts/simulation_runners/
+# generate_*_2026.py and run_full_season_sim_2026.py already produce --
+# no new computation here, same mtime-gated reload pattern as
+# reload_cache_if_changed() above, kept in its own cache/globals so a 2025
+# cache reload never has to know about 2026 report files or vice versa.
+SEASON2026_DIR = os.path.join(BASE_DIR, "docs", "reports")
+SEASON2026_PATHS = {
+    "standings": os.path.join(SEASON2026_DIR, "season_summaries_2026.csv"),
+    "team_stats": os.path.join(SEASON2026_DIR, "team_stats_2026.csv"),
+    "leaders": os.path.join(SEASON2026_DIR, "season_leaders_2026.json"),
+    "matchups": os.path.join(SEASON2026_DIR, "matchup_win_probabilities_2026.json"),
+    "teams": os.path.join(SEASON2026_DIR, "2026", "teams_data.json"),
+}
+SEASON2026_CACHE: Dict[str, Any] = {}
+SEASON2026_MTIMES: Dict[str, float] = {}
+
+
+def reload_season2026_cache_if_changed():
+    for key, path in SEASON2026_PATHS.items():
+        if not os.path.exists(path):
+            continue
+        mtime = os.path.getmtime(path)
+        if key in SEASON2026_MTIMES and mtime <= SEASON2026_MTIMES[key]:
+            continue
+        try:
+            if path.endswith(".csv"):
+                SEASON2026_CACHE[key] = pd.read_csv(path).to_dict("records")
+            else:
+                with open(path, "r", encoding="utf-8") as f:
+                    SEASON2026_CACHE[key] = json.load(f)
+            SEASON2026_MTIMES[key] = mtime
+            print(f"Loaded 2026 season report '{key}' from {path} (mtime={mtime})")
+        except Exception as e:
+            print(f"Error loading 2026 season report '{key}': {e}")
+
+
+reload_season2026_cache_if_changed()
+
+
+@app.get("/api/season2026/standings")
+def get_season2026_standings():
+    reload_season2026_cache_if_changed()
+    if "standings" not in SEASON2026_CACHE:
+        raise HTTPException(status_code=404, detail="season_summaries_2026.csv not found -- run run_full_season_sim_2026.py first.")
+    return SEASON2026_CACHE["standings"]
+
+
+@app.get("/api/season2026/team-stats")
+def get_season2026_team_stats():
+    reload_season2026_cache_if_changed()
+    if "team_stats" not in SEASON2026_CACHE:
+        raise HTTPException(status_code=404, detail="team_stats_2026.csv not found -- run generate_team_stats_2026.py first.")
+    return SEASON2026_CACHE["team_stats"]
+
+
+@app.get("/api/season2026/leaders")
+def get_season2026_leaders():
+    reload_season2026_cache_if_changed()
+    if "leaders" not in SEASON2026_CACHE:
+        raise HTTPException(status_code=404, detail="season_leaders_2026.json not found -- run generate_season_leaders_2026.py first.")
+    return SEASON2026_CACHE["leaders"]
+
+
+@app.get("/api/season2026/matchups")
+def get_season2026_matchups():
+    reload_season2026_cache_if_changed()
+    if "matchups" not in SEASON2026_CACHE:
+        raise HTTPException(status_code=404, detail="matchup_win_probabilities_2026.json not found -- run generate_matchup_win_probabilities_2026.py first.")
+    return SEASON2026_CACHE["matchups"]
+
+
+@app.get("/api/season2026/teams")
+def get_season2026_teams():
+    reload_season2026_cache_if_changed()
+    if "teams" not in SEASON2026_CACHE:
+        raise HTTPException(status_code=404, detail="teams_data.json not found -- run run_full_season_sim_2026.py first.")
+    return SEASON2026_CACHE["teams"]
+
 
 @functools.lru_cache(maxsize=None)
 def load_json(path: str) -> Dict[str, Any]:
@@ -202,24 +341,6 @@ def load_json(path: str) -> Dict[str, Any]:
     return {}
 
 # -------------------------------------------------------------------------
-# DYNAMIC DFS SALARY & BASELINE GENERATORS
-# -------------------------------------------------------------------------
-def calculate_dfs_salary(pos: str, target_share: float, carry_share: float, cpoe: float = 0.0) -> int:
-    """Generates realistic DFS salaries based on baseline player workloads."""
-    base = 3000  # DFS Minimum
-    if pos == "QB":
-        # QBs range from $5,300 to $8,500 based on passing efficiency (CPOE)
-        cpoe_modifier = max(0.0, min(1.0, (cpoe + 0.05) / 0.10))
-        return int(base + 2300 + cpoe_modifier * 3200)
-    elif pos == "RB":
-        # RBs range from $4,000 to $8,500 based on rushing volume
-        return int(base + carry_share * 11000)
-    elif pos in ["WR", "TE", "WR/TE"]:
-        # WRs/TEs range from $3,500 to $9,000 based on target share
-        return int(base + target_share * 20000)
-    return base
-
-# -------------------------------------------------------------------------
 # PYDANTIC SCHEMAS
 # -------------------------------------------------------------------------
 class TeamOverride(BaseModel):
@@ -235,7 +356,7 @@ class PlayerOverride(BaseModel):
     catch_rate: float    # Percentage (e.g. 72.0)
     rush_td_share: Optional[float] = 0.0
     rec_td_share: Optional[float] = 0.0
-    ownership_proj: Optional[float] = 12.5
+    ownership_proj: Optional[float] = None  # None = no override; caller (e.g. _compute_one_game) fills it in
     pos: Optional[str] = "WR/TE"
     salary: Optional[int] = 3000
 
@@ -243,7 +364,7 @@ class PlayerOverride(BaseModel):
 class SimulationRequest(BaseModel):
     away_team: str
     home_team: str
-    year: int = 2025
+    year: int = 2026
     iterations: int = 10000
     spread_override: Optional[float] = None
     total_override: Optional[float] = None
@@ -276,6 +397,7 @@ class OptimizerPlayer(BaseModel):
     excluded: bool = False
     ownership_pct: Optional[float] = None
     dk_pcts_all: Optional[List[float]] = None  # 101-element array [p0..p100]
+    dk_id: Optional[int] = None  # DK's per-slate draftableId, for a real lineup-upload CSV export
 
 class PayoutTier(BaseModel):
     rank_start: int
@@ -295,6 +417,7 @@ class OptimizeRequest(BaseModel):
     entry_fee: float = 18.0
     total_entries: int = 11000
     paying_positions: int = 2200
+    week: Optional[int] = None  # looks up the cached archetype field sample (FIELD_SAMPLE_CACHE) built by get_week_sim_results(); falls back to a uniform-random field if omitted or not yet built
 
 # -------------------------------------------------------------------------
 # ENDPOINTS
@@ -331,66 +454,164 @@ def health_check():
 
 @app.get("/api/weeks")
 def get_weeks():
-    """Returns available weeks from the schedule."""
-    if not os.path.exists(SCHEDULE_CSV_PATH):
-        # Fallback if file missing
-        return {"weeks": list(range(1, 19))}
-    df = pd.read_csv(SCHEDULE_CSV_PATH)
-    weeks = sorted(df["week"].unique().tolist())
-    return {"weeks": weeks}
+    """Returns available weeks -- hardcoded to Week 1 only. The DFS dev site is
+    scoped to 2026 Week 1 (see SCHEDULE_CSV_PATH above): it's the only week with
+    real DraftKings salaries live right now, and the only one currently relevant
+    this far ahead of the season. Revisit once later weeks have real salaries."""
+    return {"weeks": [1]}
 
-def get_week_salaries(week_games_df, year=2025) -> Dict[Tuple[str, str], int]:
-    salaries = {}
+@app.get("/api/dk/slates")
+def get_dk_slates_endpoint(force_refresh: bool = False):
+    """Every DraftKings slate currently live (Main Slate always first when
+    present; Showdown/Snake/split-Sunday slates appear alongside it as DK
+    adds them) -- see dk_scraper.get_dk_slates(). Powers a slate picker so
+    the user can choose which draft group's salaries/contests to work with
+    instead of being locked to whichever slate the auto-detect heuristic
+    picks."""
+    return get_dk_slates(force_refresh=force_refresh)
+
+@app.get("/api/dk/salaries")
+def get_dk_salaries_endpoint(draft_group_id: Optional[int] = None, force_refresh: bool = False):
+    """Debug/visibility endpoint for the live DraftKings salary feed (see
+    src/scrapers/dk_scraper.py). Returns metadata plus counts rather than the
+    full player dict, which isn't JSON-tuple-key-friendly."""
+    dk = get_dk_salaries(draft_group_id=draft_group_id, force_refresh=force_refresh)
+    return {
+        "is_live": dk["is_live"],
+        "draft_group_id": dk["draft_group_id"],
+        "fetched_at": dk["fetched_at"],
+        "player_count": len(dk["players"]),
+        "defense_count": len(dk["defense"]),
+        "main_slate_teams": sorted(dk["main_slate_teams"]),
+    }
+
+@app.get("/api/dk/contests")
+def get_dk_contests_endpoint(draft_group_id: Optional[int] = None, force_refresh: bool = False):
+    """Live DraftKings contest list for one slate (Main Slate by default) --
+    entry fee, prize pool, size, and current entries per contest (see
+    dk_scraper.get_dk_contests() for the exact field mapping). Powers the
+    Optimizer's contest picker so entry fee/payout settings can be
+    auto-populated instead of hand-typed."""
+    dk = get_dk_contests(draft_group_id=draft_group_id, force_refresh=force_refresh)
+    return dk
+
+@app.get("/api/dk/contest_payout")
+def get_dk_contest_payout_endpoint(contest_id: int):
+    """Real rank-by-rank $ payout table for one specific live DK contest
+    (see dk_scraper.get_dk_contest_payout()). No caching here -- this is
+    only called when a user actively selects a contest in the Optimizer, so
+    hitting DK live each time is both rare and gives the freshest entries
+    count."""
+    return get_dk_contest_payout(contest_id)
+
+def get_week_salaries(week_games_df, year=2026, draft_group_id: Optional[int] = None) -> Dict[Tuple[str, str], Optional[int]]:
+    """Real DraftKings salaries only -- None (not a fabricated placeholder)
+    for a defense or player DK's live board doesn't currently price, e.g. a
+    team whose game hasn't been posted to the slate yet. Callers must treat
+    None as "can't be priced," not "missing data to estimate.\""""
+    salaries: Dict[Tuple[str, str], Optional[int]] = {}
     teams = set(week_games_df["away_team"].unique()).union(set(week_games_df["home_team"].unique()))
-    qb_dna = load_json(os.path.join(BASE_DIR, "data", "dna", "qb_dna.json"))
-    
+    dk = get_dk_salaries(draft_group_id=draft_group_id)
+
     for team in teams:
-        # Add defense
-        salaries[("Defense", team)] = 3000
-        
+        salaries[("Defense", team)] = dk["defense"].get(team)
+
         roster_path = os.path.join(BASE_DIR, "data", "current_rosters", f"{team}_traits_{year}.json")
         if os.path.exists(roster_path):
             roster_data = load_json(roster_path)
             traits = roster_data.get("traits", {})
-            for name, p_traits in traits.items():
-                pos = p_traits.get("pos", "WR/TE")
-                target_share = p_traits.get("target_share", 0.0)
-                carry_share = p_traits.get("carry_share", 0.0)
-                cpoe = 0.0
-                if pos == "QB":
-                    cpoe = qb_dna.get(name, {}).get("cpoe", 0.0)
-                salaries[(name, team)] = calculate_dfs_salary(pos, target_share, carry_share, cpoe)
+            for name in traits:
+                dk_salary, _ = resolve_dk_salary(name, team, dk)
+                salaries[(name, team)] = dk_salary
     return salaries
 
+def get_week_dk_ids(week_games_df, year=2026, draft_group_id: Optional[int] = None) -> Dict[Tuple[str, str], Optional[int]]:
+    """DK's per-slate draftableId for each player/defense on the selected
+    slate -- keyed the same way as get_week_salaries() so callers can zip
+    them together. Unlike salary, there's no synthetic fallback for a player
+    DK doesn't list: None means "can't be put in a real DK-upload lineup,"
+    not "missing data to estimate." See dk_scraper.get_dk_salaries()'s
+    docstring for what draftableId is used for."""
+    ids: Dict[Tuple[str, str], Optional[int]] = {}
+    teams = set(week_games_df["away_team"].unique()).union(set(week_games_df["home_team"].unique()))
+    dk = get_dk_salaries(draft_group_id=draft_group_id)
+
+    for team in teams:
+        ids[("Defense", team)] = dk["defense_ids"].get(team)
+        roster_path = os.path.join(BASE_DIR, "data", "current_rosters", f"{team}_traits_{year}.json")
+        if os.path.exists(roster_path):
+            roster_data = load_json(roster_path)
+            for name in roster_data.get("traits", {}):
+                _, dk_id = resolve_dk_salary(name, team, dk)
+                ids[(name, team)] = dk_id
+    return ids
+
+def _overlay_live_salaries(players_list: List[Dict[str, Any]], week: int, year: int, draft_group_id: Optional[int]) -> None:
+    """DK salaries move continuously; the sim/percentile stats they're
+    bundled with in a week_projections response do not, which is exactly
+    why that response gets cached in memory and snapshotted to disk (see
+    get_week_projections()). Without this, a cache/snapshot hit would keep
+    serving whatever salary happened to be live at the moment it was written
+    (or None, for a player DK hadn't priced yet) -- salary is cheap to
+    recompute (dict lookups only, no percentile/rank math), so
+    it's refreshed in place on every read regardless of which of the three
+    response sources (memory cache, disk snapshot, fresh live solve) served
+    the rest of the payload."""
+    if not os.path.exists(SCHEDULE_CSV_PATH):
+        return
+    sched_df = pd.read_csv(SCHEDULE_CSV_PATH)
+    week_games_df = sched_df[(sched_df["week"] == week) & (sched_df["game_type"] == "REG")]
+    if week_games_df.empty:
+        return
+    salaries = get_week_salaries(week_games_df, year, draft_group_id)
+    dk_ids = get_week_dk_ids(week_games_df, year, draft_group_id)
+    for p in players_list:
+        key = (p.get("name"), p.get("team"))
+        if key in salaries:
+            p["salary"] = salaries[key]
+        if key in dk_ids:
+            p["dk_id"] = dk_ids[key]
+
 @app.get("/api/week_projections")
-def get_week_projections(week: int = 1, year: int = 2025):
+def get_week_projections(week: int = 1, year: int = 2026, draft_group_id: Optional[int] = None):
     """Aggregates all player simulations for the given week from the pre-loaded parquet cache."""
     global ALL_PLAYERS_CACHED
     reload_cache_if_changed()
-    
+
     if ALL_PLAYERS_CACHED is None:
         raise HTTPException(
-            status_code=503, 
+            status_code=503,
             detail="Pre-loaded simulation cache not available. Check server startup logs."
         )
-        
-    cache_key = (week, year)
-    if cache_key in WEEK_PROJECTIONS_CACHE:
-        return WEEK_PROJECTIONS_CACHE[cache_key]
 
-    # Check if a precomputed JSON cache exists on disk
+    cache_key = (week, year, draft_group_id)
+    if cache_key in WEEK_PROJECTIONS_CACHE:
+        cached = WEEK_PROJECTIONS_CACHE[cache_key]
+        _overlay_live_salaries(cached.get("players", []), week, year, draft_group_id)
+        return cached
+
+    # Check if a precomputed JSON cache exists on disk -- only safe to use
+    # when the requested slate is the Main Slate this snapshot was baked
+    # against (no slate specified, or explicitly the current default -- the
+    # frontend always sends an explicit id once it has loaded the slate
+    # list, even for the default slate, so comparing only to None here would
+    # silently force every request onto the much slower live-compute path
+    # below as soon as slate selection is wired up). The snapshot's salaries
+    # are refreshed below regardless -- see _overlay_live_salaries().
     json_cache_path = os.path.join(BASE_DIR, "data", "interim", f"week_{week}_full_projections.json")
-    if os.path.exists(json_cache_path):
+    is_default_slate = draft_group_id is None or draft_group_id == get_dk_slates().get("default_draft_group_id")
+    if is_default_slate and os.path.exists(json_cache_path):
         try:
             import json
             print(f"Loading precomputed projections for week {week} from JSON cache...")
             with open(json_cache_path, "r") as f:
                 res = json.load(f)
+            _overlay_live_salaries(res.get("players", []), week, year, draft_group_id)
             WEEK_PROJECTIONS_CACHE[cache_key] = res
             return res
         except Exception as e:
             print(f"Error loading projections JSON cache: {e}")
-        
+
     # Get all game IDs for the specified week from the schedule
     if not os.path.exists(SCHEDULE_CSV_PATH):
         raise HTTPException(status_code=404, detail="Schedule CSV file not found.")
@@ -402,14 +623,22 @@ def get_week_projections(week: int = 1, year: int = 2025):
         return {"week": week, "players": [], "games": []}
         
     week_game_ids = week_games_df["game_id"].unique().tolist()
-    
-    # Filter the cached player data for games of interest
-    wp = ALL_PLAYERS_CACHED[ALL_PLAYERS_CACHED["game_id"].isin(week_game_ids)].copy()
+
+    # Prefer a dedicated DFS-week simulation (reflects this week's real
+    # injuries/roster moves) over slicing the season-long "everyone healthy"
+    # cache by game_id. Falls back to the season slice when no DFS-specific
+    # sim has been run for this week yet (see run_week_sim_2026.py).
+    dfs_wp = _get_dfs_week_players(week)
+    if dfs_wp is not None:
+        wp = dfs_wp.copy()
+    else:
+        wp = ALL_PLAYERS_CACHED[ALL_PLAYERS_CACHED["game_id"].isin(week_game_ids)].copy()
     if wp.empty:
         return {"week": week, "players": [], "games": []}
         
     # Generate salaries lookup
-    salaries = get_week_salaries(week_games_df, year)
+    salaries = get_week_salaries(week_games_df, year, draft_group_id)
+    dk_ids = get_week_dk_ids(week_games_df, year, draft_group_id)
     
     # Group and aggregate averages
     summary = wp.groupby(["Player", "Team", "Pos"]).agg({
@@ -487,33 +716,50 @@ def get_week_projections(week: int = 1, year: int = 2025):
     # Merge with the main player DataFrame
     merged = merged.merge(prob_summary, on=["Player", "Team", "Pos"])
     
-    # Map game information (opponent, game_id, slate information)
+    # Map game information (opponent, game_id, slate information) -- is_main
+    # must agree with dk["main_slate_teams"] (same source /api/games uses)
+    # rather than a weekday/time guess: a game can be a normal Sunday-
+    # afternoon slot yet still not be on DK's live Main Slate yet (salaries
+    # not posted), and a synthetic-formula salary silently standing in for
+    # that team's players is exactly the "fake DK price" this endpoint must
+    # not produce. Falls back to the weekday/time heuristic only when the
+    # live feed itself isn't available.
+    dk_for_slate = get_dk_salaries(draft_group_id=draft_group_id)
+    dk_live_slate = dk_for_slate["is_live"] and dk_for_slate["main_slate_teams"]
     team_info_lookup = {}
     for _, row in week_games_df.iterrows():
         away = row["away_team"]
         home = row["home_team"]
         game_id = row["game_id"]
-        
-        weekday = str(row.get("weekday", "Sunday"))
-        gametime = str(row.get("gametime", "13:00"))
-        is_main = True
-        if weekday in ["Thursday", "Monday", "Friday", "Saturday"]:
-            is_main = False
-        elif weekday == "Sunday" and gametime >= "20:00":
-            is_main = False
-            
+
+        if dk_live_slate:
+            is_main = away in dk_for_slate["main_slate_teams"] and home in dk_for_slate["main_slate_teams"]
+        else:
+            weekday = str(row.get("weekday", "Sunday"))
+            gametime = str(row.get("gametime", "13:00"))
+            is_main = True
+            if weekday in ["Thursday", "Monday", "Friday", "Saturday"]:
+                is_main = False
+            elif weekday == "Sunday" and gametime >= "20:00":
+                is_main = False
+
         team_info_lookup[away] = {"opponent": f"@{home}", "game_id": game_id, "is_main": is_main}
         team_info_lookup[home] = {"opponent": f"vs {away}", "game_id": game_id, "is_main": is_main}
         
-    # Calculate DFS Optimal, Boom, and Value rates trial-by-trial for traditional slate
-    optimal_counts = {p: 0 for p in salaries.keys()}
-    boom_counts = {p: 0 for p in salaries.keys()}
-    value_counts = {p: 0 for p in salaries.keys()}
-    
+    # Calculate DFS Optimal, Boom, and Value rates trial-by-trial for traditional
+    # slate -- scoped to players with a real DK salary only: a player DK hasn't
+    # priced can't actually be in a real lineup, so they must not enter the
+    # optimal-lineup solve below (a None or fabricated salary there would
+    # either crash the solve or bias it with a fake cheap/expensive price).
+    priced_keys = [pk for pk in salaries if salaries[pk] is not None]
+    optimal_counts = {p: 0 for p in priced_keys}
+    boom_counts = {p: 0 for p in priced_keys}
+    value_counts = {p: 0 for p in priced_keys}
+
     unique_iterations = wp["iteration"].unique()
     num_iterations = len(unique_iterations) if len(unique_iterations) > 0 else 1
-    
-    player_keys = list(salaries.keys())
+
+    player_keys = priced_keys
     player_salaries = np.array([salaries[pk] for pk in player_keys])
     
     # Get clean positions and teams mapping
@@ -539,11 +785,13 @@ def get_week_projections(week: int = 1, year: int = 2025):
         score = wp_dk_scores[i]
         iter_scores[it][(p, t)] = score
         
-        # Calculate Boom % (score >= 30) and Value % (score >= 3x salary)
-        sal = salaries.get((p, t), 3000)
+        # Calculate Boom % (score >= 30) and Value % (score >= 3x salary) --
+        # value % is undefined (not zero) without a real salary, so it's
+        # simply skipped rather than measured against a fabricated price.
+        sal = salaries.get((p, t))
         if score >= 30.0:
             boom_counts[(p, t)] = boom_counts.get((p, t), 0) + 1
-        if score >= 3.0 * (sal / 1000.0):
+        if sal is not None and score >= 3.0 * (sal / 1000.0):
             value_counts[(p, t)] = value_counts.get((p, t), 0) + 1
             
     from src.nfl_sim.optimizer import solve_traditional_iteration
@@ -568,8 +816,9 @@ def get_week_projections(week: int = 1, year: int = 2025):
         pos = row["Pos"]
         
         t_info = team_info_lookup.get(team, {"opponent": "BYE", "game_id": "", "is_main": False})
-        salary = salaries.get((name, team), 3000)
-        
+        salary = salaries.get((name, team))
+        dk_id = dk_ids.get((name, team))
+
         # Build rank probabilities lookup for each format
         rank_probs = {}
         for fmt in formats:
@@ -584,6 +833,7 @@ def get_week_projections(week: int = 1, year: int = 2025):
             "game_id": t_info["game_id"],
             "is_main": t_info["is_main"],
             "salary": salary,
+            "dk_id": dk_id,
             "rAtt": round(row["rAtt"], 2),
             "rYds": round(row["rYds"], 1),
             "rTD": round(row["rTD"], 2),
@@ -647,7 +897,7 @@ def get_week_projections(week: int = 1, year: int = 2025):
     return result
 
 @app.get("/api/week_sim_results")
-def get_week_sim_results(week: int = 1, year: int = 2025):
+def get_week_sim_results(week: int = 1, year: int = 2026):
     """Prepopulates every game in the week from the cached parquet sim data
     via run_simulation()'s own baseline cache-hit path, so the DFS site can
     show results immediately on load instead of requiring a per-game
@@ -661,13 +911,31 @@ def get_week_sim_results(week: int = 1, year: int = 2025):
 
     json_cache_path = os.path.join(BASE_DIR, "data", "interim", f"week_{week}_sim_results.json")
     if os.path.exists(json_cache_path):
-        try:
-            with open(json_cache_path, "r") as f:
-                res = json.load(f)
-            WEEK_SIM_RESULTS_CACHE[cache_key] = res
-            return res
-        except Exception as e:
-            print(f"Error loading week sim results JSON cache: {e}")
+        # Stale-cache guard: this file used to be trusted unconditionally
+        # once written, so a roster/starter edit after it was generated
+        # (e.g. a depth-chart change) never showed up here even though
+        # run_simulation()'s own starter-mismatch check would have caught
+        # it on a fresh compute -- this is exactly what caused the DFS
+        # site and the analytics site to disagree on 2026-08-22 (see
+        # WORKLOG.md). Treat it as stale if any input it was built from
+        # (the games/players parquet, or that year's roster files) is
+        # newer than the cache file itself.
+        json_mtime = os.path.getmtime(json_cache_path)
+        roster_glob = os.path.join(BASE_DIR, "data", "current_rosters", f"*_traits_{year}.json")
+        newest_roster_mtime = max(
+            (os.path.getmtime(p) for p in glob.glob(roster_glob)), default=0.0
+        )
+        newest_input_mtime = max(LAST_LOADED_TIME_GAMES, LAST_LOADED_TIME_PLAYERS, newest_roster_mtime)
+        if json_mtime >= newest_input_mtime:
+            try:
+                with open(json_cache_path, "r") as f:
+                    res = json.load(f)
+                WEEK_SIM_RESULTS_CACHE[cache_key] = res
+                return res
+            except Exception as e:
+                print(f"Error loading week sim results JSON cache: {e}")
+        else:
+            print(f"week_{week}_sim_results.json cache is stale (older than parquet/roster inputs) -- recomputing.")
 
     if not os.path.exists(SCHEDULE_CSV_PATH):
         raise HTTPException(status_code=404, detail="Schedule CSV file not found.")
@@ -696,7 +964,14 @@ def get_week_sim_results(week: int = 1, year: int = 2025):
                     catch_rate=p["catch_rate"],
                     rush_td_share=p.get("rush_td_share", 0.0),
                     rec_td_share=p.get("rec_td_share", 0.0),
-                    ownership_proj=p.get("ownership_proj", 12.5),
+                    # Always None here regardless of get_rosters()'s own
+                    # "ownership_proj" field (that one's a flat display
+                    # default for the separate single-game Simulator page,
+                    # not a real per-player value) -- the actual slate-wide
+                    # deterministic ownership gets filled in below, in
+                    # get_week_sim_results(), where the full player pool
+                    # for the softmax is available.
+                    ownership_proj=None,
                     pos=p["pos"],
                     salary=p["salary"],
                 ))
@@ -738,7 +1013,94 @@ def get_week_sim_results(week: int = 1, year: int = 2025):
         except Exception as e:
             print(f"Error prepopulating sim results for {game_id} ({away}@{home}): {e}")
 
-    result = {"week": week, "games": games_results}
+    # Ownership is inherently relative to the WHOLE slate's player pool (a
+    # softmax over ~300 players), not just the two teams in one game, so it
+    # can't be computed inside _compute_one_game() above -- one pass here,
+    # across every game's players combined, gets the right relative
+    # scoring. Deterministic (seeded by week) since this feeds contest-
+    # EV/portfolio metrics that need to be comparable run-to-run, not a
+    # fresh random draw on every page load -- next week naturally gets a
+    # different seed.
+    all_players_flat = [p for g in games_results.values() for p in g["projections"]]
+
+    # Vegas implied team total (spread_line here is home-team-favored-by;
+    # positive spread_line correlates positively with home margin in this
+    # schedule data -- verified against 10 seasons of actual results).
+    implied_total_by_team: Dict[str, float] = {}
+    for _, row in week_games_df.iterrows():
+        spread = row.get("spread_line")
+        total = row.get("total_line")
+        if pd.isna(spread) or pd.isna(total):
+            continue
+        implied_total_by_team[str(row["home_team"])] = (float(total) + float(spread)) / 2.0
+        implied_total_by_team[str(row["away_team"])] = (float(total) - float(spread)) / 2.0
+
+    # Cash-lineup consensus: this slate's own top cash-optimal builds (see
+    # _generate_cash_consensus_lineups' docstring for why this is a useful
+    # ownership signal). Uses the same players_list shape _solve_lineup_ilp
+    # expects -- only priced players can be in a real lineup at all.
+    priced_for_ilp = [p for p in all_players_flat if p.get('salary') is not None]
+    # Shared shape for both the cash-consensus generator and the field
+    # simulator below -- dk_pcts_all is only used by the latter (pet-player
+    # misread targeting needs the P25-P95 spread), harmless extra key for
+    # the former.
+    priced_shaped = [
+        {'name': p['name'], 'team': p['team'], 'pos': p['pos'], 'salary': p['salary'],
+         'projection': p['dk_points'], 'dk_pcts_all': p.get('dk_pcts_all')}
+        for p in priced_for_ilp
+    ]
+    cash_counts, n_cash_generated, cash_consensus_lineups = _generate_cash_consensus_lineups(
+        priced_shaped,
+        salary_cap=50000,
+        pos_max_exposure={'DST': 0.5},  # no single DST monopolizes every build -- see docstring
+    )
+
+    ownership_input = [
+        {
+            'pos': p['pos'], 'salary': p['salary'], 'projection': p['dk_points'],
+            'ownership_pct': p.get('ownership_proj'),
+            'implied_total': implied_total_by_team.get(p['team']),
+            'cash_consensus_frac': (cash_counts.get((p['name'], p['team']), 0) / n_cash_generated) if n_cash_generated else 0.0,
+        }
+        for p in all_players_flat
+    ]
+    # Bootstrap ownership PRIOR (salary/Vegas/cash-consensus-blended
+    # softmax) -- this now only seeds field construction below (leverage
+    # fading, additive-ownership steering), it is no longer the displayed
+    # number. See field_simulator.py's module docstring for the full
+    # chicken-and-egg rationale.
+    _compute_ownership(ownership_input, seed=week)
+    prior_own = {
+        (p['name'], p['team']): own_p['ownership_pct']
+        for p, own_p in zip(all_players_flat, ownership_input)
+        if own_p['ownership_pct'] is not None
+    }
+
+    # Build the actual tournament field sample -- archetype-composed (sharp
+    # / fake_sharp / casual / toilet, see field_simulator.py and
+    # docs/implementation_plans/field_simulation_implementation_plan.md).
+    # Cached (keyed by week; this endpoint only ever operates on the
+    # default/main slate today, same as _compute_one_game()) so
+    # /api/optimize and /api/field_sample reuse this build instead of
+    # repeating it on every request -- the "build/score cache split" the
+    # plan calls out as the actual fix for optimizer-edit latency.
+    field_sample = build_field_sample(
+        priced_shaped, prior_own, salary_cap=50000, K=1000, seed=week,
+    )
+    FIELD_SAMPLE_CACHE[(week, None)] = {**field_sample, 'built_at': time.time(), 'week': week}
+
+    # Final, DISPLAYED ownership is the field sample's own observed per-player
+    # frequency, then soft-capped: the archetype builder over-rosters the top
+    # value plays (chalk WR/RB come out 60-80%), unrealistic for a large NFL
+    # field -- see _apply_ownership_cap / _ownership_soft_cap.
+    for p in all_players_flat:
+        p['ownership_proj'] = field_sample['ownership_pct'].get((p['name'], p['team']))
+    _apply_ownership_cap(all_players_flat, own_key='ownership_proj', proj_key='dk_points')
+    for p in all_players_flat:
+        fo = p.get('ownership_proj')
+        p['ownership_leverage'] = round(p['dk_points'] / fo, 2) if fo else 0.0
+
+    result = {"week": week, "games": games_results, "cash_consensus_lineups": cash_consensus_lineups}
 
     try:
         os.makedirs(os.path.dirname(json_cache_path), exist_ok=True)
@@ -751,14 +1113,62 @@ def get_week_sim_results(week: int = 1, year: int = 2025):
     WEEK_SIM_RESULTS_CACHE[cache_key] = result
     return result
 
+@app.get("/api/week_cash_lineups")
+def get_week_cash_lineups(week: int = 1, year: int = 2026):
+    """This slate's own top-10 cash-optimal (pure median, zero-variance)
+    lineups for the Cash Lineups page -- the same builds
+    _generate_cash_consensus_lineups() already produces as an ownership
+    signal inside get_week_sim_results(), just surfaced directly instead of
+    only feeding the softmax. Thin wrapper: reuses that function's cache
+    (memory or disk) rather than recomputing, so this is cheap regardless
+    of how expensive the underlying week_sim_results computation was."""
+    week_data = get_week_sim_results(week=week, year=year)
+    return {"week": week, "lineups": week_data.get("cash_consensus_lineups", [])}
+
+@app.get("/api/field_sample")
+def get_field_sample(week: int = 1, year: int = 2026, sample_lineups: int = 20):
+    """Inspection endpoint for the archetype-composed tournament field
+    sample built inside get_week_sim_results() (see field_simulator.py and
+    docs/implementation_plans/field_simulation_implementation_plan.md) --
+    lets us look at what the field actually looks like without needing the
+    full Optimizer UI. Triggers a week_sim_results compute (which populates
+    FIELD_SAMPLE_CACHE as a side effect) if this week hasn't been built yet
+    this process lifetime; otherwise this is a cheap cache read.
+
+    `sample_lineups` caps how many of the built field's actual lineups are
+    returned in full (the field can be 1000+ lineups; returning all of them
+    on every request is wasteful when you usually just want to eyeball a
+    handful plus the aggregate composition/ownership).
+    """
+    cache_key = (week, None)
+    if cache_key not in FIELD_SAMPLE_CACHE:
+        get_week_sim_results(week=week, year=year)  # populates FIELD_SAMPLE_CACHE as a side effect
+    field = FIELD_SAMPLE_CACHE.get(cache_key)
+    if field is None:
+        raise HTTPException(status_code=404, detail=f"No field sample available for week {week}.")
+
+    lineups = field.get('lineups', [])
+    return {
+        "week": week,
+        "built_at": field.get('built_at'),
+        "k_built": field.get('k_built'),
+        "archetype_counts": field.get('archetype_counts'),
+        "ownership_pct": {f"{name}|{team}": pct for (name, team), pct in field.get('ownership_pct', {}).items()},
+        "sample_lineups": [
+            [{"name": p["name"], "team": p["team"], "pos": p["pos"], "salary": p["salary"], "projection": p["projection"]} for p in lu]
+            for lu in lineups[:sample_lineups]
+        ],
+    }
+
 @app.get("/api/games")
-def get_games(week: int = 1):
+def get_games(week: int = 1, draft_group_id: Optional[int] = None):
     """Returns schedule, Vegas lines, dynamic team records, and DFS slate tags for a week."""
     if not os.path.exists(SCHEDULE_CSV_PATH):
         raise HTTPException(status_code=404, detail="Schedule CSV file not found.")
-    
+
     df = pd.read_csv(SCHEDULE_CSV_PATH)
-    
+    dk = get_dk_salaries(draft_group_id=draft_group_id)
+
     # Calculate records for all teams prior to the selected week
     records = {} # Team name -> [wins, losses, ties]
     past_games = df[(df["week"] < week) & (df["game_type"] == "REG")]
@@ -791,21 +1201,29 @@ def get_games(week: int = 1):
         # Parse Vegas spread from home team perspective
         home_spread = row.get("spread_line", 0.0)
         total_line = row.get("total_line", 45.0)
+        away_ml = row.get("away_moneyline")
+        home_ml = row.get("home_moneyline")
         
-        # Simple dynamic slate tagging:
-        # Thursday Night, Sunday Night (20:20), Monday Night (20:15) are NOT on Main slate
-        weekday = str(row.get("weekday", "Sunday"))
-        gametime = str(row.get("gametime", "13:00"))
-        
-        is_main = True
-        if weekday in ["Thursday", "Monday", "Friday", "Saturday"]:
-            is_main = False
-        elif weekday == "Sunday" and gametime >= "20:00":
-            is_main = False
-            
         away_team = str(row["away_team"])
         home_team = str(row["home_team"])
-        
+        weekday = str(row.get("weekday", "Sunday"))
+        gametime = str(row.get("gametime", "13:00"))
+
+        # Slate tagging: prefer the real DraftKings Main Slate roster
+        # (dk["main_slate_teams"], from get_dk_salaries()) when live -- it's
+        # ground truth for which games DK actually bundles into its flagship
+        # contests. Falls back to a weekday/time heuristic (Thu/Fri/Sat/Mon
+        # and Sun games at/after 20:00 are night games, not on Main) when the
+        # live feed hasn't been fetched successfully yet.
+        if dk["is_live"] and dk["main_slate_teams"]:
+            is_main = away_team in dk["main_slate_teams"] and home_team in dk["main_slate_teams"]
+        else:
+            is_main = True
+            if weekday in ["Thursday", "Monday", "Friday", "Saturday"]:
+                is_main = False
+            elif weekday == "Sunday" and gametime >= "20:00":
+                is_main = False
+
         away_rec = records.get(away_team, [0, 0, 0])
         home_rec = records.get(home_team, [0, 0, 0])
         
@@ -823,20 +1241,96 @@ def get_games(week: int = 1):
             "weekday": weekday,
             "spread_line": float(home_spread),
             "total_line": float(total_line),
+            "away_moneyline": None if pd.isna(away_ml) else int(away_ml),
+            "home_moneyline": None if pd.isna(home_ml) else int(home_ml),
             "dk_main": is_main,
             "fd_main": is_main
         })
         
     return {"week": week, "games": games}
 
+
+# -------------------------------------------------------------------------
+# OPTIMIZER PERSISTENCE (DFS Optimizer weekly working state -- see
+# src/api/optimizer_store.py and docs/implementation_plans/optimizer_persistence_plan.md)
+# -------------------------------------------------------------------------
+@app.get("/api/optimizer/state")
+def get_optimizer_state(week: int = Query(..., ge=1, le=22), season: int = 2026):
+    """The DFS Optimizer's saved working state for a week (settings + manual
+    overlay + slate). Empty object when nothing has been saved yet."""
+    return optimizer_store.read_state(season, week)
+
+
+@app.put("/api/optimizer/state")
+def put_optimizer_state(
+    state: Dict[str, Any] = Body(...),
+    week: int = Query(..., ge=1, le=22),
+    season: int = 2026,
+):
+    """Persist the Optimizer's working state for a week (debounced autosave from
+    the frontend). The body is stored as-is."""
+    return optimizer_store.write_state(season, week, state)
+
+
+@app.get("/api/optimizer/builds")
+def list_optimizer_builds(week: int = Query(..., ge=1, le=22), season: int = 2026):
+    """Summaries of every saved Optimize run for a week, newest first."""
+    return optimizer_store.list_builds(season, week)
+
+
+@app.get("/api/optimizer/builds/{build_id}")
+def get_optimizer_build(build_id: str, week: int = Query(..., ge=1, le=22), season: int = 2026):
+    b = optimizer_store.read_build(season, week, build_id)
+    if b is None:
+        raise HTTPException(status_code=404, detail="build not found")
+    return b
+
+
+@app.post("/api/optimizer/builds")
+def create_optimizer_build(
+    build: Dict[str, Any] = Body(...),
+    week: int = Query(..., ge=1, le=22),
+    season: int = 2026,
+):
+    """Save one Optimize run (lineups + the frozen inputs that produced them)."""
+    return optimizer_store.write_build(season, week, build)
+
+
+@app.patch("/api/optimizer/builds/{build_id}")
+def patch_optimizer_build(
+    build_id: str,
+    patch: Dict[str, Any] = Body(...),
+    week: int = Query(..., ge=1, le=22),
+    season: int = 2026,
+):
+    """Update a build's label / pinned / submitted / submission fields only."""
+    b = optimizer_store.patch_build(season, week, build_id, patch)
+    if b is None:
+        raise HTTPException(status_code=404, detail="build not found")
+    return b
+
+
+@app.delete("/api/optimizer/builds/{build_id}")
+def delete_optimizer_build(build_id: str, week: int = Query(..., ge=1, le=22), season: int = 2026):
+    return {"deleted": optimizer_store.delete_build(season, week, build_id)}
+
+
+@app.post("/api/optimizer/prune")
+def prune_optimizer_builds(week: int = Query(..., ge=1, le=22), season: int = 2026):
+    """Delete a week's throwaway autosave builds (not pinned / labeled / submitted)."""
+    return {"removed": optimizer_store.prune_builds(season, week)}
+
+
 @app.get("/api/rosters")
-def get_rosters(away: str, home: str, year: int = 2025):
-    """Serves team rosters, base DNA, and generated salaries for a matchup."""
+def get_rosters(away: str, home: str, year: int = 2026, draft_group_id: Optional[int] = None):
+    """Serves team rosters, base DNA, and live DraftKings (or synthetic
+    fallback) salaries for a matchup."""
     away = away.strip().upper()
     home = home.strip().upper()
     reload_cache_if_changed()
     team_coaches = load_json(TEAM_COACHES_PATH)
-    coord_atlas = load_json(COORDINATOR_ATLAS_PATH)
+    coach_dna_atlas = load_json(COACH_DNA_PATH)
+    dk = get_dk_salaries(draft_group_id=draft_group_id)
     
     # Find game_id for this matchup from schedule to query cached sims
     game_id = None
@@ -872,7 +1366,7 @@ def get_rosters(away: str, home: str, year: int = 2025):
         
         # Load coach baseline details
         coach_name = team_coaches.get(team, "Unknown")
-        coach_proe = coord_atlas.get("off_proe", {}).get(coach_name, 0.0)
+        coach_proe = coach_dna_atlas.get(coach_name, {}).get("proe", 0.0)
 
         # Load trench baseline pressure rate from trench_dna.json for year 2024
         pressure_rate = 0.30
@@ -953,8 +1447,8 @@ def get_rosters(away: str, home: str, year: int = 2025):
             elif pos in ["WR", "TE", "WR/TE"]:
                 rec_td_share = target_share
             
-            salary = calculate_dfs_salary(pos, target_share, carry_share, cpoe)
-            
+            salary, _ = resolve_dk_salary(name, team, dk)
+
             players_list.append({
                 "name": name,
                 "pos": pos,
@@ -992,7 +1486,7 @@ def get_rosters(away: str, home: str, year: int = 2025):
 
         result[team] = {
             "team_settings": team_info,
-            "roster": sorted(players_list, key=lambda x: x["salary"], reverse=True)
+            "roster": sorted(players_list, key=lambda x: x["salary"] if x["salary"] is not None else -1, reverse=True)
         }
         
     return result
@@ -1069,12 +1563,13 @@ def positional_evaluator(
 @app.get("/api/games/{game_id}/positional-eval")
 def game_positional_eval(game_id: str):
     """
-    Returns the sequence of per-play KEP/EP evaluations for a live or recent game.
+    Returns the sequence of per-play KEP/EFSD/EP evaluations for a live or recent game.
 
     Fetches the ESPN play-by-play stream, parses every scrimmage play into a game
-    state, and computes KEP (clock-aware positional security) and EP (situational
-    field value) for each. This is a lightweight per-play lookup — NOT a per-play
-    drive simulation — so it stays fast across a full game.
+    state, and computes KEP (clock-aware positional security), EFSD (expected final
+    score differential), and EP (situational field value) for each. This is a
+    lightweight per-play lookup — NOT a per-play drive simulation — so it stays
+    fast across a full game.
     """
     from src.live.main import get_game_pbp
     from src.live.espn_adapter import parse_plays_to_states
@@ -1083,31 +1578,8 @@ def game_positional_eval(game_id: str):
     if not pbp:
         raise HTTPException(status_code=502, detail=f"Could not fetch play-by-play for game {game_id} from ESPN.")
 
-    # Extract team abbreviations from the pbp header competitors.
-    home_abbr, away_abbr = "", ""
-    try:
-        competitions = (pbp.get("header", {}) or {}).get("competitions", []) or []
-        if competitions:
-            for c in competitions[0].get("competitors", []) or []:
-                side = c.get("homeAway")
-                abbr = (c.get("team", {}) or {}).get("abbreviation", "")
-                if side == "home":
-                    home_abbr = abbr
-                elif side == "away":
-                    away_abbr = abbr
-    except Exception as e:
-        print(f"Error extracting team abbreviations for {game_id}: {e}")
-
-    # Flatten previous + current drives into a single play list (mirrors live daemon).
-    drives = pbp.get("drives", {}) or {}
-    plays = []
-    for d in drives.get("previous", []) or []:
-        plays.extend(d.get("plays", []) or [])
-    current = drives.get("current", {}) or {}
-    if current.get("plays"):
-        plays.extend(current.get("plays", []) or [])
-
-    states = parse_plays_to_states(plays, home_abbr=home_abbr, away_abbr=away_abbr)
+    home_abbr, away_abbr = _extract_team_abbrs(pbp)
+    states = parse_plays_to_states(_flatten_pbp_plays(pbp), home_abbr=home_abbr, away_abbr=away_abbr)
 
     evaluator = get_positional_evaluator()
     evals = []
@@ -1135,6 +1607,7 @@ def game_positional_eval(game_id: str):
             "play_id": s["play_id"],
             "qtr": s["qtr"],
             "clock": s["clock"],
+            "game_seconds_remaining": s["game_seconds_remaining"],
             "off": s["off"],
             "def": s["def"],
             "down": s["down"],
@@ -1154,6 +1627,496 @@ def game_positional_eval(game_id: str):
         "n_plays": len(evals),
         "evaluations": evals,
     }
+
+
+def _yardline_display(yardline_100, posteam):
+    if yardline_100 is None:
+        return "Own 25"
+    y100 = int(float(yardline_100))
+    return f"Opp {y100}" if y100 <= 50 else f"Own {100 - y100}"
+
+
+def _leverage_label(home_wp, quarter):
+    spread = abs(home_wp - 50.0)
+    if quarter is not None and quarter >= 4 and spread < 15:
+        return "Critical"
+    if (quarter is not None and quarter >= 4) or spread < 15:
+        return "High"
+    if quarter == 3:
+        return "Medium"
+    return "Low"
+
+
+def _extract_team_abbrs(pbp):
+    """Pulls home/away team abbreviations from an ESPN summary payload's header."""
+    home_abbr, away_abbr = "", ""
+    try:
+        competitions = (pbp.get("header", {}) or {}).get("competitions", []) or []
+        if competitions:
+            for c in competitions[0].get("competitors", []) or []:
+                side = c.get("homeAway")
+                abbr = (c.get("team", {}) or {}).get("abbreviation", "")
+                if side == "home":
+                    home_abbr = abbr
+                elif side == "away":
+                    away_abbr = abbr
+    except Exception as e:
+        print(f"Error extracting team abbreviations: {e}")
+    return home_abbr, away_abbr
+
+
+def _flatten_pbp_plays(pbp):
+    """
+    Flattens an ESPN summary payload's previous + current drives into one play
+    list, deduplicated by play id.
+
+    On a truly live game, ESPN can momentarily list the drive-boundary play in
+    both "previous" (the drive that just ended) and "current" (before the feed
+    has rolled the pointer to the new drive) -- confirmed 2026-08-20 against a
+    real in-progress game. Dedup here so every consumer downstream (positional
+    eval, play-by-play, stats, fourth-downs) gets a clean, unique play list.
+    """
+    drives = pbp.get("drives", {}) or {}
+    plays = []
+    seen_ids = set()
+    for d in drives.get("previous", []) or []:
+        plays.extend(d.get("plays", []) or [])
+    current = drives.get("current", {}) or {}
+    if current.get("plays"):
+        plays.extend(current.get("plays", []) or [])
+
+    deduped = []
+    for p in plays:
+        pid = p.get("id")
+        if pid in seen_ids:
+            continue
+        seen_ids.add(pid)
+        deduped.append(p)
+    return deduped
+
+
+@app.get("/api/games/{game_id}/play-by-play")
+def game_play_by_play(game_id: str):
+    """
+    Returns per-play win probability for a live or recent game, driving the
+    Game Center tab's WP graph and play log.
+
+    Reuses the same ESPN pbp fetch + play-state parser as the positional-eval
+    endpoint above, then runs each state through the shared WP model (the
+    same model /api/live-games and the 4th-down bot use) to get home/away WP.
+    """
+    from src.live.main import get_game_pbp
+    from src.live.espn_adapter import parse_plays_to_states
+    from src.live.decision_engine import predict_win_probability
+
+    pbp = get_game_pbp(game_id)
+    if not pbp:
+        raise HTTPException(status_code=502, detail=f"Could not fetch play-by-play for game {game_id} from ESPN.")
+
+    home_abbr, away_abbr = _extract_team_abbrs(pbp)
+    states = parse_plays_to_states(_flatten_pbp_plays(pbp), home_abbr=home_abbr, away_abbr=away_abbr)
+
+    result = []
+    for s in states:
+        wp_state = {
+            "down": s["down"],
+            "ydstogo": s["ydstogo"],
+            "yardline_100": s["yardline_100"],
+            "game_seconds_remaining": s["game_seconds_remaining"],
+            "score_differential": s["score_differential"],
+            "posteam_timeouts_remaining": 3,  # ESPN pbp does not expose timeouts; assume full
+            "defteam_timeouts_remaining": 3,
+        }
+        posteam_wp = predict_win_probability(wp_state) * 100.0
+        if s["off"] == home_abbr:
+            home_wp, away_wp = posteam_wp, 100.0 - posteam_wp
+        else:
+            away_wp, home_wp = posteam_wp, 100.0 - posteam_wp
+
+        result.append({
+            "play_id": s["play_id"],
+            "qtr": s["qtr"],
+            "time": s["clock"],
+            "game_seconds_remaining": s["game_seconds_remaining"],
+            "desc": s["text"],
+            "possession": s["off"],
+            "home_wp": round(home_wp, 1),
+            "away_wp": round(away_wp, 1),
+        })
+
+    return result
+
+
+@app.get("/api/games/{game_id}/stats")
+def game_stats(game_id: str):
+    """
+    Returns team-level box score stats for the Game Center tab's stat table.
+
+    First downs, total/pass/rush yards, and turnovers come straight from
+    ESPN's boxscore (already fetched for the play-by-play endpoints above).
+    EPA/play is NOT part of ESPN's boxscore -- there's no real per-play EPA
+    source wired into this app -- so it's approximated here as the average
+    per-play change in our own field-position EP model (positional_ep_v_0_1_0),
+    attributed to whichever team ran each play. This is not the same figure
+    nflfastR calls EPA; it's a same-app-primitives stand-in until a real
+    play-level EPA source is wired in.
+    """
+    from src.live.main import get_game_pbp
+    from src.live.espn_adapter import parse_plays_to_states
+
+    pbp = get_game_pbp(game_id)
+    if not pbp:
+        raise HTTPException(status_code=502, detail=f"Could not fetch stats for game {game_id} from ESPN.")
+
+    boxscore = pbp.get("boxscore", {}) or {}
+    teams = boxscore.get("teams", []) or []
+    if len(teams) < 2:
+        raise HTTPException(status_code=404, detail=f"No boxscore stats available yet for game {game_id}.")
+
+    def _stat(stats_list, name, default="0"):
+        for s in stats_list:
+            if s.get("name") == name:
+                return s.get("displayValue", default)
+        return default
+
+    home_abbr, away_abbr = _extract_team_abbrs(pbp)
+    states = parse_plays_to_states(_flatten_pbp_plays(pbp), home_abbr=home_abbr, away_abbr=away_abbr)
+
+    evaluator = get_positional_evaluator()
+    epa_sums = {home_abbr: 0.0, away_abbr: 0.0}
+    epa_counts = {home_abbr: 0, away_abbr: 0}
+    prev_ep, prev_off = None, None
+    for s in states:
+        goal_to_go = 1 if s["ydstogo"] >= s["yardline_100"] else 0
+        ep = evaluator.ep_model.predict_expected_points(
+            yardline_100=int(s["yardline_100"]), down=s["down"], ydstogo=s["ydstogo"], goal_to_go=goal_to_go,
+        )
+        if prev_ep is not None:
+            # EP is always from the current play's offense perspective; flip the
+            # prior play's "end" value if possession changed hands between plays.
+            end_ep_prev_off = ep if s["off"] == prev_off else -ep
+            if prev_off in epa_sums:
+                epa_sums[prev_off] += end_ep_prev_off - prev_ep
+                epa_counts[prev_off] += 1
+        prev_ep, prev_off = ep, s["off"]
+
+    def _epa_play(abbr):
+        n = epa_counts.get(abbr, 0)
+        return round(epa_sums[abbr] / n, 2) if n else 0.0
+
+    def _team_row(team_bx, abbr):
+        stats_list = team_bx.get("statistics", []) or []
+        return {
+            "team": abbr,
+            "first_downs": _stat(stats_list, "firstDowns"),
+            "total_yds": _stat(stats_list, "totalYards"),
+            "pass_yds": _stat(stats_list, "netPassingYards"),
+            "rush_yds": _stat(stats_list, "rushingYards"),
+            "turnovers": _stat(stats_list, "turnovers"),
+            "epa_play": _epa_play(abbr),
+        }
+
+    home_bx = next((t for t in teams if t.get("team", {}).get("abbreviation") == home_abbr), teams[0])
+    away_bx = next((t for t in teams if t.get("team", {}).get("abbreviation") == away_abbr), teams[1])
+
+    return {
+        "home": _team_row(home_bx, home_abbr),
+        "away": _team_row(away_bx, away_abbr),
+    }
+
+
+@app.get("/api/games/{game_id}/fourth-downs")
+def game_fourth_downs(game_id: str):
+    """
+    Returns Go/Punt/FG win-probability analysis for every 4th down in a live
+    or recent game, driving the Game Center tab's 4th Down Decisions view.
+
+    Reuses the exact same parser (parse_plays_to_fd_rows) and decision engine
+    (evaluate_fourth_down) as the live bot in src/live/main.py -- this is a
+    read-only view of that same production pipeline, not a new model.
+    """
+    from src.live.main import get_game_pbp
+    from src.live.espn_adapter import parse_plays_to_fd_rows
+    from src.live.decision_engine import evaluate_fourth_down
+
+    pbp = get_game_pbp(game_id)
+    if not pbp:
+        raise HTTPException(status_code=502, detail=f"Could not fetch play-by-play for game {game_id} from ESPN.")
+
+    home_abbr, away_abbr = _extract_team_abbrs(pbp)
+    team_map = {"home": home_abbr, "away": away_abbr}
+    fd_rows = parse_plays_to_fd_rows(game_id, _flatten_pbp_plays(pbp), team_map)
+
+    result = []
+    for row in fd_rows:
+        try:
+            sim = evaluate_fourth_down(row)
+        except Exception as e:
+            print(f"Skipping 4th down eval for play {row['play_id']}: {e}")
+            continue
+
+        home_score = row["off_score"] if row["off"] == home_abbr else row["def_score"]
+        away_score = row["off_score"] if row["off"] == away_abbr else row["def_score"]
+
+        result.append({
+            "play_id": row["play_id"],
+            "desc": f"4th & {row['ydstogo']} at {_yardline_display(row['yardline_100'], row['off'])} | Q{row['qtr']} {row['clock']}",
+            "actual": row["text"],
+            "possession": row["off"],
+            "home_score": home_score,
+            "away_score": away_score,
+            "recharts_data": [
+                {"name": "GO", "wp": round((sim.get("go_for_it_ev") or 0) * 100, 1),
+                 "success_rate": round((sim.get("fd_prob") or 0) * 100, 1), "label": "Go For It"},
+                {"name": "PUNT", "wp": round((sim.get("punt_wp") or 0) * 100, 1),
+                 "success_rate": 100.0, "label": "Punt"},
+                {"name": "FG", "wp": round((sim.get("field_goal_ev") or 0) * 100, 1),
+                 "success_rate": round((sim.get("fg_prob") or 0) * 100, 1), "label": "Field Goal"},
+            ],
+        })
+
+    return result
+
+
+@app.get("/api/games/{game_id}/player-stats")
+def game_player_stats(game_id: str):
+    """
+    Returns individual player box score stats (passing/rushing/receiving) for
+    a live or recent game, split by team, for the Game Center tab's
+    individual stats table.
+
+    Straight from ESPN's boxscore.players -- no computation, just filtered
+    down to the categories relevant here and reshaped to {labels, rows}.
+    """
+    from src.live.main import get_game_pbp
+
+    pbp = get_game_pbp(game_id)
+    if not pbp:
+        raise HTTPException(status_code=502, detail=f"Could not fetch player stats for game {game_id} from ESPN.")
+
+    boxscore = pbp.get("boxscore", {}) or {}
+    players = boxscore.get("players", []) or []
+    if len(players) < 2:
+        raise HTTPException(status_code=404, detail=f"No player stats available yet for game {game_id}.")
+
+    home_abbr, away_abbr = _extract_team_abbrs(pbp)
+    keep_categories = ("passing", "rushing", "receiving")
+
+    def _team_players(block):
+        abbr = block.get("team", {}).get("abbreviation", "")
+        categories = {}
+        for cat in block.get("statistics", []) or []:
+            name = cat.get("name")
+            if name not in keep_categories:
+                continue
+            rows = []
+            for a in cat.get("athletes", []) or []:
+                athlete = a.get("athlete", {}) or {}
+                rows.append({
+                    "name": athlete.get("displayName", ""),
+                    "jersey": athlete.get("jersey", ""),
+                    "stats": a.get("stats", []),
+                })
+            categories[name] = {"labels": cat.get("labels", []), "rows": rows}
+        return {"team": abbr, "categories": categories}
+
+    home_block = next((t for t in players if t.get("team", {}).get("abbreviation") == home_abbr), players[0])
+    away_block = next((t for t in players if t.get("team", {}).get("abbreviation") == away_abbr), players[1])
+
+    return {
+        "home": _team_players(home_block),
+        "away": _team_players(away_block),
+    }
+
+
+def _fetch_games_for_date(date_str, target_ct):
+    """
+    Fetches and shapes one date's ESPN scoreboard into the live-games schema.
+
+    Inputs: date_str (YYYYMMDD or None for ESPN's default/today), target_ct
+        (the Central-time date those games should fall on -- used to filter
+        the scoreboard's rolling multi-day window down to just that day).
+    Returns: None if the ESPN fetch itself failed, otherwise a list (possibly
+        empty if that date had no games).
+    """
+    from src.live.main import fetch_scoreboard, get_game_pbp
+    from src.live.espn_adapter import parse_plays_to_states
+    from src.live.decision_engine import predict_win_probability
+    from datetime import datetime as _dt
+    from zoneinfo import ZoneInfo
+
+    sb = fetch_scoreboard(dates=date_str)
+    if not sb:
+        return None
+
+    games = []
+    for ev in sb.get("events", []) or []:
+        comp = (ev.get("competitions") or [{}])[0]
+        status_state = ((comp.get("status") or {}).get("type") or {}).get("state", "").lower()
+
+        # Scoreboard spans a rolling window (past + future days), not just
+        # the requested day -- only surface games actually happening on
+        # target_ct (Central time, matching the rest of the live-bot's
+        # scheduling), unless one is already in progress (keep showing it
+        # even if it crossed midnight UTC).
+        ev_date_str = ev.get("date") or ""
+        try:
+            ev_date_utc = _dt.fromisoformat(ev_date_str.replace("Z", "+00:00"))
+            try:
+                ev_date_ct = ev_date_utc.astimezone(ZoneInfo("America/Chicago")).date()
+            except Exception:
+                ev_date_ct = ev_date_utc.date()
+        except Exception:
+            ev_date_ct = None
+        if status_state != "in" and ev_date_ct != target_ct:
+            continue
+
+        home_abbr = away_abbr = ""
+        home_score = away_score = 0
+        for c in comp.get("competitors", []) or []:
+            side = c.get("homeAway")
+            abbr = (c.get("team") or {}).get("abbreviation", "")
+            score = int(c.get("score") or 0)
+            if side == "home":
+                home_abbr, home_score = abbr, score
+            elif side == "away":
+                away_abbr, away_score = abbr, score
+
+        quarter = None
+        time_remaining = "Pregame"
+        possession = None
+        down = 1
+        distance = 10
+        yardline_100 = None
+        home_wp = away_wp = 50.0
+
+        if status_state == "in":
+            quarter = int((comp.get("status", {}).get("period")) or 0) or None
+            time_remaining = ((comp.get("status") or {}).get("displayClock")) or "?:??"
+            pbp = get_game_pbp(str(ev.get("id")))
+            if pbp:
+                drives = pbp.get("drives", {}) or {}
+                plays = []
+                for d in drives.get("previous", []) or []:
+                    plays.extend(d.get("plays", []) or [])
+                current = drives.get("current", {}) or {}
+                if current.get("plays"):
+                    plays.extend(current.get("plays", []) or [])
+                states = parse_plays_to_states(plays, home_abbr=home_abbr, away_abbr=away_abbr)
+                if states:
+                    last = states[-1]
+                    possession = last["off"]
+                    down = last["down"]
+                    distance = last["ydstogo"]
+                    yardline_100 = last["yardline_100"]
+                    try:
+                        wp_state = {
+                            "score_differential": last["score_differential"],
+                            "game_seconds_remaining": last["game_seconds_remaining"],
+                            "down": last["down"],
+                            "ydstogo": last["ydstogo"],
+                            "yardline_100": last["yardline_100"],
+                            "posteam_timeouts_remaining": 3,
+                            "defteam_timeouts_remaining": 3,
+                        }
+                        posteam_wp = predict_win_probability(wp_state) * 100.0
+                        if possession == home_abbr:
+                            home_wp, away_wp = posteam_wp, 100.0 - posteam_wp
+                        else:
+                            away_wp, home_wp = posteam_wp, 100.0 - posteam_wp
+                    except Exception as e:
+                        print(f"WP calc failed for {ev.get('id')}: {e}")
+        elif status_state == "post":
+            time_remaining = "Final"
+
+        games.append({
+            "game_id": str(ev.get("id")),
+            "away_team": away_abbr,
+            "home_team": home_abbr,
+            "away_score": away_score,
+            "home_score": home_score,
+            "quarter": quarter,
+            "time_remaining": time_remaining,
+            "possession": possession,
+            "down": down,
+            "distance": distance,
+            "yardline": _yardline_display(yardline_100, possession),
+            "away_wp": round(away_wp, 1),
+            "home_wp": round(home_wp, 1),
+            "leverage": _leverage_label(home_wp, quarter),
+        })
+
+    return games
+
+
+@app.get("/api/live-games")
+def live_games(date: Optional[str] = None):
+    """
+    Returns real ESPN games for the homepage's "Live Matchup Feeds" section.
+
+    Defaults to today. Pass ?date=YYYYMMDD (e.g. 20260814) to review a past
+    day's slate instead -- lets us troubleshoot the bot's output against a
+    completed day's games without waiting for the next live window.
+
+    Pregame ("scheduled") games get sane placeholder situational fields
+    (1st & 10, own 25, 50/50 WP) rather than nulls, so the frontend needs no
+    changes to render them cleanly alongside in-progress games.
+
+    No mock-data fallback: when ?date is omitted and today has no games
+    (offseason day, bye gap between preseason slates, etc.), walks backward
+    up to 21 days for the most recent date that actually had games and
+    returns that day's slate instead, with is_fallback/fallback_date set on
+    every entry so the frontend can label them honestly rather than passing
+    stale games off as live. An explicit ?date with no games just returns []
+    -- only the default "today" call auto-falls-back.
+    """
+    from datetime import datetime as _dt, timedelta
+
+    if date:
+        try:
+            target_ct = _dt.strptime(date, "%Y%m%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="date must be in YYYYMMDD format.")
+    else:
+        try:
+            from zoneinfo import ZoneInfo
+            target_ct = _dt.now(ZoneInfo("America/Chicago")).date()
+        except Exception:
+            target_ct = _dt.utcnow().date()
+
+    games = _fetch_games_for_date(date, target_ct)
+    if games is None:
+        raise HTTPException(status_code=502, detail="Could not fetch scoreboard from ESPN.")
+
+    if games or date:
+        return games
+
+    for days_back in range(1, 22):
+        search_date = target_ct - timedelta(days=days_back)
+        search_str = search_date.strftime("%Y%m%d")
+        fallback_games = _fetch_games_for_date(search_str, search_date)
+        if fallback_games:
+            for g in fallback_games:
+                g["is_fallback"] = True
+                g["fallback_date"] = search_str
+            return fallback_games
+
+    return []
+
+
+@app.get("/api/live-bot-feed")
+def live_bot_feed(limit: int = 100):
+    """
+    Returns the live 4th-down bot's full evaluation history (posted and
+    skipped alike) from src/live/state_store.py's evaluated_plays table —
+    the review/testing surface for the bot's social-post decisions and
+    underlying model outputs, independent of whether DRY_RUN posting
+    actually reached Bluesky/Mastodon.
+    """
+    from src.live.state_store import get_recent_evaluated_plays
+
+    rows = get_recent_evaluated_plays(limit=min(max(limit, 1), 500))
+    return {"count": len(rows), "plays": rows}
 
 # -------------------------------------------------------------------------
 # -------------------------------------------------------------------------
@@ -1260,6 +2223,19 @@ def worker_init(proe_overrides: Dict[str, float]):
     from src.nfl_sim import proe_overlay_v_0_1_0
     proe_overlay_v_0_1_0._HISTORICAL_PROE.update(proe_overrides)
 
+def _salary_sort_key(po: "PlayerOverride") -> int:
+    """Sort key for picking a roster's highest-salary (presumed starter)
+    PlayerOverride. A player with no live DK salary is either off the Main
+    Slate or -- more often at this point in the preseason -- has already
+    been cut and our roster traits files just haven't caught up yet (see
+    data/dna/preseason_overrides_2026_notes.md); either way they were never
+    going to be the real starter, so they sort lowest instead of raising
+    when compared against a real salary via plain max(key=lambda x: x.salary).
+    Self-resolving once rosters catch up before the season starts -- not a
+    fix to the roster data itself, just a guard so a stale/cut entry can't
+    crash starter detection."""
+    return po.salary if po.salary is not None else -1
+
 @app.post("/api/simulate")
 def run_simulation(req: SimulationRequest):
     """Executes parallelized game simulations applying dynamic overlays."""
@@ -1364,7 +2340,7 @@ def run_simulation(req: SimulationRequest):
                         cache_starter = team_qbs.groupby("Player")["pAtt"].mean().idxmax()
                         req_team_qbs = [po for po in req.player_overrides if po.team == team and po.pos == "QB"]
                         if req_team_qbs:
-                            req_starter = max(req_team_qbs, key=lambda x: x.salary).name
+                            req_starter = max(req_team_qbs, key=_salary_sort_key).name
                             def normalize_name(n):
                                 return "".join(c for c in n.lower() if c.isalnum())
                             if normalize_name(cache_starter) != normalize_name(req_starter):
@@ -1376,7 +2352,7 @@ def run_simulation(req: SimulationRequest):
                         cache_starter_rb = team_rbs.groupby("Player")["rAtt"].mean().idxmax()
                         req_team_rbs = [po for po in req.player_overrides if po.team == team and po.pos == "RB"]
                         if req_team_rbs:
-                            req_starter_rb = max(req_team_rbs, key=lambda x: x.salary).name
+                            req_starter_rb = max(req_team_rbs, key=_salary_sort_key).name
                             def normalize_name(n):
                                 return "".join(c for c in n.lower() if c.isalnum())
                             if normalize_name(cache_starter_rb) != normalize_name(req_starter_rb):
@@ -1430,7 +2406,7 @@ def run_simulation(req: SimulationRequest):
         for team in [req.away_team, req.home_team]:
             team_qbs = [po for po in req.player_overrides if po.team == team and po.pos == "QB"]
             if team_qbs:
-                starter_qb = max(team_qbs, key=lambda x: x.salary).name
+                starter_qb = max(team_qbs, key=_salary_sort_key).name
                 # Set starter QB's status to active and others on the roster to inactive
                 for p_name, p_traits in sim.rosters[team].items():
                     if p_traits.get("pos") == "QB":
@@ -1438,7 +2414,7 @@ def run_simulation(req: SimulationRequest):
                 
             team_rbs = [po for po in req.player_overrides if po.team == team and po.pos == "RB"]
             if team_rbs:
-                starter_rb = max(team_rbs, key=lambda x: x.salary).name
+                starter_rb = max(team_rbs, key=_salary_sort_key).name
                 # Set starter RB's status to active and others on the roster to inactive
                 for p_name, p_traits in sim.rosters[team].items():
                     if p_traits.get("pos") == "RB":
@@ -1562,6 +2538,18 @@ def run_simulation(req: SimulationRequest):
     )
     
     # 9. Vectorized calculation of DraftKings and FanDuel scores
+    # DST's dk_score/fd_score already reflect its own sacks/INTs/fumble-
+    # recoveries/defensive-TDs/points-allowed formula from game_engine.py
+    # (see its "if pos == 'DST'" scoring block) -- saved off here so the
+    # passing/rushing/receiving formula below (needed to reflect this
+    # request's TD-share/pace overlays for skill players, applied just
+    # above) doesn't overwrite it with a flat 0, since none of those
+    # offensive categories apply to a Defense. Same fix as get_week_projections()'s
+    # dst_mask for the identical reason.
+    dst_mask = player_df["Pos"] == "DST"
+    original_dst_dk_score = player_df["dk_score"].copy()
+    original_dst_fd_score = player_df["fd_score"].copy()
+
     dk_p_yds = player_df["pYds"] * 0.04
     dk_p_td = player_df["pTD"] * 4
     dk_int = player_df["int"] * 1
@@ -1575,10 +2563,11 @@ def run_simulation(req: SimulationRequest):
     dk_rec_bonus = np.where(player_df["recYds"] >= 100, 3.0, 0.0)
     dk_fumbles = player_df["fumbles"] * 1.0
     
-    player_df["dk_score"] = (dk_p_yds + dk_p_td - dk_int + dk_p_bonus + 
-                             dk_r_yds + dk_r_td + dk_r_bonus + 
-                             dk_rec + dk_rec_yds + dk_rec_td + dk_rec_bonus - 
+    computed_dk_score = (dk_p_yds + dk_p_td - dk_int + dk_p_bonus +
+                             dk_r_yds + dk_r_td + dk_r_bonus +
+                             dk_rec + dk_rec_yds + dk_rec_td + dk_rec_bonus -
                              dk_fumbles).round(2)
+    player_df["dk_score"] = np.where(dst_mask, original_dst_dk_score, computed_dk_score)
     
     fd_p_yds = player_df["pYds"] * 0.04
     fd_p_td = player_df["pTD"] * 4
@@ -1590,10 +2579,11 @@ def run_simulation(req: SimulationRequest):
     fd_rec_td = player_df["recTD"] * 6
     fd_fumbles = player_df["fumbles"] * 2.0
     
-    player_df["fd_score"] = (fd_p_yds + fd_p_td - fd_int + 
-                             fd_r_yds + fd_r_td + 
-                             fd_rec + fd_rec_yds + fd_rec_td - 
+    computed_fd_score = (fd_p_yds + fd_p_td - fd_int +
+                             fd_r_yds + fd_r_td +
+                             fd_rec + fd_rec_yds + fd_rec_td -
                              fd_fumbles).round(2)
+    player_df["fd_score"] = np.where(dst_mask, original_dst_fd_score, computed_fd_score)
     
     # Look up the baseline lines to check if user has adjusted them
     baseline_spread = 0.0
@@ -1645,19 +2635,41 @@ def run_simulation(req: SimulationRequest):
     # 6. Aggregate player results
     agg_player_df = StatAggregator.aggregate_player_stats(updated_player_df)
     
-    # Build a lookup for salaries to include in the final response
+    # Build a lookup for salaries to include in the final response -- real DK
+    # salary only (None when the player isn't live on the Main Slate), same
+    # resolution as get_week_salaries()/get_rosters(), which this endpoint's
+    # response is merged with client-side.
+    dk = get_dk_salaries()
     salaries = {}
     for team in [req.away_team, req.home_team]:
-        for name, p_traits in sim.rosters[team].items():
-            pos = p_traits.get("pos", "WR/TE")
-            target_share = p_traits.get("target_share", 0.0)
-            carry_share = p_traits.get("carry_share", 0.0)
-            cpoe = 0.0
-            if pos == "QB":
-                cpoe = sim.dna["qb"].get(name, {}).get("cpoe", 0.0)
-            salaries[name] = calculate_dfs_salary(pos, target_share, carry_share, cpoe)
-    
+        for name in sim.rosters[team]:
+            dk_salary, _ = resolve_dk_salary(name, team, dk)
+            salaries[name] = dk_salary
+
+    # DST isn't in sim.rosters (it's synthesized by game_engine.py, not part
+    # of the traits-file roster) and resolve_dk_salary() only matches against
+    # dk["players"] (real skill-player names), so it can never resolve a
+    # defense's price -- and both teams' defense rows share the literal
+    # Player name "Defense" besides, so a plain salaries[name] lookup
+    # couldn't tell them apart even if it could. Resolved separately here,
+    # keyed by team, from the same dk["defense"] source get_week_salaries()
+    # uses for /api/week_projections.
+    defense_salary_by_team = {
+        team: dk["defense"].get(team) for team in [req.away_team, req.home_team]
+    }
+
     player_ownership = {po.name: po.ownership_proj for po in req.player_overrides if po.ownership_proj is not None}
+
+    # Ground-truth position (from the traits file, via get_rosters() ->
+    # PlayerOverride.pos) for the pos_clean fallback below -- the sim
+    # engine's own "Slot" label (e.g. Harold Fannin, Tyler Warren, Greg
+    # Dulcich all getting "WR1") is assigned by target-share/workload rank
+    # among pass-catchers, not real position, so a true rookie/new TE who
+    # leads a team's receiving snaps can get slotted as a "WR" even though
+    # traits.json has always had them correctly as "TE". DST has no
+    # PlayerOverride entry (see _compute_one_game), so it's absent here and
+    # falls through to the Slot-derived guess, which is fine for DST.
+    true_pos_by_name = {po.name: po.pos for po in req.player_overrides}
     
     # 5.5 Compute 101-value percentiles (0 to 100) for all player metrics
     pct_keys = [
@@ -1680,17 +2692,20 @@ def run_simulation(req: SimulationRequest):
                 for col in pct_keys if col in group.columns
             }
 
-    # Calculate DFS Optimal, Boom, and Value rates trial-by-trial for simulated game (Showdown)
-    optimal_counts = {p: 0 for p in salaries.keys()}
-    optimal_cpt_counts = {p: 0 for p in salaries.keys()}
-    optimal_flex_counts = {p: 0 for p in salaries.keys()}
-    boom_counts = {p: 0 for p in salaries.keys()}
-    value_counts = {p: 0 for p in salaries.keys()}
-    
+    # Calculate DFS Optimal, Boom, and Value rates trial-by-trial for simulated
+    # game (Showdown) -- scoped to real-DK-priced players only, same reasoning
+    # as the Classic-slate block in get_week_projections().
+    priced_names = [p for p in salaries if salaries[p] is not None]
+    optimal_counts = {p: 0 for p in priced_names}
+    optimal_cpt_counts = {p: 0 for p in priced_names}
+    optimal_flex_counts = {p: 0 for p in priced_names}
+    boom_counts = {p: 0 for p in priced_names}
+    value_counts = {p: 0 for p in priced_names}
+
     unique_iterations = updated_player_df["iteration"].unique()
     num_iterations = len(unique_iterations) if len(unique_iterations) > 0 else 1
-    
-    player_names = list(salaries.keys())
+
+    player_names = priced_names
     player_salaries = np.array([salaries[p] for p in player_names])
     
     # High-performance arrays extract to map score iterations
@@ -1705,11 +2720,12 @@ def run_simulation(req: SimulationRequest):
         score = up_dk_scores[i]
         iter_scores[it][p] = score
         
-        # Calculate Boom % (score >= 30) and Value % (score >= 3x salary)
-        sal = salaries.get(p, 3000)
+        # Calculate Boom % (score >= 30) and Value % (score >= 3x salary) --
+        # value % is skipped, not zeroed, without a real salary to measure against.
+        sal = salaries.get(p)
         if score >= 30.0:
             boom_counts[p] = boom_counts.get(p, 0) + 1
-        if score >= 3.0 * (sal / 1000.0):
+        if sal is not None and score >= 3.0 * (sal / 1000.0):
             value_counts[p] = value_counts.get(p, 0) + 1
             
     from src.nfl_sim.optimizer import solve_showdown_iteration
@@ -1743,23 +2759,34 @@ def run_simulation(req: SimulationRequest):
         slot_pos = row["Slot"]
         team = row["Team"]
         
-        # Clean slot position (e.g. WR1 -> WR, TE2 -> TE, RB1 -> RB) to match frontend filters
-        pos_clean = slot_pos
-        for base_pos in ["QB", "RB", "WR", "TE", "DST"]:
-            if slot_pos.startswith(base_pos):
-                pos_clean = base_pos
-                break
+        # Prefer the traits-file ground-truth position when we have one --
+        # see true_pos_by_name's comment above for why the Slot-derived
+        # guess below can mislabel a real TE as "WR". Only DST has no
+        # override entry, so it always falls through to the Slot guess.
+        true_pos = true_pos_by_name.get(name)
+        if true_pos in ("QB", "RB", "WR", "TE"):
+            pos_clean = true_pos
+        else:
+            # Clean slot position (e.g. WR1 -> WR, TE2 -> TE, RB1 -> RB) to match frontend filters
+            pos_clean = slot_pos
+            for base_pos in ["QB", "RB", "WR", "TE", "DST"]:
+                if slot_pos.startswith(base_pos):
+                    pos_clean = base_pos
+                    break
                 
-        salary = salaries.get(name, 3000)
-        
+        salary = defense_salary_by_team.get(team) if pos_clean == "DST" else salaries.get(name)
+
         dk_pts = row["dk_score_avg"]
         fd_pts = row["fd_score_avg"]
-        
-        own_val = player_ownership.get(name, 12.5)
-        own_val = own_val if own_val is not None else 12.5
-        
+
+        # None here (no per-request override) -- get_week_sim_results()
+        # fills in the real slate-wide deterministic ownership afterward,
+        # across every game's players at once (the softmax needs the whole
+        # pool, not just this one game's two teams, to be comparable).
+        own_val = player_ownership.get(name)
+
         p_pcts = player_percentiles.get(name, {})
-        
+
         final_projections.append({
             "name": name,
             "pos": pos_clean,
@@ -1767,10 +2794,10 @@ def run_simulation(req: SimulationRequest):
             "salary": salary,
             "dk_points": dk_pts,
             "fd_points": fd_pts,
-            "dk_value": round(dk_pts / (salary / 1000.0), 2) if salary > 0 else 0.0,
-            "fd_value": round(fd_pts / (salary / 1000.0), 2) if salary > 0 else 0.0,
+            "dk_value": round(dk_pts / (salary / 1000.0), 2) if salary else 0.0,
+            "fd_value": round(fd_pts / (salary / 1000.0), 2) if salary else 0.0,
             "ownership_proj": own_val,
-            "ownership_leverage": round(dk_pts / own_val, 2) if own_val > 0 else 0.0,
+            "ownership_leverage": round(dk_pts / own_val, 2) if own_val else 0.0,
             "optimal_pct": round((optimal_counts.get(name, 0) / num_solve_iterations) * 100.0, 2),
             "optimal_cpt_pct": round((optimal_cpt_counts.get(name, 0) / num_solve_iterations) * 100.0, 2),
             "optimal_flex_pct": round((optimal_flex_counts.get(name, 0) / num_solve_iterations) * 100.0, 2),
@@ -1814,8 +2841,10 @@ def run_simulation(req: SimulationRequest):
 
         
     # 7. Compile game outcomes & probability metrics
-    away_scores = game_df["off_score"].values
-    home_scores = game_df["def_score"].values
+    # off_score/def_score renamed to away_score/home_score (2026-07-21) --
+    # see AGENTS.md's off_score/def_score fragile-area note.
+    away_scores = game_df["away_score"].values
+    home_scores = game_df["home_score"].values
     totals = game_df["total"].values
     away_diff = away_scores - home_scores
     weights = game_df["weight"].values if "weight" in game_df.columns else np.ones(len(game_df))
@@ -1971,33 +3000,153 @@ def _build_correlation_matrix(players: list) -> np.ndarray:
     return rho
 
 
-def _compute_ownership(players: list) -> list:
-    """Compute synthetic V1 ownership using two-factor softmax + log-normal noise."""
+def _ownership_soft_cap(raw: Optional[float], value: float, v_med: float, v_p90: float) -> Optional[float]:
+    """Squash one ownership estimate toward a realistic large-field ceiling.
+
+    The archetype field builder (and, less so, the softmax prior) over-roster the
+    top value plays -- observed ownership for the chalkiest WR/RB comes out
+    60-80%, but in a real large-field NFL contest even the single most-owned
+    player rarely clears ~40%. Anything above 35% is compressed so a would-be
+    100% play lands at `ceiling` while the ordering among chalk is preserved.
+
+    `ceiling` only rises above the 42% base for a genuinely mispriced player --
+    points-per-$1k well past the pool's 90th percentile, which in practice means
+    a post-salary injury vaulted them into a much bigger role.
+
+    Inputs: raw ownership %, the player's pts-per-$1k `value`, and the pool's
+    median / 90th-pctile value. Output: the capped ownership % (unchanged at or
+    below 35%, None passed through).
+    """
+    if raw is None or raw <= 35.0:
+        return raw
+    excess = max(0.0, (value - v_p90) / (v_p90 - v_med)) if v_p90 > v_med else 0.0
+    ceiling = min(62.0, 42.0 + 12.0 * excess)
+    squash = (ceiling - 35.0) / 65.0
+    return round(35.0 + (raw - 35.0) * squash, 1)
+
+
+def _apply_ownership_cap(players: list, own_key: str, proj_key: str) -> None:
+    """In-place soft-cap of `own_key` on every priced player (see _ownership_soft_cap)."""
+    priced = [p for p in players
+              if p.get('salary') and p.get(own_key) is not None and p.get(proj_key) is not None]
+    if len(priced) < 10:
+        return
+    vals = [p[proj_key] / (max(p['salary'], 1) / 1000.0) for p in priced]
+    v_med, v_p90 = float(np.median(vals)), float(np.percentile(vals, 90))
+    for p, val in zip(priced, vals):
+        p[own_key] = _ownership_soft_cap(p[own_key], val, v_med, v_p90)
+
+
+def _compute_ownership(players: list, seed: Optional[int] = None) -> list:
+    """Compute synthetic V1 ownership using two-factor softmax + log-normal
+    noise. Mutates and returns `players`.
+
+    Deterministic when `seed` is given -- the same seed (and same pool)
+    always reproduces the same numbers. This matters because ownership
+    feeds contest-EV/portfolio metrics (see handle_optimize's EV math) that
+    need to be comparable run-to-run, not a fresh random draw every time
+    someone reloads the page or re-optimizes. Omit `seed` for a fresh draw.
+
+    A player who already carries a non-None ownership_pct (a manual
+    override, e.g. typed into the Optimizer's editable Own% column) is left
+    untouched -- only players missing one get a computed value, though
+    everyone with a real salary still participates in the softmax's
+    relative scoring so one override doesn't skew the rest of the pool.
+
+    A player with no real DK salary (None -- off the Main Slate, or DK
+    hasn't priced them) can't be scored against priced players on a
+    $/point basis, so their ownership_pct is left as whatever it already
+    was (None, unless manually overridden) rather than guessed.
+
+    Three bounded multiplicative nudges sit on top of the original
+    value/salary core, each addressing a specific known way our own
+    projections diverge from the public consensus that actually drives
+    real ownership (our sim isn't the field's sim):
+      - salary-rank (within position): DK's own pricing team already
+        encodes an industry-consensus view of a player's role/talent into
+        salary -- independent of whatever our particular median says. A
+        player priced high at their position tends to get public chalk
+        almost regardless of our own view of them.
+      - Vegas implied team total: the public chases shootout/favorite
+        narratives directly off the same lines everyone sees -- this is
+        public information our own model doesn't otherwise get credit for
+        just by having a good/bad median projection.
+      - cash-lineup consensus (`cash_consensus_frac`, 0-1, from
+        _generate_cash_consensus_lineups): players who recur across this
+        slate's own top cash-optimal builds are usually exactly who's
+        "solved" industry-wide by Thursday and therefore heavily owned in
+        tournaments too, on top of pure salary/value.
+    Both `implied_total` and `cash_consensus_frac` are optional per player;
+    missing values fall back to neutral (no nudge).
+    """
     POS_WEIGHTS = {'QB': 0.85, 'RB': 1.30, 'WR': 1.00, 'TE': 0.90, 'DST': 0.65}
 
-    for p in players:
+    priced = [p for p in players if p.get('salary') is not None]
+    if not priced:
+        return players
+
+    # Salary percentile within position -- a $6,500 RB and a $6,500 WR
+    # aren't equally "expensive" relative to their peers, so this has to
+    # be ranked within each position group, not across the whole pool.
+    salary_pctile: Dict[int, float] = {}
+    by_pos: Dict[str, list] = {}
+    for i, p in enumerate(priced):
+        by_pos.setdefault(p['pos'], []).append(i)
+    for idx_list in by_pos.values():
+        sals = np.array([priced[i]['salary'] for i in idx_list], dtype=float)
+        order = sals.argsort()
+        ranks = np.empty(len(sals))
+        ranks[order] = np.arange(len(sals))
+        pct = ranks / max(1, len(sals) - 1) if len(sals) > 1 else np.array([0.5])
+        for i, p_val in zip(idx_list, pct):
+            salary_pctile[i] = float(p_val)
+
+    # Vegas implied-team-total percentile across the whole priced pool
+    # (this is a team-level, not position-level, stat).
+    totals = [p['implied_total'] for p in priced if p.get('implied_total') is not None]
+    if len(totals) >= 2:
+        totals_arr = np.array(sorted(totals))
+        vegas_pctile = {
+            i: float(np.searchsorted(totals_arr, p['implied_total']) / (len(totals_arr) - 1))
+            for i, p in enumerate(priced) if p.get('implied_total') is not None
+        }
+    else:
+        vegas_pctile = {}
+
+    for i, p in enumerate(priced):
         pw = POS_WEIGHTS.get(p['pos'], 1.0)
         sal_k = max(p['salary'], 1) / 1000.0
-        p['_value_score'] = (p['projection'] / sal_k) * pw
+        score = (p['projection'] / sal_k) * pw
+        score *= 0.85 + 0.30 * salary_pctile.get(i, 0.5)          # +/-15% salary-rank nudge
+        score *= 0.90 + 0.20 * vegas_pctile.get(i, 0.5)           # +/-10% Vegas-environment nudge
+        score *= 1.0 + 0.6 * min(1.0, max(0.0, p.get('cash_consensus_frac') or 0.0))  # up to +60% cash-consensus boost
+        p['_value_score'] = score
 
     # Chalk boost: top 10% by value score get 1.4x
-    scores = [p['_value_score'] for p in players]
+    scores = [p['_value_score'] for p in priced]
     threshold = np.percentile(scores, 90) if len(scores) >= 10 else max(scores)
-    for p in players:
+    for p in priced:
         if p['_value_score'] >= threshold:
             p['_value_score'] *= 1.4
 
     # Softmax with temperature T=1.5, scaled to sum=900
     T = 1.5
-    vals = np.array([p['_value_score'] for p in players], dtype=float)
+    vals = np.array([p['_value_score'] for p in priced], dtype=float)
     vals = vals - vals.max()  # numerical stability
     exp_vals = np.exp(vals / T)
     softmax = exp_vals / (exp_vals.sum() + 1e-9)
     raw_ownership = softmax * 900.0
 
+    # Pool value stats for the soft cap below.
+    _vals = [p['projection'] / (max(p['salary'], 1) / 1000.0) for p in priced]
+    _v_med, _v_p90 = float(np.median(_vals)), float(np.percentile(_vals, 90))
+
     # Log-normal noise
-    rng = np.random.default_rng()
-    for i, p in enumerate(players):
+    rng = np.random.default_rng(seed)
+    for i, p in enumerate(priced):
+        del p['_value_score']
+        if p.get('ownership_pct') is not None:
+            continue  # manual override -- leave it alone
         base = raw_ownership[i]
         if base > 25:
             sigma = 0.25
@@ -2006,8 +3155,12 @@ def _compute_ownership(players: list) -> list:
         else:
             sigma = 0.45
         noise = float(np.exp(rng.normal(0, sigma)))
-        p['ownership_pct'] = max(0.5, round(base * noise, 1))
-        del p['_value_score']
+        # The 900 scale is a pool-wide budget (9 roster slots x 100%), not a
+        # per-player one. Floor at 0.5%, then soft-cap the top toward a realistic
+        # large-field ceiling (~42%, higher only for genuine value outliers) --
+        # see _ownership_soft_cap.
+        raw = max(0.5, round(base * noise, 1))
+        p['ownership_pct'] = max(0.5, _ownership_soft_cap(raw, _vals[i], _v_med, _v_p90))
 
     return players
 
@@ -2094,6 +3247,94 @@ def _solve_lineup_ilp(
         return None
 
     return selected
+
+
+def _generate_cash_consensus_lineups(
+    players: list, salary_cap: int, n_lineups: int = 10, min_unique: int = 2,
+    pos_max_exposure: Optional[Dict[str, float]] = None,
+) -> Tuple[Dict[Tuple[str, str], int], int, list]:
+    """Approximates the public's cash-game consensus by generating this
+    slate's own top-N cash-optimal lineups (pure median projection, zero
+    variance -- exactly the objective /api/optimize itself uses for
+    contest_type='cash') and counting how many of them each player lands
+    in.
+
+    Real-world DFS behavior this is modeling: the optimal cash lineup is
+    largely "solved" across the industry by Thursday most weeks --
+    normally one build with a couple of 2-for-2 or 3-for-3 swaps at a
+    position or two, occasionally 3-5 genuinely distinct builds -- so
+    players who recur across most of a slate's own top cash-optimal builds
+    are a strong, cheap proxy for who the GPP field will also chalk, on
+    top of (not instead of) the salary/value/Vegas signals below. The
+    lineups themselves are also served directly by /api/week_cash_lineups
+    for the Cash Lineups page.
+
+    min_unique=2 (not 1) is deliberate here -- real cash consensus moves in
+    2-for-2 or 3-for-3 swaps at a position or two, not single-player edits,
+    so a min_unique of 1 was letting the solver make swaps looser than what
+    actually happens industry-wide.
+
+    pos_max_exposure ({pos: max_fraction}, e.g. {'DST': 0.5}) caps how often
+    any ONE player at that position can appear across the N builds, forcing
+    rotation to the next-best options once hit. This exists for exactly one
+    reason: an early-preseason projection can run hot on a single player
+    (e.g. one DST looking gaudy before sims settle down closer to the
+    season) and otherwise monopolize every build, which is a temporary
+    projection-noise artifact, not a real signal worth learning from.
+    Positions not listed are deliberately left uncapped -- the players who
+    recur through nearly every build ARE the real signal this whole
+    function exists to surface; capping them too would defeat the point.
+
+    Returns (appearance_counts keyed by (name, team), the actual number of
+    lineups generated -- may be less than n_lineups if the pool runs out
+    of distinct valid builds -- and the assembled lineups themselves, each
+    {'slots': [...], 'total_salary': int, 'projected_score': float}).
+    """
+    if len(players) < 9:
+        return {}, 0, []
+
+    pos_max_exposure = pos_max_exposure or {}
+    draw_scores = np.array([p['projection'] for p in players])
+    prior_lineups: list = []
+    appearance_counts: Dict[Tuple[str, str], int] = {}
+    lineups: list = []
+    max_attempts = n_lineups * 3
+    attempts = 0
+
+    while len(prior_lineups) < n_lineups and attempts < max_attempts:
+        attempts += 1
+
+        # Hard-exclude anyone who's already hit their position's exposure
+        # cap, so the solver is forced onto the next-best option at that
+        # position for the remaining builds.
+        capped_out = set()
+        for i, p in enumerate(players):
+            cap = pos_max_exposure.get(p['pos'])
+            if cap is None:
+                continue
+            max_allowed = max(1, int(np.ceil(cap * n_lineups)))
+            key = (p['name'], p['team'])
+            if appearance_counts.get(key, 0) >= max_allowed:
+                capped_out.add(i)
+
+        selected_indices = _solve_lineup_ilp(
+            players, draw_scores, salary_cap, prior_lineups,
+            min_unique, True, 1.0, n_lineups, set(), capped_out
+        )
+        if selected_indices is None:
+            break  # exhausted the pool's distinct near-optimal builds
+        prior_lineups.append({'indices': selected_indices})
+        for i in selected_indices:
+            key = (players[i]['name'], players[i]['team'])
+            appearance_counts[key] = appearance_counts.get(key, 0) + 1
+        slots = _assign_slots(selected_indices, players)
+        lineups.append({
+            'slots': slots,
+            'total_salary': sum(players[i]['salary'] for i in selected_indices),
+            'projected_score': round(sum(players[i]['projection'] for i in selected_indices), 2),
+        })
+
+    return appearance_counts, len(prior_lineups), lineups
 
 
 def _assign_slots(selected_indices: list, players: list) -> list:
@@ -2365,11 +3606,20 @@ async def optimize_lineups(req: OptimizeRequest):
                 detail=f'Not enough {pos} players (need at least {min_count}, have {pos_counts.get(pos, 0)})'
             )
 
-    # Compute ownership if not provided
-    for p in active_players:
-        if p.get('ownership_pct') is None:
-            pass  # will compute below
-    active_players = _compute_ownership(active_players)
+    # Fill in ownership for any player missing one (_compute_ownership()
+    # itself skips players that already have a value, whether that's the
+    # Player Pool's computed per-week number or a manual override typed
+    # into its Own% column). Seeded from the pool's own content -- name,
+    # team, salary, projection -- so the exact same optimize request always
+    # reproduces the exact same ownership, and therefore the exact same
+    # EV/portfolio metrics below; a genuinely different pool (edited
+    # projections, a new week) naturally gets a different seed.
+    ownership_seed_str = "|".join(
+        f"{p['name']}:{p['team']}:{p['salary']}:{p['projection']}"
+        for p in sorted(active_players, key=lambda p: (p['name'], p['team']))
+    )
+    ownership_seed = int(hashlib.md5(ownership_seed_str.encode()).hexdigest(), 16) % (2**32)
+    active_players = _compute_ownership(active_players, seed=ownership_seed)
 
     # Build correlation matrix and covariance
     n = len(active_players)
@@ -2480,65 +3730,6 @@ async def optimize_lineups(req: OptimizeRequest):
     # ── Precompute simulated field scores once for the entire request ─────────
     n_stat_sims = 10000
 
-    by_pos: dict = {'QB': [], 'RB': [], 'WR': [], 'TE': [], 'DST': []}
-    for p in active_players:
-        pos = p.get('pos', '')
-        if pos in by_pos:
-            by_pos[pos].append(p)
-
-    import random
-
-    def _pick_one(pool: list) -> Optional[dict]:
-        """Uniform random choice pick from pool (since custom ownership is unavailable)."""
-        if not pool:
-            return None
-        return random.choice(pool)
-
-    def build_field_lineup() -> Optional[list]:
-        """Construct one valid DK-format lineup: 1QB/2RB/3WR/1TE/1FLEX/1DST.
-        Uses ownership-weighted selection and salary-cap awareness.
-        """
-        used = set()
-        lineup = []
-        remaining = req.salary_cap
-
-        def pick_pos(pos: str, count: int) -> bool:
-            nonlocal remaining
-            for _ in range(count):
-                pool = [
-                    p for p in by_pos.get(pos, [])
-                    if p['name'] not in used and p.get('salary', 0) <= remaining
-                ]
-                if not pool:
-                    # Salary cap too tight — relax constraint for field sims
-                    pool = [p for p in by_pos.get(pos, []) if p['name'] not in used]
-                if not pool:
-                    return False
-                player = _pick_one(pool)
-                if player is None:
-                    return False
-                lineup.append(player)
-                used.add(player['name'])
-                remaining -= player.get('salary', 0)
-            return True
-
-        required = [('QB', 1), ('RB', 2), ('WR', 3), ('TE', 1), ('DST', 1)]
-        for pos, cnt in required:
-            if not pick_pos(pos, cnt):
-                return None
-
-        # FLEX: any RB/WR/TE not yet used
-        flex_pool = [
-            p for pos in ('RB', 'WR', 'TE')
-            for p in by_pos.get(pos, [])
-            if p['name'] not in used
-        ]
-        flex = _pick_one(flex_pool)
-        if flex is None:
-            return None
-        lineup.append(flex)
-        return lineup
-
     # Load cache data for week reg matchup players to index trial alignment
     # We want a map: (name, team, pos) -> 1000 trial scores (unsorted)
     # If not in cache or cached version doesn't have 1000 trials, we fall back to normal approximation.
@@ -2603,32 +3794,116 @@ async def optimize_lineups(req: OptimizeRequest):
             return scores
 
     field_scores = np.zeros(n_stat_sims)
-    n_failures = 0
-    
-    # Pre-draw field lineups and sample them
-    for sim_idx in range(n_stat_sims):
-        lu = build_field_lineup()
-        iter_idx = aligned_indices[sim_idx]
-        if lu is not None:
+
+    # Prefer the cached archetype-composed field sample (sharp / fake_sharp
+    # / casual / toilet -- see field_simulator.py and
+    # docs/implementation_plans/field_simulation_implementation_plan.md)
+    # built by get_week_sim_results() for this week, over a uniform-random
+    # field. One random field-sample lineup per trial (composition already
+    # reflects the archetype mix), scored at that trial's aligned iteration
+    # so a shared game environment lifts our lineup and the field lineup
+    # together, same correlation-preserving pattern as before.
+    field_lineups_cached = None
+    if req.week is not None:
+        cached_field = FIELD_SAMPLE_CACHE.get((req.week, None))
+        if cached_field and cached_field.get('lineups'):
+            field_lineups_cached = cached_field['lineups']
+
+    if field_lineups_cached:
+        n_field = len(field_lineups_cached)
+        field_choice_idx = rng.integers(0, n_field, size=n_stat_sims)
+        for sim_idx in range(n_stat_sims):
+            lu = field_lineups_cached[field_choice_idx[sim_idx]]
+            iter_idx = aligned_indices[sim_idx]
             score_sum = 0.0
             for p in lu:
-                # Sample the score for this specific player at this specific iteration
                 key = (p['name'], p['team'], p['pos'])
-                if key in trial_scores_map and len(trial_scores_map[key]) > iter_idx:
-                    score_sum += trial_scores_map[key][iter_idx]
+                arr = trial_scores_map.get(key)
+                if arr is not None and len(arr) > iter_idx:
+                    score_sum += arr[iter_idx]
                 else:
                     proj = p.get('projection', 10.0)
                     std = max(0.5, proj * 0.35)
-                    # Draw pseudo-randomly aligned to the iteration index
                     gen = np.random.default_rng(iter_idx + hash(p['name']) % 10000)
                     score_sum += max(0.0, gen.normal(proj, std))
             field_scores[sim_idx] = score_sum
-        else:
-            n_failures += 1
-            # Fallback: estimate from average projection of pool
-            avg_proj = float(np.mean([p.get('projection', 10.0) for p in active_players]))
-            gen = np.random.default_rng(iter_idx)
-            field_scores[sim_idx] = max(0.0, float(gen.normal(avg_proj * 9, avg_proj * 9 * 0.15)))
+    else:
+        # Fallback: no week given, or that week's field sample hasn't been
+        # built yet this process lifetime -- old uniform-random single-
+        # lineup-per-iteration field, kept as a safety net so this endpoint
+        # never hard-fails just because week was omitted.
+        by_pos: dict = {'QB': [], 'RB': [], 'WR': [], 'TE': [], 'DST': []}
+        for p in active_players:
+            pos = p.get('pos', '')
+            if pos in by_pos:
+                by_pos[pos].append(p)
+
+        import random
+
+        def _pick_one(pool: list) -> Optional[dict]:
+            if not pool:
+                return None
+            return random.choice(pool)
+
+        def build_field_lineup_fallback() -> Optional[list]:
+            used = set()
+            lineup = []
+            remaining = req.salary_cap
+
+            def pick_pos(pos: str, count: int) -> bool:
+                nonlocal remaining
+                for _ in range(count):
+                    pool = [
+                        p for p in by_pos.get(pos, [])
+                        if p['name'] not in used and p.get('salary', 0) <= remaining
+                    ]
+                    if not pool:
+                        pool = [p for p in by_pos.get(pos, []) if p['name'] not in used]
+                    if not pool:
+                        return False
+                    player = _pick_one(pool)
+                    if player is None:
+                        return False
+                    lineup.append(player)
+                    used.add(player['name'])
+                    remaining -= player.get('salary', 0)
+                return True
+
+            required = [('QB', 1), ('RB', 2), ('WR', 3), ('TE', 1), ('DST', 1)]
+            for pos, cnt in required:
+                if not pick_pos(pos, cnt):
+                    return None
+
+            flex_pool = [
+                p for pos in ('RB', 'WR', 'TE')
+                for p in by_pos.get(pos, [])
+                if p['name'] not in used
+            ]
+            flex = _pick_one(flex_pool)
+            if flex is None:
+                return None
+            lineup.append(flex)
+            return lineup
+
+        for sim_idx in range(n_stat_sims):
+            lu = build_field_lineup_fallback()
+            iter_idx = aligned_indices[sim_idx]
+            if lu is not None:
+                score_sum = 0.0
+                for p in lu:
+                    key = (p['name'], p['team'], p['pos'])
+                    if key in trial_scores_map and len(trial_scores_map[key]) > iter_idx:
+                        score_sum += trial_scores_map[key][iter_idx]
+                    else:
+                        proj = p.get('projection', 10.0)
+                        std = max(0.5, proj * 0.35)
+                        gen = np.random.default_rng(iter_idx + hash(p['name']) % 10000)
+                        score_sum += max(0.0, gen.normal(proj, std))
+                field_scores[sim_idx] = score_sum
+            else:
+                avg_proj = float(np.mean([p.get('projection', 10.0) for p in active_players]))
+                gen = np.random.default_rng(iter_idx)
+                field_scores[sim_idx] = max(0.0, float(gen.normal(avg_proj * 9, avg_proj * 9 * 0.15)))
 
     # Evaluate each lineup using aligned simulations
     lineup_results = []
@@ -2656,7 +3931,8 @@ async def optimize_lineups(req: OptimizeRequest):
                 'projection': p['projection'],
                 'slot': p['slot'],
                 'ownership_pct': p.get('ownership_pct', 0.0),
-                'dk_pcts_all': p.get('dk_pcts_all')
+                'dk_pcts_all': p.get('dk_pcts_all'),
+                'dk_id': p.get('dk_id')
             } for p in lu['slots']],
             'total_salary': lu['total_salary'],
             'projected_score': lu['projected_score']

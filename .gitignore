@@ -76,6 +76,10 @@ venv/
 .venv/
 # temporary fallback from the 3.8->3.12 upgrade; delete once 3.12 is trusted
 venv_py38_old/
+# Isolated venv for the cfbd package (2026-08-20) -- cfbd pins pydantic<2,
+# which conflicts with the main venv's pydantic 2.x (FastAPI backend needs
+# 2.x) if installed into the same environment. Keep it fully separate.
+venv_cfbd/
 .pytest_cache/
 
 
@@ -103,3 +107,10 @@ Thumbs.db
 .idea/
 .obsidian/
 scratch/
+
+# Local pre-change checkpoints (2026-09-06) -- large, machine-specific, not for git
+data/_snapshots/
+
+# Week-by-week roster trees for the season sim -- 18x32 files, always
+# regeneratable via build_season_week_rosters_v_0_1_0.py
+data/current_rosters/week_*/

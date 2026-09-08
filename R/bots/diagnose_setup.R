@@ -35,9 +35,9 @@ files <- c(
   "R/bots/post_targets.R",
   "R/live/espn_adapter.R",
   "R/simulators/fourth_down/fourth_down_decision.R",
-  "data/models/fg_model.rds",
-  "data/models/fd_model.rds",
-  "data/models/wp_model.rds"
+  "R/models/field_goal/fg_model.rds",
+  "R/models/fourth_down/fd_conversion_model.rds",
+  "R/models/win_probability/wp_model.rds"
 )
 
 for (f in files) {

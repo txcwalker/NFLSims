@@ -92,7 +92,16 @@ def main():
     qb_passes = pbp_pass[pbp_pass['passer_name'].notna()]
     qb_volume = qb_passes.groupby('passer_name')['pass_attempt'].sum()
     eligible_qbs = qb_volume[qb_volume >= 80].index.tolist()
-    
+
+    # League-wide prior for under-pressure CPOE shrinkage (see below) --
+    # pooled across every eligible QB's real pressured dropbacks, not a
+    # guessed constant.
+    league_up_data = qb_passes[qb_passes['qb_hit'] == 1]
+    league_up_cpoe = league_up_data['cpoe'].mean()
+    if pd.isna(league_up_cpoe):
+        league_up_cpoe = -2.5
+    UP_CPOE_SHRINKAGE_K = 50
+
     for qb in eligible_qbs:
         qb_data = qb_passes[qb_passes['passer_name'] == qb]
         
@@ -113,10 +122,19 @@ def main():
         play_action = qb_data['play_type_nfl'].str.contains('play_action', case=False, na=False)
         pa_rate = play_action.mean() if len(qb_data) > 0 else 0.20
         
-        # under pressure CPOE
+        # Under-pressure CPOE, empirical-Bayes shrunk toward the league-wide
+        # prior by real sample size -- a raw small-sample mean (e.g. Malik
+        # Willis's 39.8 CPOE off ~12 career pressured dropbacks, found
+        # 2026-08-12) is pure noise, not a real skill signal. The old logic
+        # used the raw mean unshrunk for any QB with >=10 samples, which let
+        # exactly this kind of outlier through. K=50 means it takes ~50 real
+        # pressured-dropback samples for a QB's own data to carry half the
+        # weight against the league prior.
         up_data = qb_data[qb_data['qb_hit'] == 1]
-        up_cpoe = up_data['cpoe'].mean() if len(up_data) >= 10 else -2.5
-        if pd.isna(up_cpoe): up_cpoe = -2.5
+        n_up = len(up_data)
+        raw_up_cpoe = up_data['cpoe'].mean() if n_up > 0 else league_up_cpoe
+        if pd.isna(raw_up_cpoe): raw_up_cpoe = league_up_cpoe
+        up_cpoe = (n_up * raw_up_cpoe + UP_CPOE_SHRINKAGE_K * league_up_cpoe) / (n_up + UP_CPOE_SHRINKAGE_K)
         
         # pressure rate
         pressure_rate = qb_data['was_pressure'].fillna(0).astype(int).mean() if 'was_pressure' in qb_data.columns else 0.20

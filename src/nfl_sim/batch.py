@@ -36,8 +36,13 @@ def _simulate_single_game_worker(args):
     
     summary = {
         'game_id': game_id,
-        'off_score': sim.scores[team_off],
-        'def_score': sim.scores[team_def],
+        # Renamed from off_score/def_score (2026-07-21) -- team_off/team_def
+        # are always passed positionally as away_team/home_team to
+        # SequentialNFLGameEngine, so this was always away/home wearing a
+        # misleading "offense/defense" label. See AGENTS.md's off_score/
+        # def_score fragile-area note.
+        'away_score': sim.scores[team_off],
+        'home_score': sim.scores[team_def],
         'total': sim.scores[team_off] + sim.scores[team_def],
         'spread': sim.scores[team_off] - sim.scores[team_def],
         'winner': team_off if sim.scores[team_off] > sim.scores[team_def] else team_def,
@@ -75,11 +80,16 @@ def _simulate_single_game_worker(args):
 class BatchSimulator:
     _json_cache = {}
 
-    def __init__(self, team_off="BUF", team_def="KC", context=None, year=2025):
+    def __init__(self, team_off="BUF", team_def="KC", context=None, year=2025,
+                rosters_dir="data/current_rosters"):
         self.team_off = team_off
         self.team_def = team_def
         self.year = year
         self.context = context # Note: context (year) should be handled by engine
+        # See NFLGameEngine's identical param: points at a parallel roster
+        # tree (e.g. current_rosters/dfs) for a DFS-weekly run instead of
+        # the season-long current_rosters/. Default is the prior hardcoded path.
+        self.rosters_dir = rosters_dir
         self.raw_player_results = []
         self.game_summaries = []
         
@@ -90,12 +100,12 @@ class BatchSimulator:
             'coach': self._load_json('data/dna/coach_dna.json'),
             'trench': self._load_json('data/dna/trench_dna.json')
         }
-        self.team_coaches = self._load_json('data/dna/team_to_coach_2025.json')
+        self.team_coaches = self._load_json(f'data/dna/team_to_coach_{self.year}.json')
         self.rosters = {
-            team_off: self._load_json(f"data/current_rosters/{team_off}_traits_{self.year}.json").get('traits', {}),
-            team_def: self._load_json(f"data/current_rosters/{team_def}_traits_{self.year}.json").get('traits', {})
+            team_off: self._load_json(f"{self.rosters_dir}/{team_off}_traits_{self.year}.json").get('traits', {}),
+            team_def: self._load_json(f"{self.rosters_dir}/{team_def}_traits_{self.year}.json").get('traits', {})
         }
-        self.trench_tiers = self._load_json('data/dna/trench_tiers_2025.json')
+        self.trench_tiers = self._load_json(f'data/dna/trench_tiers_{self.year}.json')
         
         # Compute slot mapping dynamically once per batch
         self.player_to_slot = {
@@ -165,8 +175,13 @@ class BatchSimulator:
         if os.path.exists(path):
             with open(path, 'r') as f:
                 data = json.load(f)
+            # Don't cache per-week / DFS roster trees: a full-season run touches
+            # 18 weeks x 32 teams = 576 of these, and the class-level cache would
+            # never release them (real OOM, 2026-09-06). Re-parsing a ~100 KB
+            # JSON per matchup is <2 ms -- immaterial next to the sim itself.
+            if "week_" not in path.replace("\\", "/") and "/dfs/" not in path.replace("\\", "/"):
                 self._json_cache[path] = data
-                return data
+            return data
         return {}
 
     def _load_skill_dna(self):
@@ -185,12 +200,20 @@ class BatchSimulator:
         self._json_cache[cache_key] = merged
         return merged
 
-    def run_batch(self, iterations=100, vectorized=True):
+    def run_batch(self, iterations=100, vectorized=True, track_cmp_by_depth=False,
+                  capture_completion=False, track_playcall=False):
+        # track_cmp_by_depth / capture_completion: A2 calibration hooks (Phase 0
+        # / Phase 2). When set the engine tallies completion by depth / dumps the
+        # completion-model inputs; results left on self.last_cmp_by_depth /
+        # self.last_completion_cap. Default False -> zero cost, no behaviour
+        # change. See docs/implementation_plans/completion_rate_calibration_plan.md.
+        self.last_cmp_by_depth = None
+        self.last_completion_cap = None
         if vectorized:
             print(f"Executing Vectorized Monte Carlo Simulation ({iterations} games): {self.team_off} vs {self.team_def}")
             sim = NFLGameEngine(
-                self.team_off, 
-                self.team_def, 
+                self.team_off,
+                self.team_def,
                 year=self.year,
                 dna=self.dna,
                 team_coaches=self.team_coaches,
@@ -198,7 +221,17 @@ class BatchSimulator:
                 trench_tiers=self.trench_tiers,
                 N=iterations
             )
+            sim.track_cmp_by_depth = track_cmp_by_depth
+            sim.capture_completion = capture_completion
+            sim.track_playcall = track_playcall
             sim.run_game()
+            if track_cmp_by_depth:
+                self.last_cmp_by_depth = (sim._cmp_depth_att.copy(), sim._cmp_depth_cmp.copy())
+                self.last_dropback_tally = sim._dropback_tally.copy()
+            if track_playcall:
+                self.last_playcall_tally = sim._playcall_tally.copy()
+            if capture_completion and sim._completion_cap:
+                self.last_completion_cap = np.vstack(sim._completion_cap)
             game_summaries = sim.get_game_summaries()
             raw_player_results = sim.get_player_stats_flat(self.player_to_slot)
             print("Vectorized Batch Simulation Complete.")
@@ -230,9 +263,9 @@ class StatAggregator:
         metrics = [
             'pAtt', 'pCmp', 'pYds', 'pTD', 'int',
             'rAtt', 'rYds', 'rTD', 'recYds', 'recTD',
-            'targets', 'rec', 'touches', 'fumbles', 'fumbles_lost', 'sacks_taken',
+            'targets', 'rec', 'touches', 'fumbles', 'fumbles_lost', 'sacks_taken', 'air_yards',
             'def_sack', 'def_int', 'def_fumble_rec', 'def_td', 'pts_allowed',
-            'dk_score', 'fd_score'
+            'dk_score', 'fd_score', 'std_score'
         ]
         
         # Ensure all columns exist in player_df

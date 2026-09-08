@@ -11,8 +11,8 @@ from src.nfl_sim.batch import BatchSimulator, StatAggregator
 
 def generate_matchup_boxscore(away, home, week, game_df, player_df, boxscore_dir, iterations):
     """Generates a detailed statistical boxscore for the given matchup and writes it to disk."""
-    avg_away_score = game_df['off_score'].mean()
-    avg_home_score = game_df['def_score'].mean()
+    avg_away_score = game_df['away_score'].mean()
+    avg_home_score = game_df['home_score'].mean()
     away_win_pct = (game_df['winner'] == away).mean() * 100
     home_win_pct = (game_df['winner'] == home).mean() * 100
     
@@ -123,8 +123,8 @@ def run_first_4_weeks(iterations=1000):
             game_df, player_df = batch.run_batch(iterations=iterations, vectorized=True)
             
             # Compute game metrics
-            avg_away = game_df["off_score"].mean()
-            avg_home = game_df["def_score"].mean()
+            avg_away = game_df["away_score"].mean()
+            avg_home = game_df["home_score"].mean()
             avg_spread = game_df["spread"].mean()
             avg_total = game_df["total"].mean()
             avg_plays = game_df["total_plays"].mean()

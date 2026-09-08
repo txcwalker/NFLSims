@@ -1,0 +1,33 @@
+team,coach_name,note,n_plays_primary,n_plays_redzone,n_plays_goalline,proe_primary,proe_redzone,proe_goalline,deep_shot_rate_primary,deep_shot_rate_redzone,deep_shot_rate_goalline,no_huddle_rate_primary,no_huddle_rate_redzone,no_huddle_rate_goalline,sec_per_play_primary,sec_per_play_redzone,sec_per_play_goalline
+ARI,Mike LaFleur,"PROXY: real 2023-2025 Rams OC under Sean McVay (also Jets OC 2021-2022, not used -- more recent/larger Rams sample chosen instead). nflfastR only credits the HC of record, so this is built from LA/2023-2025 play-by-play filtered to those seasons, not McVay's full multi-year HC entry. Added 2026-08-20.",2610,389,171,-0.7042,-2.8499,-2.6275,0.1429,0.0098,0.0,0.095,0.0411,0.0994,35.83,28.01,33.54
+ATL,Kevin Stefanski,,5556,659,245,-3.3482,-6.9526,-4.2998,0.1297,0.0095,0.0,0.0934,0.088,0.049,34.16,27.86,32.06
+BAL,Jesse Minter,"PROXY: Minter is a defensive coach -- BAL's real 2026 offensive play-caller is OC Declan Doyle, who was Bears OC in 2025. Built from CHI/2025 play-by-play (single season, thinnest sample of the 2026 proxy coaches). Replaces the prior full league-average placeholder. Added 2026-08-20.",911,127,50,-2.2861,-8.8841,-14.2728,0.1663,0.0,0.0,0.0472,0.0394,0.12,35.33,29.21,33.6
+BUF,Joe Brady,"PROXY: real 2023-2025 Bills OC (interim from Nov 2023; whole seasons used, not week-filtered to his actual interim start). Also Panthers OC 2020-2021, not used -- more recent Bills sample chosen instead. Built from BUF/2023-2025 play-by-play, not Sean McDermott's full 9-season HC entry. Replaces the prior full league-average placeholder. Added 2026-08-20.",2577,409,171,-0.4571,-4.8037,-12.2479,0.1519,0.0172,0.0,0.0803,0.0954,0.1404,37.05,27.4,32.43
+CAR,Dave Canales,,1673,227,79,-5.0395,0.3427,5.1412,0.115,0.0,0.0,0.0699,0.0529,0.0506,33.81,29.84,31.87
+CHI,Ben Johnson,,911,127,50,-2.2861,-8.8841,-14.2728,0.1663,0.0,0.0,0.0472,0.0394,0.12,33.22,29.21,33.6
+CIN,Zac Taylor,,6137,776,362,3.0821,3.9674,3.6939,0.1164,0.0068,0.0,0.0345,0.0271,0.0359,34.76,27.39,33.9
+CLE,Todd Monken,"PROXY: real 2023-2025 Ravens OC (also Bucs OC 2016-2018, not used). Built from BAL/2023-2025 play-by-play, not John Harbaugh's full 11-season HC entry. Replaces the prior full league-average placeholder. Added 2026-08-20.",2519,393,136,-4.3394,-8.4238,-13.3146,0.1481,0.0063,0.0,0.0524,0.0433,0.0588,36.42,27.41,35.36
+DAL,Brian Schottenheimer,,902,132,66,-1.231,-2.3652,8.7523,0.1335,0.0135,0.0,0.0976,0.0455,0.1061,31.33,26.84,31.16
+DEN,Sean Payton,,8549,1267,485,-0.476,-1.6109,-1.1692,0.1268,0.0148,0.0,0.0604,0.0466,0.0392,33.8,27.02,32.89
+DET,Dan Campbell,,4453,671,269,-2.7602,-7.1486,-11.9437,0.0955,0.0114,0.0,0.0523,0.0432,0.0632,33.26,27.13,34.68
+GB,Matt LaFleur,,5851,923,316,-1.1052,-1.3226,5.0315,0.1745,0.0202,0.0,0.059,0.0585,0.0506,35.35,28.57,35.16
+HOU,DeMeco Ryans,,2694,358,141,-0.3978,-3.6707,-0.9481,0.1301,0.0,0.0,0.0605,0.0559,0.0496,33.78,29.86,32.65
+IND,Shane Steichen,,2574,390,158,-2.6299,-10.2465,-18.7635,0.1478,0.0169,0.0,0.1099,0.1333,0.1962,32.62,27.33,30.65
+JAX,Liam Coen,,866,160,47,2.6311,0.5591,-13.6621,0.1568,0.013,0.0,0.0797,0.0312,0.0,34.23,29.48,39.26
+KC,Andy Reid,,9348,1390,488,6.013,8.2607,3.9582,0.1326,0.0062,0.0,0.0214,0.0194,0.0102,34.5,27.18,35.84
+LA,Sean McVay,,7717,1157,453,0.3258,-2.2861,-3.0856,0.1296,0.0084,0.0,0.1327,0.0916,0.1082,33.63,27.6,33.85
+LAC,Jim Harbaugh,,1756,241,76,-0.0546,-0.3743,-6.8306,0.1464,0.025,0.0,0.0393,0.0373,0.0132,34.29,29.3,33.81
+LV,Klint Kubiak,"PROXY, CORRECTED 2026-08-20: real tenure is Saints OC 2024 + Seahawks OC 2025, NOT two full seasons under Macdonald in Seattle -- the prior alias to Mike Macdonald's 2024-2025 Seahawks HC entry wrongly assumed Kubiak was in Seattle for both years. Rebuilt from the real combination: NO/2024 + SEA/2025 play-by-play.",1728,217,71,-4.8024,-11.733,-15.621,0.1436,0.0,0.0,0.0903,0.0645,0.0704,35.65,27.21,33.35
+MIA,Jeff Hafley,"NO REAL HISTORY under this name in 2015-2025 PBP -- left blank for Cam to hand-fill, per 2026-08-17 session (not auto-filled with a league-average placeholder).",,,,,,,,,,,,,,,
+MIN,Kevin O'Connell,,3475,480,180,1.1753,6.4088,8.5496,0.1349,0.0068,0.0,0.1341,0.0792,0.0389,32.85,27.53,35.35
+NE,Mike Vrabel,,5939,732,284,-6.766,-2.3493,-5.5286,0.1334,0.0084,0.0,0.0978,0.1038,0.1092,34.16,25.83,35.1
+NO,Kellen Moore,,937,100,26,-2.0836,-10.5172,-5.55,0.134,0.0667,0.0,0.2263,0.25,0.1154,30.18,26.7,31.58
+NYG,John Harbaugh,,9722,1357,457,-3.686,-5.1619,-7.7222,0.1354,0.0079,0.0,0.0668,0.0523,0.0372,34.05,28.11,35.11
+NYJ,Aaron Glenn,,875,102,27,-7.6952,-14.7417,-11.7266,0.1016,0.0204,0.0,0.1006,0.0882,0.037,32.93,31.05,26.44
+PHI,Nick Sirianni,,4440,629,276,-1.7527,-11.6399,-20.8526,0.1393,0.0245,0.0,0.1874,0.2273,0.2283,33.29,26.19,31.96
+PIT,Mike McCarthy,,7895,1055,393,0.8949,4.2053,1.5443,0.135,0.0164,0.0,0.1511,0.1081,0.0865,32.88,25.93,32.11
+SEA,Mike Macdonald,,1711,200,92,-1.3492,-4.9411,-12.4687,0.1266,0.0408,0.0,0.1508,0.13,0.1196,33.63,25.64,34.45
+SF,Kyle Shanahan,,7642,1108,432,-2.9831,-3.8491,-6.5623,0.1087,0.0,0.0,0.0514,0.0433,0.0278,34.79,27.62,34.07
+TB,Todd Bowles,,7162,805,310,-1.7143,-0.7078,3.0262,0.1402,0.0217,0.0,0.073,0.0484,0.0613,34.18,28.45,33.03
+TEN,Robert Saleh,,3593,416,146,-0.1728,-1.287,3.0393,0.1164,0.0042,0.0,0.0921,0.0841,0.0685,34.6,28.92,30.6
+WAS,Dan Quinn,,6274,876,361,1.3951,-5.0964,-3.0315,0.1264,0.0136,0.0,0.2284,0.2363,0.2161,33.12,27.66,32.41

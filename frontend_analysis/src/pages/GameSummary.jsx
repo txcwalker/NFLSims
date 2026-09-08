@@ -1,14 +1,130 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ApiService } from '../api';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell } from 'recharts';
 import { Play, TrendingUp, Info, Activity, ShieldAlert, Cpu, ArrowLeft, Layers } from 'lucide-react';
+import { teamColor } from '../teamColors';
 
-function GameSummary({ gameId, navigateTo }) {
+// Minutes elapsed since kickoff for a play-by-play or positional-eval row.
+// Prefers the backend's game_seconds_remaining (regulation kickoff = 3600);
+// falls back to deriving it from qtr + clock text for older/mock records.
+function elapsedMinutesFor(play) {
+  if (play.game_seconds_remaining != null) {
+    return (3600 - play.game_seconds_remaining) / 60;
+  }
+  const [mm, ss] = (play.time || play.clock || '15:00').split(':').map(Number);
+  const secsRemainingInQtr = (mm || 0) * 60 + (ss || 0);
+  const qtr = play.qtr || 1;
+  return ((qtr - 1) * 15 * 60 + (15 * 60 - secsRemainingInQtr)) / 60;
+}
+
+// Builds <linearGradient> stop offsets (0-1, fractions of the LINE'S OWN
+// t-range -- matching SVG's default objectBoundingBox units) that color a
+// single Line's stroke by which side of `threshold` each point falls on,
+// with a hard transition exactly at each crossing.
+//
+// This exists instead of rendering one <Line> per color segment because
+// Recharts' click/hover hit-testing (activePayload) only works reliably
+// against ONE chart-level `data` array shared by every series -- splitting
+// into multiple <Line data={partial}> segments (each with a different
+// partial dataset) silently breaks onClick, since Recharts can no longer
+// map a mouse x-position to a single canonical data index. Painting one
+// <Line data={fullData}> with a gradient stroke keeps click/hover intact
+// while still getting the color-by-leader look.
+function buildGradientStops(data, key, threshold, aboveColor, belowColor) {
+  if (!data.length) return [{ offset: 0, color: aboveColor }, { offset: 1, color: aboveColor }];
+  const tMin = data[0].t;
+  const tMax = data[data.length - 1].t;
+  const span = (tMax - tMin) || 1;
+  const colorFor = (above) => (above ? aboveColor : belowColor);
+
+  const stops = [{ offset: 0, color: colorFor(data[0][key] >= threshold) }];
+  for (let i = 1; i < data.length; i++) {
+    const prev = data[i - 1];
+    const curr = data[i];
+    const prevAbove = prev[key] >= threshold;
+    const currAbove = curr[key] >= threshold;
+    if (prevAbove !== currAbove && curr[key] !== prev[key]) {
+      const frac = (threshold - prev[key]) / (curr[key] - prev[key]);
+      const crossT = prev.t + frac * (curr.t - prev.t);
+      const offset = Math.max(0, Math.min(1, (crossT - tMin) / span));
+      stops.push({ offset, color: colorFor(prevAbove) });
+      stops.push({ offset, color: colorFor(currAbove) });
+    }
+  }
+  stops.push({ offset: 1, color: colorFor(data[data.length - 1][key] >= threshold) });
+  return stops;
+}
+
+// Lichess/chess.com-style evaluation bar. Always home-perspective (home
+// fills from the leading edge -- right in horizontal, top in vertical --
+// away from the trailing edge) -- never flips sign on a possession change,
+// so it reads as "board state," not "whoever has the ball."
+//
+// mode: 'points' (EFSD -- signed, symmetric around 0, needs a clamp `cap`)
+//    or 'probability' (WP -- already 0-100, home value IS the fill percent).
+// orientation: 'horizontal' (default) or 'vertical'.
+function EvalBar({ homeVal, homeTeam, awayTeam, homeColor, awayColor, cap, label, mode = 'points', orientation = 'horizontal' }) {
+  let homePct, leadTeam, leadColor, valueText;
+  if (mode === 'probability') {
+    const h = Math.max(0, Math.min(100, homeVal ?? 50));
+    const a = 100 - h;
+    homePct = h;
+    leadTeam = h >= a ? homeTeam : awayTeam;
+    leadColor = h >= a ? homeColor : awayColor;
+    valueText = `${Math.max(h, a).toFixed(1)}% ${leadTeam}`;
+  } else {
+    const val = homeVal ?? 0;
+    const clamped = Math.max(-cap, Math.min(cap, val));
+    homePct = ((clamped + cap) / (2 * cap)) * 100;
+    leadTeam = val >= 0 ? homeTeam : awayTeam;
+    leadColor = val >= 0 ? homeColor : awayColor;
+    valueText = `+${Math.abs(val).toFixed(1)} ${leadTeam}`;
+  }
+
+  if (orientation === 'vertical') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', width: 44 }}>
+        <span style={{ fontSize: 10, fontWeight: 800, color: homeColor }}>{homeTeam}</span>
+        <div style={{ position: 'relative', flex: 1, width: 18, borderRadius: 4, background: 'var(--bg-tertiary)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: `${homePct}%`, background: homeColor, transition: 'height 0.4s ease' }} />
+          <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: `${100 - homePct}%`, background: awayColor, transition: 'height 0.4s ease' }} />
+          <div style={{ position: 'absolute', left: 0, top: '50%', width: '100%', height: 1, background: 'rgba(255,255,255,0.3)' }} />
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 800, color: awayColor }}>{awayTeam}</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: leadColor, textAlign: 'center', lineHeight: 1.3 }}>{valueText}</span>
+        {label && <span style={{ fontSize: 9, color: 'var(--text-muted)', textAlign: 'center' }}>{label}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, fontWeight: 700 }}>
+        <span style={{ color: awayColor }}>{awayTeam}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 15, color: leadColor }}>
+            {valueText}
+          </span>
+          {label && <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-muted)' }}>{label}</span>}
+        </div>
+        <span style={{ color: homeColor }}>{homeTeam}</span>
+      </div>
+      <div style={{ position: 'relative', height: 16, borderRadius: 4, background: 'var(--bg-tertiary)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${100 - homePct}%`, background: awayColor, transition: 'width 0.4s ease' }} />
+        <div style={{ position: 'absolute', top: 0, right: 0, height: '100%', width: `${homePct}%`, background: homeColor, transition: 'width 0.4s ease' }} />
+        <div style={{ position: 'absolute', top: 0, left: '50%', height: '100%', width: 1, background: 'rgba(255,255,255,0.3)' }} />
+      </div>
+    </div>
+  );
+}
+
+function GameSummary({ gameId, gameDate, navigateTo }) {
   const [games, setGames] = useState([]);
   const [playByPlay, setPlayByPlay] = useState([]);
   const [selectedPlayId, setSelectedPlayId] = useState(null);
   const [fourthDowns, setFourthDowns] = useState([]);
   const [stats, setStats] = useState(null);
+  const [playerStats, setPlayerStats] = useState(null);
   const [chessEval, setChessEval] = useState(null);
   const [conceptResult, setConceptResult] = useState(null);
   const [conceptLoading, setConceptLoading] = useState(false);
@@ -16,36 +132,52 @@ function GameSummary({ gameId, navigateTo }) {
   const [activeTab, setActiveTab] = useState('center'); // 'center', 'fourth', 'chess'
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadAllGameDetails() {
-      if (!gameId) return;
-      setLoading(true);
-      try {
-        const [gameList, plays, fourths, gameStats, evaluator] = await Promise.all([
-          ApiService.getLiveGames(),
-          ApiService.getPlayByPlay(gameId),
-          ApiService.getFourthDowns(gameId),
-          ApiService.getGameStats(gameId),
-          ApiService.getChessEvaluator(gameId)
-        ]);
-        
-        setGames(gameList || []);
-        setPlayByPlay(plays || []);
-        setFourthDowns(fourths || []);
-        setStats(gameStats);
-        setChessEval(evaluator);
+  // Tracked so a background auto-refresh can tell whether the user was
+  // "following live" (keep tracking the new latest play after a refresh) or
+  // had pinned an earlier play to inspect (leave their selection alone --
+  // a poll shouldn't yank them away from what they're looking at).
+  const playByPlayRef = useRef([]);
+  const selectedPlayIdRef = useRef(null);
+  useEffect(() => { playByPlayRef.current = playByPlay; }, [playByPlay]);
+  useEffect(() => { selectedPlayIdRef.current = selectedPlayId; }, [selectedPlayId]);
 
-        if (plays && plays.length > 0) {
-          setSelectedPlayId(plays[plays.length - 1].play_id);
-        }
-      } catch (err) {
-        console.error('Failed to load game summary metrics', err);
-      } finally {
-        setLoading(false);
+  const loadAllGameDetails = useCallback(async (isBackgroundRefresh = false) => {
+    if (!gameId) return;
+    if (!isBackgroundRefresh) setLoading(true);
+    try {
+      const [gameList, plays, fourths, gameStats, playerBoxScore, evaluator] = await Promise.all([
+        ApiService.getLiveGames(gameDate || undefined),
+        ApiService.getPlayByPlay(gameId),
+        ApiService.getFourthDowns(gameId),
+        ApiService.getGameStats(gameId),
+        ApiService.getPlayerStats(gameId),
+        ApiService.getChessEvaluator(gameId)
+      ]);
+
+      setGames(gameList || []);
+      setFourthDowns(fourths || []);
+      setStats(gameStats);
+      setPlayerStats(playerBoxScore);
+      setChessEval(evaluator);
+
+      const prevPlays = playByPlayRef.current;
+      const wasFollowingLive = !isBackgroundRefresh
+        || prevPlays.length === 0
+        || selectedPlayIdRef.current === prevPlays[prevPlays.length - 1]?.play_id;
+      setPlayByPlay(plays || []);
+      if (plays && plays.length > 0 && wasFollowingLive) {
+        setSelectedPlayId(plays[plays.length - 1].play_id);
       }
+    } catch (err) {
+      console.error('Failed to load game summary metrics', err);
+    } finally {
+      if (!isBackgroundRefresh) setLoading(false);
     }
-    loadAllGameDetails();
-  }, [gameId]);
+  }, [gameId, gameDate]);
+
+  useEffect(() => {
+    loadAllGameDetails(false);
+  }, [loadAllGameDetails]);
 
   // Fetch concept recommendations from the slider API when a chess play is selected
   useEffect(() => {
@@ -77,15 +209,66 @@ function GameSummary({ gameId, navigateTo }) {
 
   const activeGame = games.find(g => g.game_id === gameId);
   const activePlay = playByPlay.find(p => p.play_id === selectedPlayId);
+  const homeColor = teamColor(activeGame?.home_team);
+  const awayColor = teamColor(activeGame?.away_team);
 
-  // Recharts WP configuration
-  const chartData = playByPlay.map((play, index) => ({
-    name: `P${index + 1}`,
-    [activeGame?.home_team || 'Home']: play.home_wp,
-    [activeGame?.away_team || 'Away']: play.away_wp,
+  // Auto-refresh every 30s, but ONLY while the game is actually in progress --
+  // never for Pregame (nothing to refresh) or Final (nothing changes). The
+  // effect re-evaluates isGameInProgress after every load, so polling starts
+  // the moment a pregame game goes live and stops the instant it ends.
+  const isGameInProgress = !!activeGame
+    && activeGame.time_remaining
+    && activeGame.time_remaining !== 'Pregame'
+    && activeGame.time_remaining !== 'Final';
+
+  useEffect(() => {
+    if (!isGameInProgress) return;
+    const intervalId = setInterval(() => loadAllGameDetails(true), 30000);
+    return () => clearInterval(intervalId);
+  }, [isGameInProgress, loadAllGameDetails]);
+
+  // WP graph: x-axis is real elapsed game time (minutes since kickoff), not
+  // play sequence, so bunched hurry-up plays and long clock stoppages read
+  // at their true pace. One line (home WP) -- away WP is always 100 - home,
+  // so a second line would be pure redundancy.
+  const chartData = playByPlay.map((play) => ({
+    t: Math.round(elapsedMinutesFor(play) * 10) / 10,
+    wp: play.home_wp,
     play_id: play.play_id,
-    desc: play.desc
+    desc: play.desc,
   }));
+  const lastElapsed = chartData.length ? chartData[chartData.length - 1].t : 0;
+  const xDomainMax = Math.max(60, Math.ceil(lastElapsed / 5) * 5); // reserve full-game width; extends for OT
+  const latestPlay = playByPlay[playByPlay.length - 1];
+  // selectedPlayId defaults to the latest play on load (see loadAllGameDetails
+  // below), so this reads as "live" until the user clicks an earlier point on
+  // the graph or a card in the Play Log -- same selection state both drive.
+  const selectedWpPoint = playByPlay.find(p => p.play_id === selectedPlayId) || latestPlay;
+  const isLatestWpSelected = !selectedWpPoint || !latestPlay || selectedWpPoint.play_id === latestPlay.play_id;
+
+  // EFSD chart data (expected final score differential) over elapsed game time,
+  // reframed to home-team perspective -- same convention as the WP graph.
+  // Hoisted out of the Chess tab so both it and the Game Center tab's vertical
+  // bar preview can read the same current/selected EFSD value.
+  const chessEvals = chessEval?.evaluations || [];
+  const chessHomeTeam = chessEval?.home_team;
+  const chessChartData = chessEvals.map((ev) => ({
+    t: Math.round(elapsedMinutesFor(ev) * 10) / 10,
+    homeEfsd: ev.off === chessHomeTeam ? ev.efsd : -ev.efsd,
+    play_id: ev.play_id,
+    label: `Q${ev.qtr} ${ev.clock} | ${ev.off} ${ev.down}&${ev.ydstogo}`,
+  }));
+  const latestChessPoint = chessChartData[chessChartData.length - 1];
+  const chessLastElapsed = chessChartData.length ? chessChartData[chessChartData.length - 1].t : 0;
+  const chessXDomainMax = Math.max(60, Math.ceil(chessLastElapsed / 5) * 5);
+  const efsdCap = Math.max(24, ...chessChartData.map(d => Math.ceil(Math.abs(d.homeEfsd))), 0);
+  const selectedEval = chessEvals.find(e => String(e.play_id) === String(selectedPlayId))
+    || chessEvals[chessEvals.length - 1]
+    || null;
+  const selectedChessPoint = chessChartData.find(d => String(d.play_id) === String(selectedPlayId))
+    || latestChessPoint;
+  const isLatestChessSelected = !selectedChessPoint || !latestChessPoint
+    || selectedChessPoint.play_id === latestChessPoint.play_id;
 
   const getRecommendationBadge = (rec) => {
     if (!rec) return null;
@@ -137,7 +320,7 @@ function GameSummary({ gameId, navigateTo }) {
             <div style={{ display: 'flex', gap: '20px', fontSize: '13px' }}>
               {activeGame.down && (
                 <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '6px 12px', borderRadius: '4px' }}>
-                  State: <strong style={{ color: 'var(--accent-orange)' }}>{activeGame.down}nd & {activeGame.distance}</strong> at {activeGame.yardline}
+                  State: <strong style={{ color: 'var(--accent-orange)' }}>{activeGame.down}{activeGame.down === 1 ? 'st' : activeGame.down === 2 ? 'nd' : activeGame.down === 3 ? 'rd' : 'th'} & {activeGame.distance}</strong> at {activeGame.yardline}
                 </div>
               )}
               <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '6px 12px', borderRadius: '4px' }}>
@@ -161,27 +344,115 @@ function GameSummary({ gameId, navigateTo }) {
 
           {/* Tab 1: Game Center */}
           {activeTab === 'center' && (
+            <>
             <div className="dashboard-grid" style={{ margin: '0' }}>
-              {/* Left Column: Recharts and Stats */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Vertical eval bar + Left Column: Recharts and Stats, side by side */}
+              <div style={{ display: 'flex', gap: '16px' }}>
+                {selectedWpPoint && (
+                  <EvalBar
+                    homeVal={selectedWpPoint.home_wp}
+                    homeTeam={activeGame.home_team}
+                    awayTeam={activeGame.away_team}
+                    homeColor={homeColor}
+                    awayColor={awayColor}
+                    mode="probability"
+                    orientation="vertical"
+                    label={isLatestWpSelected ? 'live' : `Q${selectedWpPoint.qtr} ${selectedWpPoint.time}`}
+                  />
+                )}
+                {/* Preview: EFSD vertical bar next to WP, for side-by-side comparison */}
+                {selectedChessPoint && (
+                  <EvalBar
+                    homeVal={selectedChessPoint.homeEfsd}
+                    homeTeam={activeGame.home_team}
+                    awayTeam={activeGame.away_team}
+                    homeColor={homeColor}
+                    awayColor={awayColor}
+                    cap={efsdCap}
+                    mode="points"
+                    orientation="vertical"
+                    label={isLatestChessSelected ? 'live' : `Q${selectedEval?.qtr} ${selectedEval?.clock}`}
+                  />
+                )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, minWidth: 0 }}>
                 {/* Line Chart */}
                 <div className="panel" style={{ flex: 1, minHeight: '340px' }}>
-                  <div className="panel-header">
+                  <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                     <span className="panel-title"><TrendingUp size={16} /> Win Expectancy Graph</span>
+                    {selectedWpPoint && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '16px' }}>
+                        <span style={{ color: awayColor }}>{activeGame.away_team} {selectedWpPoint.away_wp.toFixed(1)}%</span>
+                        <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '12px' }}>
+                          {isLatestWpSelected ? 'live WP' : `Q${selectedWpPoint.qtr} ${selectedWpPoint.time}`}
+                        </span>
+                        <span style={{ color: homeColor }}>{activeGame.home_team} {selectedWpPoint.home_wp.toFixed(1)}%</span>
+                      </div>
+                    )}
                   </div>
-                  
-                  <div style={{ height: '240px', width: '100%', marginTop: '12px' }}>
+
+                  <div style={{ height: '240px', width: '100%', marginTop: '12px', position: 'relative' }}>
+                    <span style={{ position: 'absolute', top: 4, left: 4, fontSize: '10px', fontWeight: 800, color: homeColor, zIndex: 1 }}>{activeGame.home_team}</span>
+                    <span style={{ position: 'absolute', bottom: 20, left: 4, fontSize: '10px', fontWeight: 800, color: awayColor, zIndex: 1 }}>{activeGame.away_team}</span>
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <LineChart
+                        data={chartData}
+                        margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                        onClick={(data) => {
+                          const pid = data?.activePayload?.[0]?.payload?.play_id;
+                          if (pid != null) setSelectedPlayId(pid);
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <defs>
+                          <linearGradient id="wpLineGradient" x1="0" y1="0" x2="1" y2="0">
+                            {buildGradientStops(chartData, 'wp', 50, homeColor, awayColor).map((s, i) => (
+                              <stop key={i} offset={s.offset} stopColor={s.color} />
+                            ))}
+                          </linearGradient>
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                        <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} />
-                        <YAxis domain={[0, 100]} stroke="var(--text-muted)" fontSize={11} />
-                        <Tooltip contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }} />
+                        <XAxis
+                          type="number" dataKey="t" domain={[0, xDomainMax]}
+                          ticks={[0, 15, 30, 45, 60]}
+                          tickFormatter={(v) => v === 0 ? 'Kick' : v === 60 ? 'End' : `Q${Math.floor(v / 15) + 1}`}
+                          stroke="var(--text-muted)" fontSize={11}
+                        />
+                        {/* Ticks relabeled as advantage magnitude (100/75/50/75/100) so both
+                            ends of the axis read as "100% for whichever team is on that side",
+                            with the two corner badges above showing which side is which. */}
+                        <YAxis
+                          domain={[0, 100]} ticks={[0, 25, 50, 75, 100]}
+                          tickFormatter={(v) => Math.round(Math.abs(v - 50) + 50)}
+                          stroke="var(--text-muted)" fontSize={11}
+                        />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}
+                          labelFormatter={(t) => `Q${Math.min(4, Math.floor(t / 15) + 1)} — ${Math.round(t)} min elapsed`}
+                          formatter={(value) => [
+                            `${activeGame.home_team} ${value.toFixed(1)}% / ${activeGame.away_team} ${(100 - value).toFixed(1)}%`,
+                            'Win Probability',
+                          ]}
+                        />
                         <ReferenceLine y={50} stroke="var(--text-muted)" strokeDasharray="3 3" />
-                        <Line type="monotone" dataKey={activeGame.away_team} stroke="var(--accent-cyan)" strokeWidth={2} dot={{ r: 3 }} />
-                        <Line type="monotone" dataKey={activeGame.home_team} stroke="var(--text-muted)" strokeWidth={1.5} strokeDasharray="4 4" dot={{ r: 2 }} />
+                        <Line
+                          type="monotone" dataKey="wp" stroke="url(#wpLineGradient)" strokeWidth={2}
+                          dot={{ r: 2, cursor: 'pointer' }} activeDot={{ r: 5 }}
+                          isAnimationActive={false}
+                        />
                       </LineChart>
                     </ResponsiveContainer>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    {!isLatestWpSelected && selectedWpPoint ? (
+                      <>
+                        Selected: {selectedWpPoint.desc}{' '}
+                        <a href="#" onClick={(e) => { e.preventDefault(); setSelectedPlayId(latestPlay?.play_id); }} style={{ color: 'var(--accent-cyan)' }}>
+                          back to live
+                        </a>
+                      </>
+                    ) : (
+                      <>Click a point on the graph (or a play in the log) to see WP at that moment. Line color follows whoever's favored.</>
+                    )}
                   </div>
                 </div>
 
@@ -235,6 +506,7 @@ function GameSummary({ gameId, navigateTo }) {
                   </div>
                 )}
               </div>
+              </div>
 
               {/* Right Column: Interactive Play Feed */}
               <div className="panel feed-container" style={{ maxHeight: '550px' }}>
@@ -258,6 +530,52 @@ function GameSummary({ gameId, navigateTo }) {
                 </div>
               </div>
             </div>
+
+            {/* Individual Stats -- full width, straight from ESPN's boxscore.players */}
+            {playerStats && (
+              <div className="panel" style={{ marginTop: '20px' }}>
+                <div className="panel-header">
+                  <span className="panel-title"><Layers size={16} /> Individual Stats</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '12px' }}>
+                  {['away', 'home'].map(side => {
+                    const teamData = playerStats[side];
+                    if (!teamData) return null;
+                    return (
+                      <div key={side}>
+                        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '10px', color: 'var(--text-primary)' }}>{teamData.team}</div>
+                        {['passing', 'rushing', 'receiving'].map(cat => {
+                          const catData = teamData.categories[cat];
+                          if (!catData || !catData.rows.length) return null;
+                          return (
+                            <div key={cat} style={{ marginBottom: '16px', overflowX: 'auto' }}>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{cat}</div>
+                              <table className="tactical-table">
+                                <thead>
+                                  <tr>
+                                    <th>Player</th>
+                                    {catData.labels.map(l => <th key={l}>{l}</th>)}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {catData.rows.map((r, i) => (
+                                    <tr key={i}>
+                                      <td style={{ fontWeight: 600 }}>{r.name}</td>
+                                      {r.stats.map((s, j) => <td key={j}>{s}</td>)}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            </>
           )}
 
           {/* Tab 2: 4th Down Decisions */}
@@ -275,11 +593,17 @@ function GameSummary({ gameId, navigateTo }) {
                     </div>
                   ) : (
                     fourthDowns.map(play => (
-                      <div 
+                      <div
                         key={play.play_id}
                         className={`play-card ${selectedPlayId === play.play_id ? 'active' : ''}`}
                         onClick={() => setSelectedPlayId(play.play_id)}
                       >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                          <span style={{ color: play.possession === activeGame.away_team ? 'var(--accent-cyan)' : 'inherit', fontWeight: '700' }}>
+                            {play.possession} Ball
+                          </span>
+                          <span>{activeGame.away_team} {play.away_score} — {activeGame.home_team} {play.home_score}</span>
+                        </div>
                         <div style={{ fontWeight: '600', color: 'var(--accent-orange)' }}>{play.desc}</div>
                         <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Actual: {play.actual}</div>
                       </div>
@@ -302,6 +626,12 @@ function GameSummary({ gameId, navigateTo }) {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ fontWeight: '700' }}>{play.desc}</div>
                           <div>{getRecommendationBadge(play.recharts_data.find(d => d.wp === Math.max(...play.recharts_data.map(x => x.wp)))?.name)}</div>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                          <span style={{ color: play.possession === activeGame.away_team ? 'var(--accent-cyan)' : 'inherit', fontWeight: '700' }}>
+                            {play.possession}
+                          </span>
+                          {' '}ball · {activeGame.away_team} {play.away_score} — {activeGame.home_team} {play.home_score}
                         </div>
 
                         <div style={{ height: '180px', width: '100%' }}>
@@ -356,27 +686,12 @@ function GameSummary({ gameId, navigateTo }) {
 
           {/* Tab 3: Chess Tactical Evaluator */}
           {activeTab === 'chess' && (() => {
-            // Build chart data: KEP over play sequence (offense perspective)
-            const chessEvals = chessEval?.evaluations || [];
-            const chessChartData = chessEvals.map((ev, idx) => ({
-              name: `P${idx + 1}`,
-              play_id: ev.play_id,
-              kep: ev.kep,
-              ep: ev.ep,
-              off: ev.off,
-              label: `Q${ev.qtr} ${ev.clock} | ${ev.off} ${ev.down}&${ev.ydstogo}`,
-            }));
-            // Find evaluation for the selected play; fall back to last eval if none selected
-            const selectedEval = chessEvals.find(e => String(e.play_id) === String(selectedPlayId))
-              || chessEvals[chessEvals.length - 1]
-              || null;
-
             return (
               <div className="dashboard-grid" style={{ margin: '0' }}>
-                {/* Left: KEP timeline chart */}
-                <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* Left: live eval bar + EFSD timeline chart */}
+                <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div className="panel-header">
-                    <span className="panel-title"><Activity size={16} /> KEP Game Timeline</span>
+                    <span className="panel-title"><Activity size={16} /> EFSD Game Timeline</span>
                     {chessEval && (
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                         {chessEval.away_team} @ {chessEval.home_team} — {chessEval.n_plays} evaluated plays
@@ -384,32 +699,59 @@ function GameSummary({ gameId, navigateTo }) {
                     )}
                   </div>
 
+                  {selectedChessPoint && (
+                    <EvalBar
+                      homeVal={selectedChessPoint.homeEfsd}
+                      homeTeam={activeGame.home_team}
+                      awayTeam={activeGame.away_team}
+                      homeColor={homeColor}
+                      awayColor={awayColor}
+                      cap={efsdCap}
+                      label={isLatestChessSelected ? 'live' : `Q${selectedEval?.qtr} ${selectedEval?.clock}`}
+                    />
+                  )}
+
                   {chessChartData.length > 0 ? (
-                    <div style={{ height: '240px', width: '100%', marginTop: '8px' }}>
+                    <div style={{ height: '200px', width: '100%' }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart
                           data={chessChartData}
-                          margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                          margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
                           onClick={(data) => {
                             const pid = data?.activePayload?.[0]?.payload?.play_id;
                             if (pid != null) setSelectedPlayId(pid);
                           }}
                           style={{ cursor: 'pointer' }}
                         >
+                          <defs>
+                            <linearGradient id="efsdLineGradient" x1="0" y1="0" x2="1" y2="0">
+                              {buildGradientStops(chessChartData, 'homeEfsd', 0, homeColor, awayColor).map((s, i) => (
+                                <stop key={i} offset={s.offset} stopColor={s.color} />
+                              ))}
+                            </linearGradient>
+                          </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                          <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} />
-                          <YAxis stroke="var(--text-muted)" fontSize={11} />
+                          <XAxis
+                            type="number" dataKey="t" domain={[0, chessXDomainMax]}
+                            ticks={[0, 15, 30, 45, 60]}
+                            tickFormatter={(v) => v === 0 ? 'Kick' : v === 60 ? 'End' : `Q${Math.floor(v / 15) + 1}`}
+                            stroke="var(--text-muted)" fontSize={11}
+                          />
+                          <YAxis domain={[-efsdCap, efsdCap]} stroke="var(--text-muted)" fontSize={11} />
                           <Tooltip
                             contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)', fontSize: '11px' }}
-                            formatter={(val, name) => [val.toFixed(2), name.toUpperCase()]}
-                            labelFormatter={(_, payload) => payload?.[0]?.payload?.label || ''}
+                            labelFormatter={(t) => `${Math.round(t)} min elapsed`}
+                            formatter={(value) => [
+                              `+${Math.abs(value).toFixed(1)} ${value >= 0 ? activeGame.home_team : activeGame.away_team}`,
+                              'Projected Final Margin',
+                            ]}
                           />
                           <ReferenceLine y={0} stroke="var(--text-muted)" strokeDasharray="4 4" />
-                          <Line type="monotone" dataKey="kep" name="kep" stroke="var(--accent-cyan)" strokeWidth={2}
-                            dot={{ r: 4, cursor: 'pointer' }}
-                            activeDot={{ r: 6, strokeWidth: 2, stroke: 'var(--accent-cyan)' }} />
-                          <Line type="monotone" dataKey="ep" name="ep" stroke="var(--accent-orange)" strokeWidth={1.5}
-                            strokeDasharray="4 4" dot={{ r: 3 }} />
+                          <Line
+                            type="monotone" dataKey="homeEfsd" stroke="url(#efsdLineGradient)" strokeWidth={2}
+                            dot={{ r: 2, cursor: 'pointer' }} activeDot={{ r: 5 }}
+                            isAnimationActive={false}
+                          />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
@@ -419,13 +761,17 @@ function GameSummary({ gameId, navigateTo }) {
                     </div>
                   )}
 
-                  {/* Legend */}
-                  {chessChartData.length > 0 && (
-                    <div style={{ display: 'flex', gap: '20px', fontSize: '11px', color: 'var(--text-muted)', paddingLeft: '4px' }}>
-                      <span><span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>— KEP</span> clock-adjusted positional value</span>
-                      <span><span style={{ color: 'var(--accent-orange)', fontWeight: 700 }}>- - EP</span> situational field value</span>
-                    </div>
-                  )}
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    EFSD = Expected Final Score Differential (projected final margin if the game played out from this point). Bar and line are always {activeGame.home_team} vs {activeGame.away_team} — no sign flip on possession change. Click a chart point to move the eval bar and detail panel to that play.
+                    {!isLatestChessSelected && latestChessPoint && (
+                      <>
+                        {' '}
+                        <a href="#" onClick={(e) => { e.preventDefault(); setSelectedPlayId(latestChessPoint.play_id); }} style={{ color: 'var(--accent-cyan)' }}>
+                          back to live
+                        </a>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* Right: selected play detail */}
@@ -465,13 +811,13 @@ function GameSummary({ gameId, navigateTo }) {
                             </td>
                           </tr>
                           <tr>
-                            <td style={{ color: 'var(--text-muted)' }}>KEP (clock-aware)</td>
+                            <td style={{ color: 'var(--text-muted)' }}>EFSD (projected margin)</td>
                             <td style={{
-                              color: selectedEval.kep >= 0 ? 'var(--accent-cyan)' : 'var(--accent-red)',
+                              color: selectedEval.efsd >= 0 ? 'var(--accent-cyan)' : 'var(--accent-red)',
                               fontWeight: '700',
                               fontFamily: 'monospace'
                             }}>
-                              {selectedEval.kep >= 0 ? '+' : ''}{selectedEval.kep.toFixed(3)}
+                              {selectedEval.efsd >= 0 ? '+' : ''}{selectedEval.efsd.toFixed(3)}
                             </td>
                           </tr>
                           <tr>
@@ -485,21 +831,21 @@ function GameSummary({ gameId, navigateTo }) {
                         </tbody>
                       </table>
 
-                      {/* KEP interpretation */}
+                      {/* EFSD interpretation */}
                       <div style={{
                         padding: '10px 14px',
                         borderRadius: '6px',
-                        background: selectedEval.kep >= 0 ? 'rgba(0,242,254,0.05)' : 'rgba(255,56,56,0.05)',
-                        border: `1px solid ${selectedEval.kep >= 0 ? 'rgba(0,242,254,0.15)' : 'rgba(255,56,56,0.15)'}`,
+                        background: selectedEval.efsd >= 0 ? 'rgba(0,242,254,0.05)' : 'rgba(255,56,56,0.05)',
+                        border: `1px solid ${selectedEval.efsd >= 0 ? 'rgba(0,242,254,0.15)' : 'rgba(255,56,56,0.15)'}`,
                         fontSize: '12px',
                         color: 'var(--text-secondary)'
                       }}>
-                        <strong style={{ color: selectedEval.kep >= 0 ? 'var(--accent-cyan)' : 'var(--accent-red)' }}>
+                        <strong style={{ color: selectedEval.efsd >= 0 ? 'var(--accent-cyan)' : 'var(--accent-red)' }}>
                           {selectedEval.off}
                         </strong>{' '}
-                        {selectedEval.kep >= 0
-                          ? `holds a +${selectedEval.kep.toFixed(2)} KEP positional advantage — equivalent to receiving a kickoff up ${Math.abs(selectedEval.kep).toFixed(1)} pts.`
-                          : `is at a ${selectedEval.kep.toFixed(2)} KEP positional deficit — equivalent to receiving a kickoff down ${Math.abs(selectedEval.kep).toFixed(1)} pts.`}
+                        {selectedEval.efsd >= 0
+                          ? `is projected to finish the game up +${selectedEval.efsd.toFixed(1)} pts from this state.`
+                          : `is projected to finish the game down ${Math.abs(selectedEval.efsd).toFixed(1)} pts from this state.`}
                       </div>
 
                       {/* Concept recommendation (requires live backend) */}
@@ -509,12 +855,12 @@ function GameSummary({ gameId, navigateTo }) {
                           {conceptLoading && <span style={{ color: 'var(--accent-cyan)' }}>running sims…</span>}
                         </div>
                         {conceptResult?.concepts ? (() => {
-                          const sorted = [...conceptResult.concepts].sort((a, b) => (b.delta_kep ?? -Infinity) - (a.delta_kep ?? -Infinity));
-                          const maxAbs = sorted.reduce((m, c) => Math.max(m, Math.abs(c.delta_kep ?? 0)), 0.5);
+                          const sorted = [...conceptResult.concepts].sort((a, b) => (b.delta_efsd ?? -Infinity) - (a.delta_efsd ?? -Infinity));
+                          const maxAbs = sorted.reduce((m, c) => Math.max(m, Math.abs(c.delta_efsd ?? 0)), 0.5);
                           return (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
                               {sorted.map((c, i) => {
-                                const dk = c.delta_kep;
+                                const dk = c.delta_efsd;
                                 const isNull = dk === null || c.n < 5;
                                 const barPct = isNull ? 0 : Math.min(100, (Math.abs(dk) / maxAbs) * 100);
                                 const barColor = isNull ? 'rgba(255,255,255,0.12)' : dk > 0 ? 'var(--accent-green)' : 'var(--accent-red)';
@@ -550,7 +896,7 @@ function GameSummary({ gameId, navigateTo }) {
                   ) : (
                     <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '12px' }}>
                       {chessChartData.length > 0
-                        ? 'Click a point on the KEP chart or select a play from the Play Log to see positional detail.'
+                        ? 'Click a point on the EFSD chart or select a play from the Play Log to see positional detail.'
                         : 'No evaluations available for this game.'}
                     </div>
                   )}

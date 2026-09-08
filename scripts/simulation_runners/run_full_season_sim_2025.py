@@ -57,8 +57,8 @@ def simulate_matchup_cached(away, home):
     results = []
     for _, row in game_df.iterrows():
         results.append({
-            'off_score': row['off_score'], # Away team score
-            'def_score': row['def_score'], # Home team score
+            'away_score': row['away_score'], # Away team score
+            'home_score': row['home_score'], # Home team score
             'winner': row['winner']
         })
         
@@ -72,8 +72,8 @@ def run_playoff_game(away, home):
     # Sample 11 outcomes
     samples = random.sample(results, 11)
     
-    away_wins = sum(1 for r in samples if r['off_score'] > r['def_score'])
-    home_wins = sum(1 for r in samples if r['def_score'] > r['off_score'])
+    away_wins = sum(1 for r in samples if r['away_score'] > r['home_score'])
+    home_wins = sum(1 for r in samples if r['home_score'] > r['away_score'])
     
     # Return winner (if tied 5-5-1, use sum of scores as tiebreaker for playoff progression)
     if away_wins > home_wins:
@@ -82,8 +82,8 @@ def run_playoff_game(away, home):
         return home
     else:
         # Fallback to sum of scores
-        away_score = sum(r['off_score'] for r in samples)
-        home_score = sum(r['def_score'] for r in samples)
+        away_score = sum(r['away_score'] for r in samples)
+        home_score = sum(r['home_score'] for r in samples)
         return away if away_score >= home_score else home
 
 def get_seeding_sort_key(team_stats):
@@ -170,7 +170,7 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
             'away': group['away_team'].iloc[0],
             'home': group['home_team'].iloc[0],
             'div_game': group['div_game'].iloc[0],
-            'outcomes': group[['off_score', 'def_score', 'winner']].to_dict(orient='records')
+            'outcomes': group[['away_score', 'home_score', 'winner']].to_dict(orient='records')
         }
 
     # 4. INITIALIZE SEASON-LONG STATISTICS TRACKING
@@ -219,8 +219,8 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
             # Sample 11 outcomes
             samples = random.sample(outcomes, 11)
             
-            away_wins = sum(1 for r in samples if r['off_score'] > r['def_score'])
-            home_wins = sum(1 for r in samples if r['def_score'] > r['off_score'])
+            away_wins = sum(1 for r in samples if r['away_score'] > r['home_score'])
+            home_wins = sum(1 for r in samples if r['home_score'] > r['away_score'])
             
             # Determine game winner and update record
             if away_wins > home_wins:
@@ -252,8 +252,8 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
                     season_standings[home]['div_losses'] += 0.5
                     
             # Accumulate scores (expected PF/PA for this season iteration)
-            avg_away_score = sum(r['off_score'] for r in samples) / 11.0
-            avg_home_score = sum(r['def_score'] for r in samples) / 11.0
+            avg_away_score = sum(r['away_score'] for r in samples) / 11.0
+            avg_home_score = sum(r['home_score'] for r in samples) / 11.0
             
             season_standings[away]['pf'] += avg_away_score
             season_standings[away]['pa'] += avg_home_score

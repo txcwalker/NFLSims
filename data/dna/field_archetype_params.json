@@ -1,0 +1,46 @@
+{
+  "_comment": "Tunable DFS tournament-field archetype parameters -- see docs/implementation_plans/field_simulation_implementation_plan.md. All numbers here are placeholders pending real calibration once observed contest results are available; nothing here is derived from real data yet. archetype_shares are share of ENTRIES, not unique people.",
+
+  "archetype_shares": {
+    "sharp": 0.10,
+    "fake_sharp": 0.38,
+    "casual": 0.30,
+    "toilet": 0.22
+  },
+
+  "sharp": {
+    "leverage_weight": 0.7,
+    "stacking_threshold_pctile": 0.7,
+    "stack_bonus": 1.6,
+    "mistake_p": 0.075,
+    "mistake_signal_distortion": [0.85, 1.15],
+    "additive_own_target": 130.0
+  },
+
+  "fake_sharp": {
+    "leverage_weight": 0.6,
+    "stacking_threshold_pctile": 0.4,
+    "stack_bonus": 1.4,
+    "mistake_p": 0.45,
+    "pet_misread_count": [1, 2],
+    "pet_misread_distortion": [0.4, 2.2],
+    "additive_own_target": 130.0,
+    "additive_own_overshoot_range": [10, 15]
+  },
+
+  "casual": {
+    "leverage_weight": 0.15,
+    "stacking_threshold_pctile": 0.85,
+    "stack_bonus": 1.15,
+    "naive_stack_p": 0.20,
+    "recency_bias_weight": 0.4,
+    "name_bias_weight": 0.3,
+    "additive_own_target": 150.0
+  },
+
+  "toilet": {
+    "leverage_weight": 0.0,
+    "name_bias_weight": 0.85,
+    "additive_own_target": 999.0
+  }
+}

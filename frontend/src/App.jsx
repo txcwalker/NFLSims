@@ -11,6 +11,8 @@ import Roadmap from './pages/Roadmap'
 import InDevelopment from './pages/InDevelopment'
 import DfsSummary from './pages/DfsSummary'
 import Optimizer from './pages/Optimizer'
+import CashLineups from './pages/CashLineups'
+import Leverage from './pages/Leverage'
 import './App.css'
 
 export default function App() {
@@ -30,6 +32,22 @@ export default function App() {
   const [optimizerLineups, setOptimizerLineups] = useState([]);
   const [optimizerSettings, setOptimizerSettings] = useState(null);
 
+  // DK slate selection (Main Slate today; more slate types once DK has them
+  // live -- e.g. Showdown/split-Sunday). Lifted here rather than kept local
+  // to the Optimizer page so week_projections/games/rosters can all reflect
+  // whichever slate is selected as this grows beyond just the Optimizer.
+  const [dkSlates, setDkSlates] = useState([]);
+  const [selectedDraftGroupId, setSelectedDraftGroupId] = useState(null);
+
+  useEffect(() => {
+    ApiService.getDkSlates()
+      .then(data => {
+        setDkSlates(data.slates || []);
+        setSelectedDraftGroupId(prev => prev ?? data.default_draft_group_id ?? null);
+      })
+      .catch(err => console.error("Error fetching DK slates:", err));
+  }, []);
+
   // Global data fetching for weeks, games, and week projections
   useEffect(() => {
     ApiService.getWeeks()
@@ -39,21 +57,29 @@ export default function App() {
       .catch(err => console.error("Error fetching weeks:", err));
   }, []);
 
+  // DK-salary-dependent fetches -- these alone need to react to a slate
+  // switch. selectedDraftGroupId starts null and flips to the default slate
+  // shortly after mount, so this effect does fire twice on first load; kept
+  // separate from the sim-results effect below so that harmless double-fire
+  // doesn't also re-trigger an expensive Monte Carlo re-simulation.
   useEffect(() => {
-    ApiService.getGames(selectedWeek)
+    ApiService.getGames(selectedWeek, selectedDraftGroupId)
       .then(data => {
         setGames(data.games || []);
       })
       .catch(err => console.error("Error fetching games:", err));
 
-    ApiService.getWeekProjections(selectedWeek)
+    ApiService.getWeekProjections(selectedWeek, selectedDraftGroupId)
       .then(data => {
         setWeekProjections(data.players || []);
       })
       .catch(err => console.error("Error fetching week projections:", err));
+  }, [selectedWeek, selectedDraftGroupId]);
 
+  useEffect(() => {
     // Prepopulate every game's baseline sim results from the parquet cache so
     // the Simulator doesn't need a per-game "Run Engine" click to show data.
+    // Unrelated to DK salaries/slate -- must not re-fire on a slate switch.
     ApiService.getWeekSimResults(selectedWeek)
       .then(data => {
         const gameResults = data.games || {};
@@ -154,10 +180,17 @@ export default function App() {
             optimizerSettings={optimizerSettings}
             setOptimizerSettings={setOptimizerSettings}
             setCurrentPage={setCurrentPage}
+            dkSlates={dkSlates}
+            selectedDraftGroupId={selectedDraftGroupId}
+            setSelectedDraftGroupId={setSelectedDraftGroupId}
           />
         );
       case 'slate_leaders':
         return <SlateLeaders />;
+      case 'cash_lineups':
+        return <CashLineups />;
+      case 'leverage':
+        return <Leverage weekProjections={weekProjections} allSimResults={allSimResults} />;
       case 'about':
         return <About />;
       case 'roadmap':

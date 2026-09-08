@@ -121,6 +121,32 @@ def infer_called_action(play_type: str) -> Optional[str]:
     return None
 
 
+def fix_posteam_for_fg(posteam: str, home_abbr: str, away_abbr: str, play_type_text: str) -> str:
+    """
+    Corrects a known ESPN data quirk: on FIELD GOAL plays specifically,
+    the play-level `team` field reports the DEFENSE, not the kicking team.
+
+    Confirmed empirically 2026-08-22 by cross-referencing real kickers against
+    the `off` field this pipeline was producing -- e.g. Jake Bates (Lions
+    kicker) and Evan McPherson (Bengals kicker) both showed up with `off` set
+    to the OPPONENT's abbreviation on their own field goal attempts. Left
+    uncorrected, this flips which side of compute_yardline_100's branch runs,
+    turning a real ~20-56 yard field goal into an "impossible" ~79-102 yard
+    kick distance -- which silently makes evaluate_fourth_down() suppress FG
+    as a candidate on essentially every real 4th down (verified: 354/354 in a
+    354-play, 21-game sample had fg_suppressed=True). Punts and run/pass plays
+    were checked against the same games and are NOT affected -- this flip is
+    FG-specific. Applied AFTER normal posteam resolution, so it doesn't need
+    to touch (or trust) any of the raw text-parsing that fed into it.
+    """
+    if infer_called_action(play_type_text) == "fg":
+        if posteam == home_abbr:
+            return away_abbr
+        if posteam == away_abbr:
+            return home_abbr
+    return posteam
+
+
 def parse_plays_to_fd_rows(game_id: str, plays: List[Dict[str, Any]], team_map: Dict[str, str], season: Optional[int] = None, week: Optional[int] = None) -> List[Dict[str, Any]]:
     """
     Normalizes ESPN play-by-play data to a standardized 4th down schema.
@@ -188,32 +214,36 @@ def parse_plays_to_fd_rows(game_id: str, plays: List[Dict[str, Any]], team_map: 
         posteam = team_abbr or poss_team
         if not posteam:
             continue
-            
+
         posteam = posteam.upper()
+
+        # Called play type (computed early: fix_posteam_for_fg needs it)
+        play_type_text = p.get("type", {}).get("text") or ""
+        called_action = infer_called_action(play_type_text)
+        posteam = fix_posteam_for_fg(posteam, home_abbr, away_abbr, play_type_text)
         defteam = away_abbr if posteam == home_abbr else home_abbr
-        
+
         yardline_100 = compute_yardline_100(posteam, poss_team, poss_yard)
         if yardline_100 is None:
             continue
-            
+
         ydstogo = start.get("distance")
         if ydstogo is None:
             continue
-            
+
         # Scores
-        start_home = start.get("homeScore")
-        start_away = start.get("awayScore")
-        
+        # homeScore/awayScore live on the play object itself, not nested in
+        # "start" -- confirmed 2026-08-14 against real ESPN /summary payloads
+        # (every post was showing "Score N/A" before this fix).
+        start_home = p.get("homeScore")
+        start_away = p.get("awayScore")
+
         posteam_score = start_home if posteam == home_abbr else start_away
         defteam_score = start_away if posteam == home_abbr else start_home
-        
+
         score_diff = 0
         if posteam_score is not None and defteam_score is not None:
             score_diff = int(posteam_score) - int(defteam_score)
-            
-        # Called play type
-        play_type_text = p.get("type", {}).get("text") or ""
-        called_action = infer_called_action(play_type_text)
         
         # Quarter seconds clock derivation
         sec_left = get_game_seconds_remaining(period, clock_display)
@@ -314,6 +344,8 @@ def parse_plays_to_states(plays: List[Dict[str, Any]], home_abbr: str, away_abbr
         posteam = (team_abbr or poss_team or "").upper()
         if not posteam:
             continue
+        play_type_text = p.get("type", {}).get("text") or ""
+        posteam = fix_posteam_for_fg(posteam, home_abbr, away_abbr, play_type_text)
         defteam = away_abbr if posteam == home_abbr else home_abbr
 
         yardline_100 = compute_yardline_100(posteam, poss_team, poss_yard)
@@ -325,8 +357,11 @@ def parse_plays_to_states(plays: List[Dict[str, Any]], home_abbr: str, away_abbr
             continue
 
         # Scores (offense perspective)
-        start_home = start.get("homeScore")
-        start_away = start.get("awayScore")
+        # homeScore/awayScore live on the play object itself, not nested in
+        # "start" -- confirmed 2026-08-14 against real ESPN /summary payloads
+        # (every post was showing "Score N/A" before this fix).
+        start_home = p.get("homeScore")
+        start_away = p.get("awayScore")
         posteam_score = start_home if posteam == home_abbr else start_away
         defteam_score = start_away if posteam == home_abbr else start_home
         score_diff = 0

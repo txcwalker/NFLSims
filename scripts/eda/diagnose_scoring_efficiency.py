@@ -50,13 +50,13 @@ def run_diagnostics():
         home_team = teams[1]
         
         if team == away_team:
-            score = game_row['off_score']
+            score = game_row['away_score']
             opponent = home_team
-            opp_score = game_row['def_score']
+            opp_score = game_row['home_score']
         else:
-            score = game_row['def_score']
+            score = game_row['home_score']
             opponent = away_team
-            opp_score = game_row['off_score']
+            opp_score = game_row['away_score']
             
         pass_yds = row['pYds']
         rush_yds = row['rYds']

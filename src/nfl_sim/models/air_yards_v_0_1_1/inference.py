@@ -10,10 +10,42 @@ class AirYardsDoubleHurdleSampler:
         self.model_dir = model_dir
         with open(os.path.join(model_dir, "metadata.json"), 'r') as f:
             self.metadata = json.load(f)
-        
+
         self.features = self.metadata['features']
         self.screen_max = self.metadata.get('screen_max', 0)
         self.deep_min = self.metadata.get('deep_min', 20)
+
+        # Post-regression sampling params (A2 Phase 1, 2026-09-06). The regressors
+        # predict the correct MEAN air-yards per level; the job here is to add
+        # realistic scatter around it. The old code used a symmetric Gaussian
+        # (std 1.5/4.0/12.0) with hard clips [1,19]/[>=20] -- but the real
+        # conditional air-yards distribution within the std and deep levels is
+        # strongly right-skewed (many more short throws than long), so a
+        # symmetric bell over-fills the middle depth buckets. Calibrated
+        # 2026-09-06 (scripts/eda/calibrate_air_yards_sampler.py against the real
+        # 2021-2025 target-depth histogram, fit score 42 -> 8):
+        #   screen -> clipped Gaussian (its distribution IS ~symmetric, small)
+        #   std/deep -> shifted Gamma: sample = floor + (pred - floor) * G,
+        #               G ~ Gamma(k, 1/k)  =>  E[sample] == pred (mean kept),
+        #               k sets the skew (k=1 exponential, k->inf Gaussian).
+        # See docs/implementation_plans/completion_rate_calibration_plan.md Phase 1.
+        s = self.metadata.get("sampling", {})
+        scr = s.get("screen", {})
+        std = s.get("std", {})
+        dp = s.get("deep", {})
+        self.screen_sd = float(scr.get("sd", 1.5))
+        self.screen_clip_hi = float(scr.get("clip_hi", self.screen_max))
+        self.std_k = float(std.get("k", 2.0))
+        self.std_floor = float(std.get("floor", -1.0))
+        self.deep_k = float(dp.get("k", 1.0))
+        self.deep_floor = float(dp.get("floor", 14.0))
+
+        # Calibration capture hook (off by default, zero cost). When True,
+        # every sample() call appends (X_feat.copy(), zone) to self.captured
+        # so the calibration script can replay the gate+regressors offline
+        # under candidate params without re-running the game engine.
+        self.capture = False
+        self.captured = []
         
         # Load boosters for all zones
         self._gate_boosters = {}
@@ -50,27 +82,38 @@ class AirYardsDoubleHurdleSampler:
             else:
                 raise TypeError("X must be a dict or numpy array")
 
+        if self.capture:
+            self.captured.append((np.array(X_feat, copy=True), zone))
+
         # 2. Gate
         probs = self._gate_boosters[zone].inplace_predict(X_feat)
         if probs.ndim == 1:
             probs = probs.reshape(1, -1)
-        
+
         cum_probs = np.cumsum(probs, axis=1)
         r = np.random.rand(length)
         levels = (r[:, None] > cum_probs).sum(axis=1)
-        
+
         samples = np.zeros(length)
-        noise_std = {0: 1.5, 1: 4.0, 2: 12.0}
-        
+
         for lvl in [0, 1, 2]:
             mask = (levels == lvl)
-            if any(mask):
-                X_lvl = X_feat[mask]
-                base_preds = self._reg_boosters[zone][lvl].inplace_predict(X_lvl)
-                noise = np.random.normal(0, noise_std[lvl], size=sum(mask))
-                samples[mask] = base_preds + noise
-                if lvl == 0: samples[mask] = np.minimum(samples[mask], self.screen_max)
-                if lvl == 1: samples[mask] = np.clip(samples[mask], self.screen_max + 1, self.deep_min - 1)
-                if lvl == 2: samples[mask] = np.maximum(samples[mask], self.deep_min)
-            
+            n = int(mask.sum())
+            if n == 0:
+                continue
+            base_preds = self._reg_boosters[zone][lvl].inplace_predict(X_feat[mask])
+
+            if lvl == 0:
+                # screen: near-symmetric, keep clipped Gaussian
+                samples[mask] = np.minimum(
+                    base_preds + np.random.normal(0, self.screen_sd, size=n),
+                    self.screen_clip_hi,
+                )
+            else:
+                # std / deep: shifted Gamma, mean == base_preds, right-skewed
+                k = self.std_k if lvl == 1 else self.deep_k
+                floor = self.std_floor if lvl == 1 else self.deep_floor
+                scale = np.maximum(base_preds - floor, 0.25)
+                samples[mask] = floor + scale * np.random.gamma(k, 1.0 / k, size=n)
+
         return samples

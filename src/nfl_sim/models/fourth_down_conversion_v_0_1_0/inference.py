@@ -19,11 +19,25 @@ class FourthDownConversionModelV010:
             
         # Load serialized model
         self.model = joblib.load(self.model_path)
-        
+        # Raw booster: inplace_predict bypasses sklearn's predict_proba
+        # validation overhead, same pattern as ChaosModelV010's gates -- this
+        # model is a plain XGBClassifier (no Pipeline/preprocessing), so the
+        # bypass is a drop-in replacement, called every 4th down in the
+        # per-play hot path. This model was trained with early stopping
+        # (best_iteration=397 of 448 total trees) -- predict_proba() applies
+        # that truncation automatically, but booster.inplace_predict() does
+        # NOT unless told to, so iteration_range must be passed explicitly or
+        # this silently uses 51 extra post-best-checkpoint trees (verified:
+        # without it, output diverges from predict_proba by up to 0.018;
+        # with it, exact parity).
+        self._booster = self.model.get_booster()
+        best_it = getattr(self.model, 'best_iteration', None)
+        self._iteration_range = (0, best_it + 1) if best_it is not None else None
+
         # Load metadata
         with open(self.meta_path, 'r') as f:
             self.metadata = json.load(f)
-            
+
         self.features = self.metadata['features']
         self.fallbacks = self.metadata['fallbacks']
         
@@ -63,9 +77,11 @@ class FourthDownConversionModelV010:
             # Distance greater than yardline_100 is capped
             capped_ydstogo = np.minimum(ydstogo, yardline_100)
             X['ydstogo'] = capped_ydstogo
-            
-            # Run model inference
-            probs = self.model.predict_proba(X)[:, 1]
+
+            # Run model inference (raw booster, bypasses sklearn/pandas
+            # validation overhead -- see self._booster comment in __init__)
+            X_arr = X[self.features].to_numpy(dtype=np.float32)
+            probs = self._booster.inplace_predict(X_arr, iteration_range=self._iteration_range)
             
             # Apply post-inference rules vectorially
             # Distance of 0 or negative is always converted

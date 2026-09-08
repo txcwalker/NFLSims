@@ -8,7 +8,7 @@ This is a living document tracking all project goals, statuses, and target dates
 
 | Goal / Milestone | Status | Target Date |
 | :--- | :--- | :--- |
-| Establish `MODEL_DEVELOPMENT_STANDARD.md` | ✅ Completed | May 2026 |
+| Establish Model Development Standard (cross-project, kept outside this repo) | 🔄 In Progress (drafted, WIP) | July 2026 |
 | Retroactive EDA doc — Play type selection | ✅ Completed | May 2026 |
 | Retroactive EDA doc — Air yards | ✅ Completed | May 2026 |
 | Retroactive EDA doc — Rush yards | ✅ Completed | May 2026 |
@@ -74,6 +74,8 @@ This is a living document tracking all project goals, statuses, and target dates
 | DFS player projection model | ✅ Completed | Jan 2027 |
 | DraftKings lineup optimizer & exporter | ✅ Completed | Feb 2027 |
 | FanDuel lineup optimizer & exporter | ✅ Completed | Feb 2027 |
+| DFS ownership projection model (salary/Vegas/cash-consensus blend) | ✅ Completed | Aug 2026 |
+| DFS tournament field simulation engine (archetype-based field, replaces GPP proj/contest sim/portfolio scoring) | 🔄 In Progress (plan drafted) | — |
 | NFL award odds (MVP, OPOY, DPOY, etc.) | 🔄 In Progress | Dec 2026 |
 | Wins Above Replacement (WAR) metric designed | ❌ Pending | Jan 2027 |
 | Player contract value evaluator | ❌ Pending | Feb 2027 |

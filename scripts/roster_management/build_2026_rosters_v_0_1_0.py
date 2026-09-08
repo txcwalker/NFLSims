@@ -27,7 +27,7 @@ import os
 import glob
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-from src.data_pipeline.rolling_stats_v_0_1_0 import PLAYER_RATE_FIELDS
+from src.data_pipeline.rolling_stats_v_0_1_0 import PLAYER_RATE_FIELDS, PLAYER_NGS_FIELDS, ZONE_SPLIT_FIELDS, ZONES
 
 DNA_DIR = "data/dna"
 ROSTERS_DIR = "data/current_rosters"
@@ -143,6 +143,12 @@ def enrich_player(full_name, pos, target_share, carry_share, skill_dna, is_rooki
             "catch_rate": p_dna.get("catch_rate", 0.75),
             "top_speed_mph": p_dna.get("top_speed_mph", 20.3),
             "contested_catch_rate": p_dna.get("contested_catch_rate", 0.38),
+            # RB defaults: checkdown/screen routes typically get more room
+            # than a WR/TE's contested target, and RBs rarely run deep
+            # routes -- matches the same schema WR/TE already had (this pair
+            # was missing from the RB branch entirely, see Phase 7 audit).
+            "avg_separation_yds": p_dna.get("avg_separation_yds", 3.2),
+            "deep_target_rate": p_dna.get("deep_target_rate", 0.04),
             "splits": p_dna.get("splits", {
                 "primary": {"target_share": target_share, "carry_share": carry_share, "catch_rate": 0.75, "yac_per_reception": 6.5},
                 "redzone": {"target_share": target_share, "carry_share": carry_share, "catch_rate": 0.75, "yac_per_reception": 6.5},
@@ -179,7 +185,7 @@ def enrich_player(full_name, pos, target_share, carry_share, skill_dna, is_rooki
         })
 
     # Frozen snapshot of this build's values for every rolling-stat-tracked
-    # field (rolling_stats_v_0_1_0.PLAYER_RATE_FIELDS) -- Phase 5's weekly
+    # field (PLAYER_RATE_FIELDS + PLAYER_NGS_FIELDS) -- Phase 5's weekly
     # refresh blends L4/season-to-date against THIS, not a freshly re-derived
     # value, so the taper measures against a stable preseason baseline all
     # season instead of drifting week to week. Veterans only -- rookies get
@@ -187,7 +193,15 @@ def enrich_player(full_name, pos, target_share, carry_share, skill_dna, is_rooki
     # curves instead (resolved fresh per game_number by Phase 5).
     if not is_rookie:
         enriched["preseason_projection"] = {
-            f: enriched[f] for f in PLAYER_RATE_FIELDS if f in enriched
+            f: enriched[f] for f in PLAYER_RATE_FIELDS + PLAYER_NGS_FIELDS if f in enriched
+        }
+        # Same freeze, per zone -- Phase 7b's zone-split blend needs a stable
+        # baseline the same way the flat fields do, not the live `splits`
+        # sub-object (which the weekly refresh overwrites in place).
+        splits = enriched.get("splits", {})
+        enriched["preseason_projection"]["splits"] = {
+            zone: {f: splits.get(zone, {})[f] for f in ZONE_SPLIT_FIELDS if f in splits.get(zone, {})}
+            for zone in ZONES
         }
     return enriched
 

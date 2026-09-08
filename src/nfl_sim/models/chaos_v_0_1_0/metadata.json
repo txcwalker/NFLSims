@@ -57,5 +57,30 @@
       2024,
       2025
     ]
+  },
+  "gate_2b": {
+    "features": [
+      "gate2_prob",
+      "pass_block_off_z",
+      "pass_def_z"
+    ],
+    "brier": 0.05880420282483101,
+    "gate2_alone_brier": 0.05870847776532173,
+    "logloss": 0.2291436642408371,
+    "prauc": 0.1157576695777456,
+    "feature_importances": {
+      "gate2_prob": 0.8328999876976013,
+      "pass_block_off_z": 0.08889999985694885,
+      "pass_def_z": 0.07819999754428864
+    },
+    "trained_by": "train_gate2b_trench_correction.py",
+    "seasons": [
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ]
   }
 }

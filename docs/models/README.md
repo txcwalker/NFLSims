@@ -56,7 +56,7 @@ Empirical bootstrap, not a trained model by design: per-play lookup of `(time-wi
 
 ### 2.13 PROE Overlay
 - **File:** `src/nfl_sim/proe_overlay_v_0_1_0.py` — rules-based logit-space adjustment, not a trained model, no folder.
-- **Data sources:** `coordinator_atlas.json`'s `off_proe` (historical per-coach PROE, season-level) + `team_to_coach_2025.json`.
+- **Data sources:** `coach_dna.json`'s `"proe"` field (historical per-coach PROE, season-level; consolidated from the retired `coordinator_atlas.json` on 2026-07-16) + `team_to_coach_2025.json`.
 - **Mechanism:** `get_coach_proe()` + `_proe_to_logit_offset()`, called once at engine `__init__` to precompute a static `self.proe_offsets[team]`, applied every play: `adjusted_pass_prob = sigmoid(logit(base_pass_prob) + proe_offset)` (`game_engine.py:774-776`). This is the sole PROE mechanism — it's what the frontend's PROE slider controls, and it's the only place coach pass-tendency enters play selection.
 - **`play_ttt` (sibling per-play sampling mechanism, `game_engine.py:818-827`):** `play_ttt = clip(Normal(qb_dna.avg_time_to_throw_sec, 0.6), 1.5, 4.5)` — per-QB-median, per-play-random-sample. Feeds Gate 2 (§2.7) and the air-yards model (§2.2).
 

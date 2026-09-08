@@ -62,9 +62,9 @@ suppressPackageStartupMessages({
     return(project_load_models())
   }
   list(
-    fg = readRDS("data/models/fg_model.rds"),
-    fd = readRDS("data/models/fd_model.rds"),
-    wp = readRDS("data/models/wp_model.rds")
+    fg = readRDS("R/models/field_goal/fg_model.rds"),
+    fd = readRDS("R/models/fourth_down/fd_conversion_model.rds"),
+    wp = readRDS("R/models/win_probability/wp_model.rds")
   )
 }
 

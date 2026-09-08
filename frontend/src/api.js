@@ -378,11 +378,12 @@ export const ApiService = {
     return safeFetch(`${API_BASE}/weeks`, {}, MOCK_WEEKS);
   },
 
-  async getGames(week) {
-    return safeFetch(`${API_BASE}/games?week=${week}`, {}, generateMockGames(week));
+  async getGames(week, draftGroupId) {
+    const q = draftGroupId ? `&draft_group_id=${draftGroupId}` : '';
+    return safeFetch(`${API_BASE}/games?week=${week}${q}`, {}, generateMockGames(week));
   },
 
-  async getWeekProjections(week) {
+  async getWeekProjections(week, draftGroupId) {
     const fallback = {
       week: week,
       players: [],
@@ -390,7 +391,8 @@ export const ApiService = {
       isSandbox: true,
       sandboxReason: 'Backend API unreachable — simulation projections unavailable.'
     };
-    return safeFetch(`${API_BASE}/week_projections?week=${week}`, {}, fallback);
+    const q = draftGroupId ? `&draft_group_id=${draftGroupId}` : '';
+    return safeFetch(`${API_BASE}/week_projections?week=${week}${q}`, {}, fallback);
   },
 
   async getWeekSimResults(week) {
@@ -398,12 +400,34 @@ export const ApiService = {
     return safeFetch(`${API_BASE}/week_sim_results?week=${week}`, {}, fallback);
   },
 
-  async getRosters(away, home) {
+  async getWeekCashLineups(week) {
+    const fallback = { week: week, lineups: [] };
+    return safeFetch(`${API_BASE}/week_cash_lineups?week=${week}`, {}, fallback);
+  },
+
+  async getDkSlates() {
+    const fallback = { is_live: false, fetched_at: null, default_draft_group_id: null, slates: [] };
+    return safeFetch(`${API_BASE}/dk/slates`, {}, fallback);
+  },
+
+  async getDkContests(draftGroupId) {
+    const fallback = { is_live: false, draft_group_id: null, fetched_at: null, contests: [] };
+    const q = draftGroupId ? `?draft_group_id=${draftGroupId}` : '';
+    return safeFetch(`${API_BASE}/dk/contests${q}`, {}, fallback);
+  },
+
+  async getDkContestPayout(contestId) {
+    const fallback = { contest_id: contestId, entries: null, max_entries: null, entry_fee: null, tiers: [], error: 'unreachable' };
+    return safeFetch(`${API_BASE}/dk/contest_payout?contest_id=${contestId}`, {}, fallback);
+  },
+
+  async getRosters(away, home, draftGroupId) {
     const result = {
       [away]: MOCK_ROSTERS[away] || { team_settings: {}, roster: [] },
       [home]: MOCK_ROSTERS[home] || { team_settings: {}, roster: [] }
     };
-    return safeFetch(`${API_BASE}/rosters?away=${away}&home=${home}&year=2025`, {}, result);
+    const q = draftGroupId ? `&draft_group_id=${draftGroupId}` : '';
+    return safeFetch(`${API_BASE}/rosters?away=${away}&home=${home}&year=2026${q}`, {}, result);
   },
 
   async runSimulation(payload) {
@@ -548,5 +572,91 @@ export const ApiService = {
       method: 'POST',
       body: JSON.stringify(payload)
     }, mockResult);
-  }
+  },
+
+  // ── Optimizer weekly working-state persistence (see optimizer_store.py).
+  // Light-touch on purpose: one attempt, no retry loop, no sandbox-mode flip.
+  // "backend down" and "nothing saved yet" both resolve to {} so the Optimizer
+  // just starts clean; a failed autosave simply retries on the next change.
+  async getOptimizerState(week, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/optimizer/state?week=${week}&season=${season}`, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return res.ok ? await res.json() : {};
+    } catch {
+      return {};
+    }
+  },
+
+  async putOptimizerState(week, state, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/optimizer/state?week=${week}&season=${season}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  // ── Saved builds (one immutable record per Optimize run).
+  async listOptimizerBuilds(week, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/optimizer/builds?week=${week}&season=${season}`, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return res.ok ? await res.json() : [];
+    } catch {
+      return [];
+    }
+  },
+  async getOptimizerBuild(week, buildId, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/optimizer/builds/${buildId}?week=${week}&season=${season}`, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+  async createOptimizerBuild(week, build, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/optimizer/builds?week=${week}&season=${season}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(build),
+      });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+  async patchOptimizerBuild(week, buildId, patch, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/optimizer/builds/${buildId}?week=${week}&season=${season}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
+      });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+  async deleteOptimizerBuild(week, buildId, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/optimizer/builds/${buildId}?week=${week}&season=${season}`, { method: 'DELETE' });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+  async pruneOptimizerBuilds(week, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/optimizer/prune?week=${week}&season=${season}`, { method: 'POST' });
+      return res.ok ? await res.json() : { removed: [] };
+    } catch {
+      return { removed: [] };
+    }
+  },
 };

@@ -28,13 +28,23 @@ def calculate_fantasy_points(stats, scoring_type="DK"):
         score += (r_yds * 0.1) + (r_td * 6)
         score += (rec * 0.5) + (rec_yds * 0.1) + (rec_td * 6)
         score -= (fumbles * 2)
-    
+
+    elif scoring_type == "STD":
+        # Half-PPR, 4pt passing TD, no yardage bonuses. Same shape as FD
+        # above -- kept separate so it stays correct if FD's own formula
+        # ever changes independently of what "standard" scoring means.
+        score = (p_yds * 0.04) + (p_td * 4) - (p_int * 2)
+        score += (r_yds * 0.1) + (r_td * 6)
+        score += (rec * 0.5) + (rec_yds * 0.1) + (rec_td * 6)
+        score -= (fumbles * 2)
+
     return round(score, 2)
 
 def get_player_summary(stats):
     """Adds fantasy scores and total touches to a player's stat dict."""
     stats['dk_score'] = calculate_fantasy_points(stats, "DK")
     stats['fd_score'] = calculate_fantasy_points(stats, "FD")
+    stats['std_score'] = calculate_fantasy_points(stats, "STD")
     
     # Clean rAtt and rec for touches
     r_att = 0 if pd.isna(stats.get('rAtt', 0)) else stats.get('rAtt', 0)

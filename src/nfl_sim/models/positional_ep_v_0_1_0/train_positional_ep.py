@@ -1,7 +1,7 @@
 """
 train_positional_ep.py
 ======================
-# Status: live | v0.1.0 | 2026-06-21
+# Status: live | v0.1.1 | 2026-07-15
 
 Trains the Expected Points (EP) regression model used by the chess-style
 positional evaluator. EP is a purely situational metric: the expected point
@@ -17,6 +17,11 @@ Features (4):
 Target:
     ep            -- expected points (pre-computed in nflfastR PBP data)
 
+Split: GroupShuffleSplit by game_id, 70/15/15 train/val/test (v0.1.1 — was a
+plain row-level train_test_split in v0.1.0, which risked plays from the same
+game landing in more than one split; see MODEL_DEVELOPMENT_STANDARD §5/repo
+audit 2026-07-15). game_id is dropped before fitting; it is not a feature.
+
 Serializes:
     positional_ep_model.json  -- XGBoost booster in native JSON format
     metadata.json             -- features, target, training params, val metrics
@@ -30,7 +35,7 @@ import json
 import pandas as pd
 import numpy as np
 import xgboost as xgb
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 # ---------------------------------------------------------------------------
@@ -72,7 +77,7 @@ def load_and_filter(path):
              that carry meaningless or extreme EP values. Drops any row where a
              required feature or the target is null.
     """
-    usecols = FEATURES + [TARGET, "play_type", "qb_spike", "qb_kneel",
+    usecols = FEATURES + [TARGET, "game_id", "play_type", "qb_spike", "qb_kneel",
                           "penalty", "aborted_play"]
     df = pd.read_csv(path, usecols=usecols, low_memory=False)
 
@@ -96,20 +101,31 @@ def load_and_filter(path):
 
     n_clean = len(df)
     print(f"Loaded {n_raw:,} rows -> {n_clean:,} clean scrimmage plays after filtering")
-    return df[FEATURES + [TARGET]]
+    return df[FEATURES + [TARGET, "game_id"]]
 
 
 def train(df):
     """
-    Inputs:  Clean DataFrame with FEATURES + TARGET columns.
+    Inputs:  Clean DataFrame with FEATURES + TARGET + game_id columns.
     Outputs: (model, val_metrics dict)
-    Purpose: 70/15/15 train/val/test split -> XGBRegressor fit -> eval on val.
+    Purpose: GroupShuffleSplit by game_id, 70/15/15 train/val/test -> XGBRegressor
+             fit -> eval on val. Grouping by game_id ensures no game's plays are
+             split across train/val/test (v0.1.1 fix — see module docstring).
     """
-    X = df[FEATURES].values.astype(np.float32)
-    y = df[TARGET].values.astype(np.float32)
+    gss1 = GroupShuffleSplit(n_splits=1, train_size=0.70, random_state=42)
+    train_idx, temp_idx = next(gss1.split(df, groups=df["game_id"]))
+    train_df, temp_df = df.iloc[train_idx], df.iloc[temp_idx]
 
-    X_tr, X_tmp, y_tr, y_tmp = train_test_split(X, y, test_size=0.30, random_state=42)
-    X_val, X_te, y_val, y_te = train_test_split(X_tmp, y_tmp, test_size=0.50, random_state=42)
+    gss2 = GroupShuffleSplit(n_splits=1, train_size=0.50, random_state=42)
+    val_idx, test_idx = next(gss2.split(temp_df, groups=temp_df["game_id"]))
+    val_df, test_df = temp_df.iloc[val_idx], temp_df.iloc[test_idx]
+
+    X_tr = train_df[FEATURES].values.astype(np.float32)
+    y_tr = train_df[TARGET].values.astype(np.float32)
+    X_val = val_df[FEATURES].values.astype(np.float32)
+    y_val = val_df[TARGET].values.astype(np.float32)
+    X_te = test_df[FEATURES].values.astype(np.float32)
+    y_te = test_df[TARGET].values.astype(np.float32)
 
     model = xgb.XGBRegressor(**XGB_PARAMS, early_stopping_rounds=20, eval_metric="rmse")
     model.fit(
@@ -136,7 +152,7 @@ def train(df):
 
 def main():
     print("=" * 60)
-    print("Positional EP Model — Training (V.0.1.0)")
+    print("Positional EP Model — Training (V.0.1.1)")
     print("=" * 60)
 
     df = load_and_filter(DATA_PATH)
@@ -151,7 +167,7 @@ def main():
     print(f"\nModel saved -> {MODEL_PATH}")
 
     metadata = {
-        "version": "V.0.1.0",
+        "version": "V.0.1.1",
         "model_type": "xgb.XGBRegressor",
         "features": FEATURES,
         "target": TARGET,

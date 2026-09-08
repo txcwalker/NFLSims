@@ -9,9 +9,10 @@ Purpose:
     to preserve mathematical consistency across all probability levels.
 
 Design Decisions (documented in docs/models/play_selection_v_0_1_0.md Section 5.3):
-    - Uses HC-level PROE from coordinator_atlas.json (off_proe field).
-      The atlas tracks the effective play-calling identity regardless of
-      whether the coach holds an HC or OC title.
+    - Uses HC-level PROE from coach_dna.json's "proe" field (merged in from the
+      retired coordinator_atlas.json on 2026-07-16 — see AGENTS.md). The join
+      key is always team_to_coach_2025.json's listed name, same as every other
+      coach_dna.json-backed feature (e.g. air-yards' coach traits).
     - Blending uses Bayesian shrinkage with k=8:
         proe_blended = (n_curr / (n_curr + k)) * proe_curr
                      + (k     / (n_curr + k)) * proe_prior
@@ -25,8 +26,11 @@ Design Decisions (documented in docs/models/play_selection_v_0_1_0.md Section 5.
       converted to a logit offset before application.
 
 Data Dependencies:
-    - data/coordinator_atlas.json    — historical PROE by coach name
-    - data/team_to_coach_2025.json   — team abbreviation → coach name mapping
+    - data/dna/coach_dna.json          — historical PROE (field "proe") by coach name
+    - data/dna/team_to_coach_{year}.json — team abbreviation → coach name mapping,
+      year-parameterized (Phase 7 fix, 2026-07-22 -- this used to be a single
+      import-time load of team_to_coach_2025.json regardless of which year a
+      sim was run for, same bug class as game_engine.py's original Phase 0 fix)
 """
 
 import json
@@ -36,16 +40,32 @@ from typing import Dict, Optional
 
 # ── Load reference data at import time (read-once) ───────────────────────────
 _BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_ATLAS_PATH = os.path.join(_BASE_DIR, "data", "dna", "coordinator_atlas.json")
-_TEAM_MAP_PATH = os.path.join(_BASE_DIR, "data", "dna", "team_to_coach_2025.json")
+_COACH_DNA_PATH = os.path.join(_BASE_DIR, "data", "dna", "coach_dna.json")
 
-with open(_ATLAS_PATH, "r") as f:
-    _ATLAS = json.load(f)
+with open(_COACH_DNA_PATH, "r") as f:
+    _COACH_DNA = json.load(f)
 
-with open(_TEAM_MAP_PATH, "r") as f:
-    _TEAM_TO_COACH = json.load(f)
+_HISTORICAL_PROE: Dict[str, float] = {
+    name: entry["proe"] for name, entry in _COACH_DNA.items()
+    if name != "_metadata" and "proe" in entry
+}
 
-_HISTORICAL_PROE: Dict[str, float] = _ATLAS.get("off_proe", {})
+# team_to_coach_{year}.json is small and genuinely year-specific (unlike
+# coach_dna.json above, a multi-season career atlas) -- lazily loaded and
+# cached per year instead of at import time, since the year isn't known
+# until a caller actually asks.
+_TEAM_TO_COACH_CACHE: Dict[int, Dict[str, str]] = {}
+
+
+def _load_team_to_coach(year: int) -> Dict[str, str]:
+    if year not in _TEAM_TO_COACH_CACHE:
+        path = os.path.join(_BASE_DIR, "data", "dna", f"team_to_coach_{year}.json")
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                _TEAM_TO_COACH_CACHE[year] = json.load(f)
+        else:
+            _TEAM_TO_COACH_CACHE[year] = {}
+    return _TEAM_TO_COACH_CACHE[year]
 
 # Bayesian shrinkage parameter.
 # k=8 means the prior year is worth the equivalent of 8 current-season games.
@@ -127,6 +147,7 @@ def blend_proe(
 
 def get_coach_proe(
     team: str,
+    year: int = 2025,
     n_current_games: int = 0,
     current_season_proe: Optional[float] = None
 ) -> float:
@@ -135,6 +156,9 @@ def get_coach_proe(
 
     Args:
         team:                NFL team abbreviation (e.g., "KC", "SF").
+        year:                Season year, selects which team_to_coach_{year}.json
+                             to join against (Phase 7 fix -- used to be
+                             hardcoded to 2025 regardless of this value).
         n_current_games:     Games played in the current season (0 = pre-season).
         current_season_proe: Current-season PROE if available (percentage points).
                              If None and n_current_games > 0, falls back to historical.
@@ -143,7 +167,7 @@ def get_coach_proe(
         Blended PROE in percentage points. Returns 0.0 (league average) if
         the team or coach is not found.
     """
-    coach = _TEAM_TO_COACH.get(team)
+    coach = _load_team_to_coach(year).get(team)
     if coach is None:
         return _LEAGUE_AVG_PROE
 
@@ -158,6 +182,7 @@ def get_coach_proe(
 def apply_proe_overlay(
     base_prob: float,
     team: str,
+    year: int = 2025,
     n_current_games: int = 0,
     current_season_proe: Optional[float] = None,
     base_pass_rate: float = 0.57
@@ -170,6 +195,7 @@ def apply_proe_overlay(
     Args:
         base_prob:           Raw pass probability from the XGBoost submodel (0–1).
         team:                NFL team abbreviation.
+        year:                Season year (Phase 7 fix -- see get_coach_proe()).
         n_current_games:     Current-season games played.
         current_season_proe: Current-season PROE in percentage points (optional).
         base_pass_rate:      League-average pass rate anchor for logit conversion.
@@ -178,10 +204,10 @@ def apply_proe_overlay(
         Adjusted pass probability (0–1), clipped to [0.01, 0.99].
 
     Example:
-        >>> p = apply_proe_overlay(0.55, team="KC", n_current_games=0)
+        >>> p = apply_proe_overlay(0.55, team="KC", year=2025, n_current_games=0)
         # Andy Reid PROE ≈ +6.4pp → logit offset applied → slightly higher than 0.55
     """
-    proe = get_coach_proe(team, n_current_games, current_season_proe)
+    proe = get_coach_proe(team, year, n_current_games, current_season_proe)
     if abs(proe) < 0.01:
         return base_prob  # No adjustment for league-average coaches
 
@@ -192,23 +218,24 @@ def apply_proe_overlay(
 
 # ── Diagnostics (not called during simulation) ────────────────────────────────
 
-def print_overlay_table(teams: Optional[list] = None) -> None:
+def print_overlay_table(teams: Optional[list] = None, year: int = 2025) -> None:
     """
     Print a diagnostic table showing PROE and logit offset for each team.
     Useful for validating the overlay before integration.
     """
+    team_to_coach = _load_team_to_coach(year)
     if teams is None:
-        teams = sorted(_TEAM_TO_COACH.keys())
+        teams = sorted(team_to_coach.keys())
 
     print("\n{:<6} {:<22} {:>10} {:>13} {:>8} {:>8}".format(
         "Team", "Coach", "Hist PROE", "Logit Offset", "55%->", "45%->"))
     print("-" * 72)
     for team in teams:
-        coach = _TEAM_TO_COACH.get(team, "Unknown")
+        coach = team_to_coach.get(team, "Unknown")
         proe  = _HISTORICAL_PROE.get(coach, 0.0)
         offset = _proe_to_logit_offset(proe)
-        adj55 = apply_proe_overlay(0.55, team)
-        adj45 = apply_proe_overlay(0.45, team)
+        adj55 = apply_proe_overlay(0.55, team, year)
+        adj45 = apply_proe_overlay(0.45, team, year)
         print(f"{team:<6} {coach:<22} {proe:>+10.2f} {offset:>+13.4f} {adj55:>7.1%} {adj45:>7.1%}")
 
 

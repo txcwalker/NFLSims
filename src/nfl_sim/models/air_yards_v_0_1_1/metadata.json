@@ -25,6 +25,12 @@
   ],
   "screen_max": 0,
   "deep_min": 20,
+  "sampling": {
+    "_comment": "Post-regression scatter around each level's regressor mean. Calibrated 2026-09-06 (A2 Phase 1) by scripts/eda/calibrate_air_yards_sampler.py against the real 2021-2025 target-depth histogram (fit score 42 -> 8). Was symmetric Gaussian std 1.5/4.0/12.0 + clips [1,19]/>=20; replaced with right-skewed shifted-Gamma for std/deep (sample = floor + (pred-floor)*Gamma(k,1/k), mean preserved). screen stays clipped Gaussian.",
+    "screen": {"dist": "gaussian", "sd": 2.2, "clip_hi": 0},
+    "std":    {"dist": "gamma", "k": 2.0, "floor": -1.0},
+    "deep":   {"dist": "gamma", "k": 1.0, "floor": 14.0}
+  },
   "zone_metrics": {
     "primary": {
       "gate_test_accuracy": 0.6826419368540281,

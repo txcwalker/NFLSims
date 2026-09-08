@@ -4,13 +4,16 @@ import Home from './pages/Home';
 import LiveWP from './pages/LiveWP';
 import FourthDowns from './pages/FourthDowns';
 import Standings from './pages/Standings';
+import Season2026 from './pages/Season2026';
 import GameSummary from './pages/GameSummary';
 import HistoricalLab from './pages/HistoricalLab';
+import BotFeed from './pages/BotFeed';
 import './App.css';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [activeGameId, setActiveGameId] = useState('');
+  const [activeGameDate, setActiveGameDate] = useState('');
 
   useEffect(() => {
     // Basic hash router supporting simple query params e.g. #game-summary?id=live_game_1
@@ -30,6 +33,11 @@ function App() {
       if (params.id) {
         setActiveGameId(params.id);
       }
+      // Games from a non-today slate (yesterday, a picked date, or the
+      // backend's "no games today" fallback) only exist on that date's ESPN
+      // scoreboard -- GameSummary needs it to re-query the right day instead
+      // of silently searching today's (empty) slate and hanging forever.
+      setActiveGameDate(params.date || '');
 
       const validPage = PAGES.find(p => p.id === path);
       if (validPage) {
@@ -63,14 +71,18 @@ function App() {
         return <Home navigateTo={navigateTo} />;
       case 'standings':
         return <Standings />;
+      case 'season-2026':
+        return <Season2026 />;
       case 'live-wp':
         return <LiveWP />;
       case 'fourth-downs':
         return <FourthDowns />;
       case 'game-summary':
-        return <GameSummary gameId={activeGameId} navigateTo={navigateTo} />;
+        return <GameSummary gameId={activeGameId} gameDate={activeGameDate} navigateTo={navigateTo} />;
       case 'historical-lab':
         return <HistoricalLab />;
+      case 'bot-feed':
+        return <BotFeed />;
       default:
         return <Home navigateTo={navigateTo} />;
     }

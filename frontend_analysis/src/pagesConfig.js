@@ -15,6 +15,13 @@ export const PAGES = [
     description: 'Simulated records and playoff probability outcomes for all 32 NFL teams divided by division.'
   },
   {
+    id: 'season-2026',
+    label: '2026 Season',
+    showInNavbar: true,
+    icon: '🏈',
+    description: 'Full 2026 simulated season: standings, league leaders, team stats, matchup win probabilities, and per-team usage/matchups.'
+  },
+  {
     id: 'live-wp',
     label: 'Live Win Probability',
     showInNavbar: true,
@@ -41,5 +48,12 @@ export const PAGES = [
     showInNavbar: true,
     icon: '⚗',
     description: 'Internal testing lab — chess evaluator and suggested lines over Week 1 2025 games. Remove before launch.'
+  },
+  {
+    id: 'bot-feed',
+    label: 'Bot Test Feed',
+    showInNavbar: true,
+    icon: '🤖',
+    description: 'Live 4th-down bot review feed — every evaluated decision (posted or skipped) in DRY_RUN mode, for pre-launch verification.'
   }
 ];

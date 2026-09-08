@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef, Fragment } from 
 import { DFS_RULES, validateLineup } from '../dfsRules';
 import { ApiService } from '../api';
 import { SandboxBadge } from '../components/SandboxBadge';
+import { fmtSpreadNum, probToAmericanML, fmtML } from '../bettingLines';
 
 const TEAM_COLORS = {
   ARI: '#97233F', ATL: '#A71930', BAL: '#241773', BUF: '#00338D',
@@ -118,7 +119,7 @@ export default function Simulator({
         const payload = {
           away_team: g.away_team,
           home_team: g.home_team,
-          year: 2025,
+          year: 2026,
           iterations: iterations,
           spread_override: -(baseSpread + spreadOffset),
           total_override: baseTotal + totalOffset,
@@ -412,10 +413,32 @@ export default function Simulator({
                     <span>@</span>
                     <span>{g.home_team}</span>
                   </div>
-                  <div className="game-card-line">
-                    <span>Line: {(-g.spread_line) > 0 ? `+${-g.spread_line}` : -g.spread_line}</span>
-                    <span>O/U: {g.total_line}</span>
-                  </div>
+                  {(() => {
+                    // Vegas comes off the schedule row; the SIM reference is
+                    // the weekly baseline already loaded into allSimResults on
+                    // week-select (parquet cache) -- no run needed here. All
+                    // spreads home-relative (see bettingLines.js).
+                    const s = allSimResults?.[g.game_id]?.summary;
+                    const vegSpread = g.spread_line != null ? `${g.home_team} ${fmtSpreadNum(-g.spread_line)}` : 'TBD';
+                    const vegMl = (g.away_moneyline != null && g.home_moneyline != null)
+                      ? ` · ${g.away_team} ${fmtML(g.away_moneyline)} / ${g.home_team} ${fmtML(g.home_moneyline)}` : '';
+                    const simSpread = s ? `${g.home_team} ${fmtSpreadNum(s.away_avg_score - s.home_avg_score)}` : null;
+                    const simTotal = s ? (s.away_avg_score + s.home_avg_score).toFixed(1) : null;
+                    const simMlAway = s ? fmtML(probToAmericanML(parseFloat(s.win_probability_away) / 100)) : null;
+                    const simMlHome = s ? fmtML(probToAmericanML(parseFloat(s.win_probability_home) / 100)) : null;
+                    const tag = { fontWeight: 700, marginRight: '5px', opacity: 0.7 };
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.64rem', marginTop: '2px', whiteSpace: 'nowrap' }}>
+                        <span style={{ color: 'var(--accent-gold)' }}>
+                          <span style={tag}>VEG</span>{vegSpread} · {g.total_line ?? 'TBD'}{vegMl}
+                        </span>
+                        <span style={{ color: 'var(--accent-green)' }}>
+                          <span style={tag}>SIM</span>
+                          {s ? `${simSpread} · ${simTotal} · ${g.away_team} ${simMlAway} / ${g.home_team} ${simMlHome}` : '—'}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
@@ -983,7 +1006,7 @@ function GameSimulatorWorkspace({
     const payload = {
       away_team: activeGame.away_team,
       home_team: activeGame.home_team,
-      year: 2025,
+      year: 2026,
       iterations: iterations,
       spread_override: -(baseSpread + activeSpreadOffset),
       total_override: baseTotal + activeTotalOffset,
@@ -1330,10 +1353,17 @@ function GameSimulatorWorkspace({
       });
   }, [simResults, workspaceView, combinedProjections, playerSearch, filterLowProjections, sortField, sortAsc, playerPercentiles, scoringFormat]);
 
+  // Home-side sim spread. home margin = home_avg - away_avg, so the home-side
+  // line is away_avg - home_avg (identical framing to the Vegas -spread_line).
   const getSimSpread = (summary) => {
     if (!summary) return '--';
-    const spread = summary.away_avg_score - summary.home_avg_score;
-    return spread > 0 ? `+${spread.toFixed(1)}` : spread.toFixed(1);
+    return fmtSpreadNum(summary.away_avg_score - summary.home_avg_score);
+  };
+  // Home-side sim moneyline, implied by the sim win probability.
+  const getSimML = (summary, side /* 'home' | 'away' */) => {
+    if (!summary) return '--';
+    const wp = side === 'home' ? summary.win_probability_home : summary.win_probability_away;
+    return fmtML(probToAmericanML(parseFloat(wp) / 100));
   };
 
   const getSimTotal = (summary) => {
@@ -1382,7 +1412,10 @@ function GameSimulatorWorkspace({
             {ApiService.isSandbox() && <SandboxBadge />}
           </h1>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Vegas Market Line: Spread {(-selectedGame.spread_line) > 0 ? `+${-selectedGame.spread_line}` : -selectedGame.spread_line} | O/U {selectedGame.total_line}
+            Vegas Market Line: {selectedGame.home_team} {fmtSpreadNum(-selectedGame.spread_line)} | O/U {selectedGame.total_line}
+            {selectedGame.away_moneyline != null && selectedGame.home_moneyline != null && (
+              <> | ML {selectedGame.away_team} {fmtML(selectedGame.away_moneyline)} / {selectedGame.home_team} {fmtML(selectedGame.home_moneyline)}</>
+            )}
             <span style={{ margin: '0 8px', color: 'rgba(255,255,255,0.15)' }}>|</span>
             Implied: {selectedGame.away_team} {((selectedGame.total_line + (-selectedGame.spread_line)) / 2).toFixed(2)} - {((selectedGame.total_line - (-selectedGame.spread_line)) / 2).toFixed(2)} {selectedGame.home_team}
           </span>
@@ -1393,9 +1426,17 @@ function GameSimulatorWorkspace({
             <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase' }}>
               Weekly Sim Baseline <span style={{ opacity: 0.6, cursor: 'help' }}>ⓘ</span>
             </div>
-            <strong style={{ color: 'var(--text-white)' }}>Spread: {baselineResults ? getSimSpread(baselineResults.summary) : '--'}</strong>
+            <strong style={{ color: 'var(--text-white)' }}>Spread: {baselineResults ? `${selectedGame.home_team} ${getSimSpread(baselineResults.summary)}` : '--'}</strong>
             <span style={{ margin: '0 6px', color: 'var(--text-muted)' }}>|</span>
             <strong style={{ color: 'var(--text-white)' }}>O/U: {baselineResults ? getSimTotal(baselineResults.summary) : '--'}</strong>
+            {baselineResults && (
+              <>
+                <span style={{ margin: '0 6px', color: 'var(--text-muted)' }}>|</span>
+                <strong style={{ color: 'var(--text-white)' }}>
+                  ML: {selectedGame.away_team} {getSimML(baselineResults.summary, 'away')} / {selectedGame.home_team} {getSimML(baselineResults.summary, 'home')}
+                </strong>
+              </>
+            )}
           </div>
 
           {baselineResults && (
@@ -1437,7 +1478,7 @@ function GameSimulatorWorkspace({
                   className={`scenario-btn ${activeSpreadScenario === 'VEGAS_STANDARD_SPREAD' ? 'active' : ''}`} 
                   onClick={() => handleScenarioChange('VEGAS_STANDARD_SPREAD')}
                 >
-                  Standard Spread ({(-selectedGame.spread_line) > 0 ? `+${-selectedGame.spread_line}` : -selectedGame.spread_line})
+                  Standard Spread ({selectedGame.home_team} {fmtSpreadNum(-selectedGame.spread_line)})
                 </button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1479,7 +1520,7 @@ function GameSimulatorWorkspace({
                   onClick={() => handleScenarioChange('SIM_STANDARD_SPREAD')}
                   disabled={!baselineResults}
                 >
-                  Standard Spread ({baselineResults ? getSimSpread(baselineResults.summary) : '--'})
+                  Standard Spread ({baselineResults ? `${selectedGame.home_team} ${getSimSpread(baselineResults.summary)}` : '--'})
                 </button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1529,7 +1570,7 @@ function GameSimulatorWorkspace({
               </button>
             </div>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Calculated Line: Spread {((-selectedGame.spread_line + spreadOffset) > 0 ? '+' : '') + (-selectedGame.spread_line + spreadOffset).toFixed(1)} | O/U {(selectedGame.total_line + totalOffset).toFixed(1)}
+              Calculated Line: {selectedGame.home_team} {fmtSpreadNum(-selectedGame.spread_line + spreadOffset)} | O/U {(selectedGame.total_line + totalOffset).toFixed(1)}
             </span>
           </div>
           {(() => {
@@ -1922,7 +1963,7 @@ function GameSimulatorWorkspace({
                           <tr key={p.name}>
                             <td style={{ fontWeight: 700 }}>{p.name}</td>
                             <td>{p.pos.replace(/[0-9]/g, '')}</td>
-                            <td>${p.salary.toLocaleString()}</td>
+                            <td>{p.salary == null ? '—' : `$${p.salary.toLocaleString()}`}</td>
                             <td>
                               {p.pos !== 'QB' ? (
                                 <input type="number" min="0" max="100" step="0.5" value={p.target_share} onChange={(e) => handlePlayerOverride(p.name, 'target_share', e.target.value)} style={{ width: '50px' }} />
@@ -2006,10 +2047,10 @@ function GameSimulatorWorkspace({
                         const displayName = p.pos === 'DST' ? `${p.team} DST` : p.name;
                         const displayPos = p.pos.replace(/[0-9]/g, '');
                         return (
-                          <tr key={p.name}>
+                          <tr key={p.pos === 'DST' ? `${p.team}-DST` : p.name}>
                             <td style={{ fontWeight: 700 }}>{displayName}</td>
                             <td>{displayPos}</td>
-                            <td>${p.salary.toLocaleString()}</td>
+                            <td>{p.salary == null ? '—' : `$${p.salary.toLocaleString()}`}</td>
                             <td>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <input 

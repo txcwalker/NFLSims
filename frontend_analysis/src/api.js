@@ -24,150 +24,6 @@ async function safeFetch(url, options = {}, fallbackData = null) {
 // MOCK DATA GENERATORS
 // -------------------------------------------------------------------------
 
-const MOCK_GAMES = [
-  {
-    game_id: 'live_game_1',
-    away_team: 'PHI',
-    home_team: 'KC',
-    away_score: 24,
-    home_score: 27,
-    quarter: 4,
-    time_remaining: '2:15',
-    possession: 'PHI',
-    down: 4,
-    distance: 2,
-    yardline: 'Opp 45',
-    away_wp: 46.0,
-    home_wp: 54.0,
-    leverage: 'High',
-  },
-  {
-    game_id: 'live_game_2',
-    away_team: 'SF',
-    home_team: 'LAR',
-    away_score: 17,
-    home_score: 10,
-    quarter: 3,
-    time_remaining: '8:45',
-    possession: 'LAR',
-    down: 2,
-    distance: 8,
-    yardline: 'Own 35',
-    away_wp: 72.5,
-    home_wp: 27.5,
-    leverage: 'Medium',
-  },
-  {
-    game_id: 'live_game_3',
-    away_team: 'DET',
-    home_team: 'GB',
-    away_score: 20,
-    home_score: 21,
-    quarter: 4,
-    time_remaining: '0:34',
-    possession: 'GB',
-    down: 3,
-    distance: 4,
-    yardline: 'Own 48',
-    away_wp: 38.0,
-    home_wp: 62.0,
-    leverage: 'Critical',
-  },
-  {
-    game_id: 'live_game_4',
-    away_team: 'MIA',
-    home_team: 'BUF',
-    away_score: 7,
-    home_score: 28,
-    quarter: 3,
-    time_remaining: '4:00',
-    possession: 'MIA',
-    down: 2,
-    distance: 14,
-    yardline: 'Own 35',
-    away_wp: 4.0,
-    home_wp: 96.0,
-    leverage: 'Low',
-  },
-  {
-    game_id: 'live_game_5',
-    away_team: 'LAC',
-    home_team: 'KC',
-    away_score: 10,
-    home_score: 17,
-    quarter: 4,
-    time_remaining: '2:00',
-    possession: 'LAC',
-    down: 3,
-    distance: 2,
-    yardline: 'Opp 22',
-    away_wp: 28.5,
-    home_wp: 71.5,
-    leverage: 'High',
-  }
-];
-
-const MOCK_PLAYOFF_ODDS = [
-  { team: 'KC', wins: 12.4, division_pct: 88.5, playoff_pct: 98.2, super_bowl_pct: 18.4 },
-  { team: 'SF', wins: 11.8, division_pct: 79.2, playoff_pct: 94.0, super_bowl_pct: 14.2 },
-  { team: 'PHI', wins: 11.2, division_pct: 74.0, playoff_pct: 91.5, super_bowl_pct: 11.8 },
-  { team: 'DET', wins: 10.9, division_pct: 68.4, playoff_pct: 88.0, super_bowl_pct: 9.5 },
-  { team: 'BUF', wins: 10.5, division_pct: 62.1, playoff_pct: 82.3, super_bowl_pct: 8.0 },
-  { team: 'BAL', wins: 10.2, division_pct: 59.8, playoff_pct: 78.4, super_bowl_pct: 7.2 },
-  { team: 'GB', wins: 9.8, division_pct: 42.5, playoff_pct: 66.2, super_bowl_pct: 5.4 },
-  { team: 'LAR', wins: 8.6, division_pct: 20.8, playoff_pct: 44.0, super_bowl_pct: 2.1 }
-];
-
-const MOCK_FULL_STANDINGS = [
-  // AFC East
-  { team: 'BUF', wins: 11.2, losses: 5.8, conference: 'AFC', division: 'East', division_pct: 82.5, playoff_pct: 94.0, super_bowl_pct: 8.5 },
-  { team: 'MIA', wins: 9.4, losses: 7.6, conference: 'AFC', division: 'East', division_pct: 12.4, playoff_pct: 56.2, super_bowl_pct: 2.4 },
-  { team: 'NYJ', wins: 7.8, losses: 9.2, conference: 'AFC', division: 'East', division_pct: 4.8, playoff_pct: 28.5, super_bowl_pct: 0.8 },
-  { team: 'NE', wins: 5.2, losses: 11.8, conference: 'AFC', division: 'East', division_pct: 0.3, playoff_pct: 2.1, super_bowl_pct: 0.0 },
-
-  // AFC North
-  { team: 'BAL', wins: 11.5, losses: 5.5, conference: 'AFC', division: 'North', division_pct: 64.2, playoff_pct: 92.5, super_bowl_pct: 10.2 },
-  { team: 'CIN', wins: 10.1, losses: 6.9, conference: 'AFC', division: 'North', division_pct: 22.8, playoff_pct: 74.0, super_bowl_pct: 6.8 },
-  { team: 'CLE', wins: 8.4, losses: 8.6, conference: 'AFC', division: 'North', division_pct: 8.5, playoff_pct: 42.1, super_bowl_pct: 1.5 },
-  { team: 'PIT', wins: 8.1, losses: 8.9, conference: 'AFC', division: 'North', division_pct: 4.5, playoff_pct: 35.8, super_bowl_pct: 1.1 },
-
-  // AFC South
-  { team: 'HOU', wins: 10.8, losses: 6.2, conference: 'AFC', division: 'South', division_pct: 72.0, playoff_pct: 88.4, super_bowl_pct: 7.4 },
-  { team: 'JAX', wins: 8.5, losses: 8.5, conference: 'AFC', division: 'South', division_pct: 18.2, playoff_pct: 46.5, super_bowl_pct: 1.8 },
-  { team: 'IND', wins: 7.9, losses: 9.1, conference: 'AFC', division: 'South', division_pct: 8.6, playoff_pct: 32.0, super_bowl_pct: 0.9 },
-  { team: 'TEN', wins: 5.8, losses: 11.2, conference: 'AFC', division: 'South', division_pct: 1.2, playoff_pct: 6.4, super_bowl_pct: 0.1 },
-
-  // AFC West
-  { team: 'KC', wins: 12.8, losses: 4.2, conference: 'AFC', division: 'West', division_pct: 91.5, playoff_pct: 99.1, super_bowl_pct: 18.5 },
-  { team: 'LAC', wins: 9.6, losses: 7.4, conference: 'AFC', division: 'West', division_pct: 7.2, playoff_pct: 62.4, super_bowl_pct: 3.1 },
-  { team: 'DEN', wins: 7.5, losses: 9.5, conference: 'AFC', division: 'West', division_pct: 1.1, playoff_pct: 22.0, super_bowl_pct: 0.4 },
-  { team: 'LV', wins: 6.2, losses: 10.8, conference: 'AFC', division: 'West', division_pct: 0.2, playoff_pct: 8.5, super_bowl_pct: 0.1 },
-
-  // NFC East
-  { team: 'PHI', wins: 11.9, losses: 5.1, conference: 'NFC', division: 'East', division_pct: 78.4, playoff_pct: 95.2, super_bowl_pct: 11.2 },
-  { team: 'DAL', wins: 9.8, losses: 7.2, conference: 'NFC', division: 'East', division_pct: 18.5, playoff_pct: 64.0, super_bowl_pct: 4.5 },
-  { team: 'WAS', wins: 7.6, losses: 9.4, conference: 'NFC', division: 'East', division_pct: 2.8, playoff_pct: 24.1, super_bowl_pct: 0.5 },
-  { team: 'NYG', wins: 5.4, losses: 11.6, conference: 'NFC', division: 'East', division_pct: 0.3, playoff_pct: 3.2, super_bowl_pct: 0.0 },
-
-  // NFC North
-  { team: 'DET', wins: 11.6, losses: 5.4, conference: 'NFC', division: 'North', division_pct: 66.5, playoff_pct: 93.8, super_bowl_pct: 9.8 },
-  { team: 'GB', wins: 10.4, losses: 6.6, conference: 'NFC', division: 'North', division_pct: 26.2, playoff_pct: 76.5, super_bowl_pct: 5.8 },
-  { team: 'MIN', wins: 8.2, losses: 8.8, conference: 'NFC', division: 'North', division_pct: 6.8, playoff_pct: 38.0, super_bowl_pct: 1.2 },
-  { team: 'CHI', wins: 7.9, losses: 9.1, conference: 'NFC', division: 'North', division_pct: 0.5, playoff_pct: 31.4, super_bowl_pct: 0.9 },
-
-  // NFC South
-  { team: 'ATL', wins: 9.9, losses: 7.1, conference: 'NFC', division: 'South', division_pct: 62.0, playoff_pct: 72.8, super_bowl_pct: 4.1 },
-  { team: 'TB', wins: 8.8, losses: 8.2, conference: 'NFC', division: 'South', division_pct: 26.5, playoff_pct: 49.2, super_bowl_pct: 1.9 },
-  { team: 'NO', wins: 7.8, losses: 9.2, conference: 'NFC', division: 'South', division_pct: 10.2, playoff_pct: 32.5, super_bowl_pct: 0.8 },
-  { team: 'CAR', wins: 4.8, losses: 12.2, conference: 'NFC', division: 'South', division_pct: 1.3, playoff_pct: 2.4, super_bowl_pct: 0.0 },
-
-  // NFC West
-  { team: 'SF', wins: 12.1, losses: 4.9, conference: 'NFC', division: 'West', division_pct: 84.2, playoff_pct: 98.0, super_bowl_pct: 14.5 },
-  { team: 'LAR', wins: 9.2, losses: 7.8, conference: 'NFC', division: 'West', division_pct: 12.8, playoff_pct: 54.0, super_bowl_pct: 2.2 },
-  { team: 'SEA', wins: 7.8, losses: 9.2, conference: 'NFC', division: 'West', division_pct: 2.8, playoff_pct: 28.5, super_bowl_pct: 0.7 },
-  { team: 'ARI', wins: 6.5, losses: 10.5, conference: 'NFC', division: 'West', division_pct: 0.2, playoff_pct: 11.2, super_bowl_pct: 0.1 }
-];
-
 const MOCK_PLAY_BY_PLAY = {
   live_game_1: [
     { play_id: 1, qtr: 4, time: '15:00', desc: 'Start of 4th Quarter.', possession: 'KC', home_wp: 62.0, away_wp: 38.0, leverage: 1.0 },
@@ -334,16 +190,14 @@ const MOCK_CHESS_EVALUATOR = {
 // PUBLIC API SERVICE
 // -------------------------------------------------------------------------
 export const ApiService = {
-  async getLiveGames() {
-    return safeFetch(`${API_BASE}/live-games`, {}, MOCK_GAMES);
-  },
-
-  async getPlayoffOdds() {
-    return safeFetch(`${API_BASE}/playoff-odds`, {}, MOCK_PLAYOFF_ODDS);
-  },
-
-  async getFullStandings() {
-    return safeFetch(`${API_BASE}/standings`, {}, MOCK_FULL_STANDINGS);
+  // No mock fallback: the backend itself walks back to the most recent
+  // slate with real games when today has none (see /api/live-games'
+  // docstring), tagging results with is_fallback/fallback_date. On an
+  // actual fetch failure this just returns [] -- an honest empty state,
+  // not fabricated games.
+  async getLiveGames(date) {
+    const qs = date ? `?date=${date}` : '';
+    return safeFetch(`${API_BASE}/live-games${qs}`, {}, []);
   },
 
   async getPlayByPlay(gameId) {
@@ -360,6 +214,37 @@ export const ApiService = {
 
   async getChessEvaluator(gameId) {
     return safeFetch(`${API_BASE}/games/${gameId}/positional-eval`, {}, MOCK_CHESS_EVALUATOR[gameId] || null);
+  },
+
+  // Individual player box score stats -- real current-game data, no mock
+  // fallback (matches the season2026 pattern) since there's nothing sensible
+  // to fabricate per-player.
+  async getPlayerStats(gameId) {
+    return safeFetch(`${API_BASE}/games/${gameId}/player-stats`, {}, null);
+  },
+
+  // -----------------------------------------------------------------------
+  // 2026 SEASON REPORTS (Season2026 page) -- real current-run data, no mock
+  // fallback (empty array/object instead) since this isn't a demo page.
+  // -----------------------------------------------------------------------
+  async getSeason2026Standings() {
+    return safeFetch(`${API_BASE}/season2026/standings`, {}, []);
+  },
+
+  async getSeason2026TeamStats() {
+    return safeFetch(`${API_BASE}/season2026/team-stats`, {}, []);
+  },
+
+  async getSeason2026Leaders() {
+    return safeFetch(`${API_BASE}/season2026/leaders`, {}, { overall: {}, rookies: {} });
+  },
+
+  async getSeason2026Matchups() {
+    return safeFetch(`${API_BASE}/season2026/matchups`, {}, { weeks: {} });
+  },
+
+  async getSeason2026Teams() {
+    return safeFetch(`${API_BASE}/season2026/teams`, {}, {});
   },
 
   async calculate4thDown(params) {

@@ -75,6 +75,7 @@ POSITION_DEFAULTS = {
             "percent_attempts_gte_eight_defenders": 0.22, "avg_time_to_los": 2.8,
             "rush_yards_over_expected_per_att": 0.0, "rush_pct_over_expected": 0.30,
             "top_speed_mph": 20.3, "contested_catch_rate": 0.35,
+            "avg_separation_yds": 3.2, "deep_target_rate": 0.04,
         },
     },
     "WR": {

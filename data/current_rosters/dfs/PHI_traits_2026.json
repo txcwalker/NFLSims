@@ -1,0 +1,2228 @@
+{
+    "team": "PHI",
+    "year": 2026,
+    "max_week": 1,
+    "traits": {
+        "Jalen Hurts": {
+            "pos": "QB",
+            "target_share": 0.0,
+            "carry_share": 0.15,
+            "status": "active",
+            "player_id": "00-0036389",
+            "cpoe": 4.9272,
+            "avg_air_yards_per_att": 8.4434,
+            "deep_ball_rate": 0.1218,
+            "scramble_rate": 0.055,
+            "sack_rate": 0.0699,
+            "play_action_rate": 0.0,
+            "under_pressure_cpoe": 7.5358,
+            "pressure_rate": 0.288,
+            "avg_time_to_throw_sec": 3.0432,
+            "ngs_aggressiveness_index": 16.03,
+            "splits": {
+                "primary": {
+                    "cpoe": 4.9272,
+                    "sack_rate": 0.0699,
+                    "play_action_rate": 0.0,
+                    "target_share": 0.0,
+                    "carry_share": 0.15,
+                    "scramble_rate": 0.055,
+                    "avg_air_yards_per_att": 8.4434,
+                    "avg_time_to_throw_sec": 3.0432
+                },
+                "redzone": {
+                    "cpoe": 3.6291,
+                    "sack_rate": 0.0725,
+                    "play_action_rate": 0.0,
+                    "target_share": 0.0,
+                    "carry_share": 0.245
+                },
+                "goalline": {
+                    "cpoe": 5.6702,
+                    "sack_rate": 0.0274,
+                    "play_action_rate": 0.0,
+                    "target_share": 0.0,
+                    "carry_share": 0.4
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.15,
+                "cpoe": 4.9272,
+                "sack_rate": 0.0699,
+                "scramble_rate": 0.055,
+                "avg_air_yards_per_att": 8.4434,
+                "splits": {
+                    "primary": {
+                        "cpoe": 3.1533,
+                        "target_share": 0.0,
+                        "carry_share": 0.15
+                    },
+                    "redzone": {
+                        "cpoe": 3.6291,
+                        "target_share": 0.0,
+                        "carry_share": 0.245
+                    },
+                    "goalline": {
+                        "cpoe": 5.6702,
+                        "target_share": 0.0,
+                        "carry_share": 0.4
+                    }
+                },
+                "avg_time_to_throw_sec": 3.0432
+            }
+        },
+        "Andy Dalton": {
+            "pos": "QB",
+            "target_share": 0.0,
+            "carry_share": 0.01,
+            "status": "active",
+            "player_id": "00-0027973",
+            "cpoe": -5.0268,
+            "avg_air_yards_per_att": 7.7082,
+            "deep_ball_rate": 0.0824,
+            "scramble_rate": 0.0,
+            "sack_rate": 0.059,
+            "play_action_rate": 0.0,
+            "under_pressure_cpoe": 4.0841,
+            "pressure_rate": 0.2238,
+            "avg_time_to_throw_sec": 2.5945,
+            "ngs_aggressiveness_index": 14.15,
+            "splits": {
+                "primary": {
+                    "cpoe": -5.0268,
+                    "sack_rate": 0.059,
+                    "play_action_rate": 0.0,
+                    "target_share": 0.0,
+                    "carry_share": 0.01,
+                    "scramble_rate": 0.0,
+                    "avg_air_yards_per_att": 7.7082,
+                    "avg_time_to_throw_sec": 2.5945
+                },
+                "redzone": {
+                    "cpoe": 5.4037,
+                    "sack_rate": 0.05,
+                    "play_action_rate": 0.0,
+                    "target_share": 0.0,
+                    "carry_share": 0.01
+                },
+                "goalline": {
+                    "cpoe": -0.0809,
+                    "sack_rate": 0.1481,
+                    "play_action_rate": 0.0,
+                    "target_share": 0.0,
+                    "carry_share": 0.01
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.01,
+                "cpoe": -5.0268,
+                "sack_rate": 0.059,
+                "scramble_rate": 0.0,
+                "avg_air_yards_per_att": 7.7082,
+                "splits": {
+                    "primary": {
+                        "cpoe": -1.9509,
+                        "target_share": 0.0,
+                        "carry_share": 0.01
+                    },
+                    "redzone": {
+                        "cpoe": 5.4037,
+                        "target_share": 0.0,
+                        "carry_share": 0.01
+                    },
+                    "goalline": {
+                        "cpoe": -0.0809,
+                        "target_share": 0.0,
+                        "carry_share": 0.01
+                    }
+                },
+                "avg_time_to_throw_sec": 2.5945
+            }
+        },
+        "Tanner McKee": {
+            "pos": "QB",
+            "target_share": 0.0,
+            "carry_share": 0.01,
+            "status": "active",
+            "player_id": "00-0038400",
+            "cpoe": 12.8171,
+            "avg_air_yards_per_att": 9.6234,
+            "deep_ball_rate": 0.0645,
+            "scramble_rate": 0.0,
+            "sack_rate": 0.0274,
+            "play_action_rate": 0.0,
+            "under_pressure_cpoe": 5.4274,
+            "pressure_rate": 0.3118,
+            "avg_time_to_throw_sec": 2.8178,
+            "ngs_aggressiveness_index": 14.82,
+            "splits": {
+                "primary": {
+                    "cpoe": 12.8171,
+                    "sack_rate": 0.0274,
+                    "play_action_rate": 0.0,
+                    "target_share": 0.0,
+                    "carry_share": 0.01,
+                    "scramble_rate": 0.0,
+                    "avg_air_yards_per_att": 9.6234,
+                    "avg_time_to_throw_sec": 2.8178
+                },
+                "redzone": {
+                    "cpoe": 6.9599,
+                    "sack_rate": 0.0,
+                    "play_action_rate": 0.0,
+                    "target_share": 0.0,
+                    "carry_share": 0.01
+                },
+                "goalline": {
+                    "cpoe": 0.5898,
+                    "sack_rate": 0.051,
+                    "play_action_rate": 0.0,
+                    "target_share": 0.0,
+                    "carry_share": 0.01
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.01,
+                "cpoe": 12.8171,
+                "sack_rate": 0.0274,
+                "scramble_rate": 0.0,
+                "avg_air_yards_per_att": 9.6234,
+                "splits": {
+                    "primary": {
+                        "cpoe": -0.6104,
+                        "target_share": 0.0,
+                        "carry_share": 0.01
+                    },
+                    "redzone": {
+                        "cpoe": 6.9599,
+                        "target_share": 0.0,
+                        "carry_share": 0.01
+                    },
+                    "goalline": {
+                        "cpoe": 0.5898,
+                        "target_share": 0.0,
+                        "carry_share": 0.01
+                    }
+                },
+                "avg_time_to_throw_sec": 2.8178
+            }
+        },
+        "Cole Payton": {
+            "pos": "QB",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0040891",
+            "rookie": true,
+            "draft_capital": {
+                "round": 5,
+                "pick": 178
+            },
+            "cpoe": 0.0,
+            "avg_air_yards_per_att": 8.0,
+            "deep_ball_rate": 0.12,
+            "scramble_rate": 0.05,
+            "sack_rate": 0.06,
+            "play_action_rate": 0.2,
+            "under_pressure_cpoe": -2.5,
+            "pressure_rate": 0.2,
+            "avg_time_to_throw_sec": 2.7,
+            "ngs_aggressiveness_index": 15.0,
+            "splits": {
+                "primary": {
+                    "cpoe": 0.0,
+                    "sack_rate": 0.06,
+                    "play_action_rate": 0.2,
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "scramble_rate": 0.05,
+                    "avg_air_yards_per_att": 8.0,
+                    "avg_time_to_throw_sec": 2.7
+                },
+                "redzone": {
+                    "cpoe": 0.0,
+                    "sack_rate": 0.06,
+                    "play_action_rate": 0.2,
+                    "target_share": 0.0,
+                    "carry_share": 0.0
+                },
+                "goalline": {
+                    "cpoe": 0.0,
+                    "sack_rate": 0.06,
+                    "play_action_rate": 0.2,
+                    "target_share": 0.0,
+                    "carry_share": 0.0
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "cpoe": 0.0,
+                "sack_rate": 0.06,
+                "scramble_rate": 0.05,
+                "avg_air_yards_per_att": 8.0,
+                "avg_time_to_throw_sec": 2.7,
+                "splits": {
+                    "primary": {
+                        "cpoe": 0.0,
+                        "target_share": 0.0,
+                        "carry_share": 0.0
+                    },
+                    "redzone": {
+                        "cpoe": 0.0,
+                        "target_share": 0.0,
+                        "carry_share": 0.0
+                    },
+                    "goalline": {
+                        "cpoe": 0.0,
+                        "target_share": 0.0,
+                        "carry_share": 0.0
+                    }
+                }
+            }
+        },
+        "Saquon Barkley": {
+            "pos": "RB",
+            "target_share": 0.125,
+            "carry_share": 0.635,
+            "status": "active",
+            "player_id": "00-0034844",
+            "adot": 1.6825,
+            "yac_per_rec": 7.9203,
+            "elusiveness": 0.4987,
+            "broken_tackle_rate": 0.1648,
+            "ypc": 5.0267,
+            "efficiency": 4.008,
+            "percent_attempts_gte_eight_defenders": 0.2167,
+            "avg_time_to_los": 2.807,
+            "rush_yards_over_expected_per_att": 0.674,
+            "rush_pct_over_expected": 0.0037,
+            "catch_rate": 0.7094,
+            "top_speed_mph": 21.9,
+            "contested_catch_rate": 0.4201,
+            "avg_separation_yds": 3.2,
+            "deep_target_rate": 0.0793,
+            "splits": {
+                "primary": {
+                    "target_share": 0.125,
+                    "carry_share": 0.635,
+                    "catch_rate": 0.7094,
+                    "yac_per_reception": 7.728,
+                    "ypc": 5.0267,
+                    "yac_per_rec": 7.9203,
+                    "adot": 1.6825,
+                    "deep_target_rate": 0.0793,
+                    "elusiveness": 0.4987,
+                    "broken_tackle_rate": 0.1648,
+                    "avg_separation_yds": 3.2
+                },
+                "redzone": {
+                    "target_share": 0.115,
+                    "carry_share": 0.555,
+                    "catch_rate": 0.68,
+                    "yac_per_reception": 3.529
+                },
+                "goalline": {
+                    "target_share": 0.05,
+                    "carry_share": 0.44,
+                    "catch_rate": 0.3333,
+                    "yac_per_reception": 2.5
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.125,
+                "carry_share": 0.635,
+                "catch_rate": 0.7094,
+                "ypc": 5.0267,
+                "yac_per_rec": 7.9203,
+                "adot": 1.6825,
+                "deep_target_rate": 0.0793,
+                "elusiveness": 0.4987,
+                "broken_tackle_rate": 0.1648,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.125,
+                        "carry_share": 0.635,
+                        "catch_rate": 0.7396
+                    },
+                    "redzone": {
+                        "target_share": 0.115,
+                        "carry_share": 0.555,
+                        "catch_rate": 0.68
+                    },
+                    "goalline": {
+                        "target_share": 0.05,
+                        "carry_share": 0.44,
+                        "catch_rate": 0.3333
+                    }
+                },
+                "avg_separation_yds": 3.2
+            }
+        },
+        "Elijah Mitchell": {
+            "pos": "RB",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0036567",
+            "adot": 16.0,
+            "yac_per_rec": 7.351,
+            "elusiveness": 0.0166,
+            "broken_tackle_rate": 0.3243,
+            "ypc": 4.282,
+            "efficiency": 4.206,
+            "percent_attempts_gte_eight_defenders": 0.3873,
+            "avg_time_to_los": 2.847,
+            "rush_yards_over_expected_per_att": 0.174,
+            "rush_pct_over_expected": 0.0038,
+            "catch_rate": 0.0,
+            "top_speed_mph": 20.71,
+            "contested_catch_rate": 0.4676,
+            "avg_separation_yds": 3.2,
+            "deep_target_rate": 0.0,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.8378,
+                    "yac_per_reception": 7.419
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.75,
+                    "yac_per_reception": 7.0
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.8222,
+                    "yac_per_reception": 7.351
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.0,
+                "ypc": 4.282,
+                "yac_per_rec": 7.351,
+                "adot": 16.0,
+                "deep_target_rate": 0.0,
+                "elusiveness": 0.0166,
+                "broken_tackle_rate": 0.3243,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0139,
+                        "carry_share": 0.1628,
+                        "catch_rate": 0.8378
+                    },
+                    "redzone": {
+                        "target_share": 0.0235,
+                        "carry_share": 0.1111,
+                        "catch_rate": 0.75
+                    },
+                    "goalline": {
+                        "target_share": 0.018,
+                        "carry_share": 0.129,
+                        "catch_rate": 0.8222
+                    }
+                },
+                "avg_separation_yds": 3.2
+            }
+        },
+        "Dameon Pierce": {
+            "pos": "RB",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0037258",
+            "adot": -2.0,
+            "yac_per_rec": 2.5,
+            "elusiveness": -5.738,
+            "broken_tackle_rate": 0.0,
+            "ypc": 4.0785,
+            "efficiency": 4.85,
+            "percent_attempts_gte_eight_defenders": 0.2325,
+            "avg_time_to_los": 2.933,
+            "rush_yards_over_expected_per_att": 0.168,
+            "rush_pct_over_expected": 0.0036,
+            "catch_rate": 0.5,
+            "top_speed_mph": 20.78,
+            "contested_catch_rate": 0.4083,
+            "avg_separation_yds": 3.2,
+            "deep_target_rate": 0.0,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.5,
+                    "yac_per_reception": 6.762,
+                    "ypc": 4.0785,
+                    "yac_per_rec": 2.5,
+                    "adot": -2.0,
+                    "deep_target_rate": 0.0,
+                    "elusiveness": -5.738,
+                    "broken_tackle_rate": 0.0,
+                    "avg_separation_yds": 3.2
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.6667,
+                    "yac_per_reception": 6.0
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 1.0,
+                    "yac_per_reception": 1.0
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.5,
+                "ypc": 4.0785,
+                "yac_per_rec": 2.5,
+                "adot": -2.0,
+                "deep_target_rate": 0.0,
+                "elusiveness": -5.738,
+                "broken_tackle_rate": 0.0,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.7241
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.6667
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 1.0
+                    }
+                },
+                "avg_separation_yds": 3.2
+            }
+        },
+        "Tank Bigsby": {
+            "pos": "RB",
+            "target_share": 0.02,
+            "carry_share": 0.205,
+            "status": "active",
+            "player_id": "00-0038555",
+            "adot": -0.9359,
+            "yac_per_rec": 10.9444,
+            "elusiveness": 2.7924,
+            "broken_tackle_rate": 0.2222,
+            "ypc": 5.2948,
+            "efficiency": 3.861,
+            "percent_attempts_gte_eight_defenders": 0.2731,
+            "avg_time_to_los": 2.707,
+            "rush_yards_over_expected_per_att": 0.464,
+            "rush_pct_over_expected": 0.0036,
+            "catch_rate": 0.6282,
+            "top_speed_mph": 19.97,
+            "contested_catch_rate": 0.3942,
+            "avg_separation_yds": 3.2,
+            "deep_target_rate": 0.0,
+            "splits": {
+                "primary": {
+                    "target_share": 0.02,
+                    "carry_share": 0.205,
+                    "catch_rate": 0.6282,
+                    "yac_per_reception": 10.5,
+                    "ypc": 5.2948,
+                    "yac_per_rec": 10.9444,
+                    "adot": -0.9359,
+                    "deep_target_rate": 0.0,
+                    "elusiveness": 2.7924,
+                    "broken_tackle_rate": 0.2222,
+                    "avg_separation_yds": 3.2
+                },
+                "redzone": {
+                    "target_share": 0.01,
+                    "carry_share": 0.18,
+                    "catch_rate": 1.0,
+                    "yac_per_reception": 3.0
+                },
+                "goalline": {
+                    "target_share": 0.01,
+                    "carry_share": 0.14,
+                    "catch_rate": 0.55,
+                    "yac_per_reception": 9.818
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.02,
+                "carry_share": 0.205,
+                "catch_rate": 0.6282,
+                "ypc": 5.2948,
+                "yac_per_rec": 10.9444,
+                "adot": -0.9359,
+                "deep_target_rate": 0.0,
+                "elusiveness": 2.7924,
+                "broken_tackle_rate": 0.2222,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.02,
+                        "carry_share": 0.205,
+                        "catch_rate": 0.5263
+                    },
+                    "redzone": {
+                        "target_share": 0.01,
+                        "carry_share": 0.18,
+                        "catch_rate": 1.0
+                    },
+                    "goalline": {
+                        "target_share": 0.01,
+                        "carry_share": 0.14,
+                        "catch_rate": 0.55
+                    }
+                },
+                "avg_separation_yds": 3.2
+            }
+        },
+        "Carson Steele": {
+            "pos": "RB",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0039325",
+            "adot": -1.6667,
+            "yac_per_rec": 6.5,
+            "elusiveness": -1.9668,
+            "broken_tackle_rate": 0.0,
+            "ypc": 2.8352,
+            "efficiency": 2.927,
+            "percent_attempts_gte_eight_defenders": 0.1765,
+            "avg_time_to_los": 2.426,
+            "rush_yards_over_expected_per_att": 0.221,
+            "rush_pct_over_expected": 0.0041,
+            "catch_rate": 0.7222,
+            "top_speed_mph": 20.17,
+            "contested_catch_rate": 0.2991,
+            "avg_separation_yds": 3.2,
+            "deep_target_rate": 0.0,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.7222,
+                    "yac_per_reception": 5.833,
+                    "ypc": 2.8352,
+                    "yac_per_rec": 6.5,
+                    "adot": -1.6667,
+                    "deep_target_rate": 0.0,
+                    "elusiveness": -1.9668,
+                    "broken_tackle_rate": 0.0,
+                    "avg_separation_yds": 3.2
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.5,
+                    "yac_per_reception": 8.0
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.6364,
+                    "yac_per_reception": 6.143
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.7222,
+                "ypc": 2.8352,
+                "yac_per_rec": 6.5,
+                "adot": -1.6667,
+                "deep_target_rate": 0.0,
+                "elusiveness": -1.9668,
+                "broken_tackle_rate": 0.0,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.6667
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.5
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.6364
+                    }
+                },
+                "avg_separation_yds": 3.2
+            }
+        },
+        "Will Shipley": {
+            "pos": "RB",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0039746",
+            "adot": 0.0278,
+            "yac_per_rec": 6.4375,
+            "elusiveness": -1.4779,
+            "broken_tackle_rate": 0.0938,
+            "ypc": 2.5396,
+            "efficiency": 4.419,
+            "percent_attempts_gte_eight_defenders": 0.1,
+            "avg_time_to_los": 2.811,
+            "rush_yards_over_expected_per_att": -0.829,
+            "rush_pct_over_expected": 0.003,
+            "catch_rate": 0.7963,
+            "top_speed_mph": 20.06,
+            "contested_catch_rate": 0.4089,
+            "avg_separation_yds": 3.2,
+            "deep_target_rate": 0.0,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.7963,
+                    "yac_per_reception": 7.0,
+                    "ypc": 2.5396,
+                    "yac_per_rec": 6.4375,
+                    "adot": 0.0278,
+                    "deep_target_rate": 0.0,
+                    "elusiveness": -1.4779,
+                    "broken_tackle_rate": 0.0938,
+                    "avg_separation_yds": 3.2
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.5,
+                    "yac_per_reception": 0.0
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.8235,
+                    "yac_per_reception": 6.5
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.7963,
+                "ypc": 2.5396,
+                "yac_per_rec": 6.4375,
+                "adot": 0.0278,
+                "deep_target_rate": 0.0,
+                "elusiveness": -1.4779,
+                "broken_tackle_rate": 0.0938,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.8667
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.5
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.8235
+                    }
+                },
+                "avg_separation_yds": 3.2
+            }
+        },
+        "Jaydon Blue": {
+            "pos": "RB",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "adot": -5.0,
+            "yac_per_rec": 10.0,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 3.395,
+            "efficiency": 3.93,
+            "percent_attempts_gte_eight_defenders": 0.125,
+            "avg_time_to_los": 2.789,
+            "rush_yards_over_expected_per_att": 0.688,
+            "rush_pct_over_expected": 0.0044,
+            "catch_rate": 1.0,
+            "top_speed_mph": 20.1,
+            "contested_catch_rate": 0.4194,
+            "avg_separation_yds": 3.2,
+            "deep_target_rate": 0.0,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 1.0,
+                    "yac_per_reception": 10.0,
+                    "ypc": 3.395,
+                    "yac_per_rec": 10.0,
+                    "adot": -5.0,
+                    "deep_target_rate": 0.0,
+                    "elusiveness": 0.0,
+                    "broken_tackle_rate": 0.15,
+                    "avg_separation_yds": 3.2
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 1.0,
+                    "yac_per_reception": 10.0
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 1.0,
+                    "yac_per_reception": 10.0
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 1.0,
+                "ypc": 3.395,
+                "yac_per_rec": 10.0,
+                "adot": -5.0,
+                "deep_target_rate": 0.0,
+                "elusiveness": 0.0,
+                "broken_tackle_rate": 0.15,
+                "avg_separation_yds": 3.2,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 1.0
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 1.0
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 1.0
+                    }
+                }
+            }
+        },
+        "DeVonta Smith": {
+            "pos": "WR",
+            "target_share": 0.25,
+            "carry_share": 0.01,
+            "status": "active",
+            "player_id": "00-0036912",
+            "adot": 10.7961,
+            "yac_per_rec": 4.1057,
+            "elusiveness": -0.7131,
+            "broken_tackle_rate": 0.1613,
+            "ypc": 1.0,
+            "avg_separation_yds": 2.8908,
+            "avg_cushion_yds": 6.626,
+            "catch_rate": 0.7124,
+            "route_profile": "intermediate",
+            "top_speed_mph": 20.13,
+            "deep_target_rate": 0.1653,
+            "contested_catch_rate": 0.449,
+            "splits": {
+                "primary": {
+                    "target_share": 0.25,
+                    "carry_share": 0.01,
+                    "catch_rate": 0.7124,
+                    "yac_per_reception": 4.433,
+                    "ypc": 1.0,
+                    "yac_per_rec": 4.1057,
+                    "adot": 10.7961,
+                    "deep_target_rate": 0.1653,
+                    "elusiveness": -0.7131,
+                    "broken_tackle_rate": 0.1613,
+                    "avg_separation_yds": 2.8908
+                },
+                "redzone": {
+                    "target_share": 0.24,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.5319,
+                    "yac_per_reception": 3.16
+                },
+                "goalline": {
+                    "target_share": 0.23,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.5294,
+                    "yac_per_reception": 0.0
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.25,
+                "carry_share": 0.01,
+                "catch_rate": 0.7124,
+                "ypc": 1.0,
+                "yac_per_rec": 4.1057,
+                "adot": 10.7961,
+                "deep_target_rate": 0.1653,
+                "elusiveness": -0.7131,
+                "broken_tackle_rate": 0.1613,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.25,
+                        "carry_share": 0.01,
+                        "catch_rate": 0.7065
+                    },
+                    "redzone": {
+                        "target_share": 0.24,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.5319
+                    },
+                    "goalline": {
+                        "target_share": 0.23,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.5294
+                    }
+                },
+                "avg_separation_yds": 2.8908
+            }
+        },
+        "Dontayvion Wicks": {
+            "pos": "WR",
+            "target_share": 0.125,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0038393",
+            "adot": 10.5863,
+            "yac_per_rec": 3.3468,
+            "elusiveness": -0.711,
+            "broken_tackle_rate": 0.1756,
+            "ypc": 6.0,
+            "avg_separation_yds": 2.5149,
+            "avg_cushion_yds": 6.606,
+            "catch_rate": 0.5813,
+            "route_profile": "intermediate",
+            "top_speed_mph": 20.52,
+            "deep_target_rate": 0.1498,
+            "contested_catch_rate": 0.4556,
+            "splits": {
+                "primary": {
+                    "target_share": 0.125,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.5813,
+                    "yac_per_reception": 3.957,
+                    "ypc": 6.0,
+                    "yac_per_rec": 3.3468,
+                    "adot": 10.5863,
+                    "deep_target_rate": 0.1498,
+                    "elusiveness": -0.711,
+                    "broken_tackle_rate": 0.1756,
+                    "avg_separation_yds": 2.5149
+                },
+                "redzone": {
+                    "target_share": 0.145,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.6818,
+                    "yac_per_reception": 3.267
+                },
+                "goalline": {
+                    "target_share": 0.16,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.8,
+                    "yac_per_reception": 0.5
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.125,
+                "carry_share": 0.0,
+                "catch_rate": 0.5813,
+                "ypc": 6.0,
+                "yac_per_rec": 3.3468,
+                "adot": 10.5863,
+                "deep_target_rate": 0.1498,
+                "elusiveness": -0.711,
+                "broken_tackle_rate": 0.1756,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.125,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.5706
+                    },
+                    "redzone": {
+                        "target_share": 0.145,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.6818
+                    },
+                    "goalline": {
+                        "target_share": 0.16,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.8
+                    }
+                },
+                "avg_separation_yds": 2.5149
+            }
+        },
+        "Elijah Moore": {
+            "pos": "WR",
+            "target_share": 0.065,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0036980",
+            "adot": 8.7481,
+            "yac_per_rec": 3.3924,
+            "elusiveness": -1.7297,
+            "broken_tackle_rate": 0.1024,
+            "ypc": 3.6667,
+            "avg_separation_yds": 3.1198,
+            "avg_cushion_yds": 6.301,
+            "catch_rate": 0.6449,
+            "route_profile": "intermediate",
+            "top_speed_mph": 20.38,
+            "deep_target_rate": 0.1445,
+            "contested_catch_rate": 0.3881,
+            "splits": {
+                "primary": {
+                    "target_share": 0.065,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.6449,
+                    "yac_per_reception": 3.354,
+                    "ypc": 3.6667,
+                    "yac_per_rec": 3.3924,
+                    "adot": 8.7481,
+                    "deep_target_rate": 0.1445,
+                    "elusiveness": -1.7297,
+                    "broken_tackle_rate": 0.1024,
+                    "avg_separation_yds": 3.1198
+                },
+                "redzone": {
+                    "target_share": 0.065,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.6129,
+                    "yac_per_reception": 2.684
+                },
+                "goalline": {
+                    "target_share": 0.04,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.1667,
+                    "yac_per_reception": 0.0
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.065,
+                "carry_share": 0.0,
+                "catch_rate": 0.6449,
+                "ypc": 3.6667,
+                "yac_per_rec": 3.3924,
+                "adot": 8.7481,
+                "deep_target_rate": 0.1445,
+                "elusiveness": -1.7297,
+                "broken_tackle_rate": 0.1024,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.065,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.5783
+                    },
+                    "redzone": {
+                        "target_share": 0.065,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.6129
+                    },
+                    "goalline": {
+                        "target_share": 0.04,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.1667
+                    }
+                },
+                "avg_separation_yds": 3.1198
+            }
+        },
+        "Quez Watkins": {
+            "pos": "WR",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0036271",
+            "adot": 11.858,
+            "yac_per_rec": 4.856,
+            "elusiveness": -1.3033,
+            "broken_tackle_rate": 0.1458,
+            "ypc": 1.0,
+            "avg_separation_yds": 3.107,
+            "avg_cushion_yds": 6.293,
+            "catch_rate": 0.651,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.64,
+            "deep_target_rate": 0.255,
+            "contested_catch_rate": 0.4772,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.6591,
+                    "yac_per_reception": 5.184
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.6429,
+                    "yac_per_reception": 2.111
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.3333,
+                    "yac_per_reception": 1.0
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.651,
+                "ypc": 1.0,
+                "yac_per_rec": 4.856,
+                "adot": 11.858,
+                "deep_target_rate": 0.255,
+                "elusiveness": -1.3033,
+                "broken_tackle_rate": 0.1458,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.6591
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.6429
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.3333
+                    }
+                },
+                "avg_separation_yds": 3.107
+            }
+        },
+        "Marquise Brown": {
+            "pos": "WR",
+            "target_share": 0.05,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0035662",
+            "adot": 11.6644,
+            "yac_per_rec": 4.0196,
+            "elusiveness": -1.4878,
+            "broken_tackle_rate": 0.2059,
+            "ypc": 7.25,
+            "avg_separation_yds": 3.1161,
+            "avg_cushion_yds": 6.751,
+            "catch_rate": 0.6623,
+            "route_profile": "intermediate",
+            "top_speed_mph": 20.68,
+            "deep_target_rate": 0.185,
+            "contested_catch_rate": 0.4541,
+            "splits": {
+                "primary": {
+                    "target_share": 0.05,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.6623,
+                    "yac_per_reception": 4.074,
+                    "ypc": 7.25,
+                    "yac_per_rec": 4.0196,
+                    "adot": 11.6644,
+                    "deep_target_rate": 0.185,
+                    "elusiveness": -1.4878,
+                    "broken_tackle_rate": 0.2059,
+                    "avg_separation_yds": 3.1161
+                },
+                "redzone": {
+                    "target_share": 0.05,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.5116,
+                    "yac_per_reception": 2.5
+                },
+                "goalline": {
+                    "target_share": 0.04,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.4615,
+                    "yac_per_reception": 0.167
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.05,
+                "carry_share": 0.0,
+                "catch_rate": 0.6623,
+                "ypc": 7.25,
+                "yac_per_rec": 4.0196,
+                "adot": 11.6644,
+                "deep_target_rate": 0.185,
+                "elusiveness": -1.4878,
+                "broken_tackle_rate": 0.2059,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.05,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.604
+                    },
+                    "redzone": {
+                        "target_share": 0.05,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.5116
+                    },
+                    "goalline": {
+                        "target_share": 0.04,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.4615
+                    }
+                },
+                "avg_separation_yds": 3.1161
+            }
+        },
+        "Johnny Wilson": {
+            "pos": "WR",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0039236",
+            "adot": 10.9333,
+            "yac_per_rec": 3.0,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.0,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.1508,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.2333,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.1111,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.2333,
+                    "yac_per_reception": 4.2,
+                    "ypc": 4.2,
+                    "yac_per_rec": 3.0,
+                    "adot": 10.9333,
+                    "deep_target_rate": 0.1111,
+                    "elusiveness": 0.0,
+                    "broken_tackle_rate": 0.0,
+                    "avg_separation_yds": 2.1508
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.2333,
+                "ypc": 4.2,
+                "yac_per_rec": 3.0,
+                "adot": 10.9333,
+                "deep_target_rate": 0.1111,
+                "elusiveness": 0.0,
+                "broken_tackle_rate": 0.0,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    }
+                },
+                "avg_separation_yds": 2.1508
+            }
+        },
+        "Samori Toure": {
+            "pos": "WR",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0037098",
+            "adot": 10.0,
+            "yac_per_rec": 0.0,
+            "elusiveness": -4.8021,
+            "broken_tackle_rate": 0.0,
+            "ypc": 4.0,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.3333,
+            "route_profile": "deep",
+            "top_speed_mph": 21.13,
+            "deep_target_rate": 0.3333,
+            "contested_catch_rate": 0.5307,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.4444,
+                    "yac_per_reception": 2.25
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.5,
+                    "yac_per_reception": 1.0
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.0,
+                    "yac_per_reception": 2.071
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.3333,
+                "ypc": 4.0,
+                "yac_per_rec": 0.0,
+                "adot": 10.0,
+                "deep_target_rate": 0.3333,
+                "elusiveness": -4.8021,
+                "broken_tackle_rate": 0.0,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0108,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.4444
+                    },
+                    "redzone": {
+                        "target_share": 0.0096,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.5
+                    },
+                    "goalline": {
+                        "target_share": 0.0092,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.0
+                    }
+                },
+                "avg_separation_yds": 2.8
+            }
+        },
+        "Britain Covey": {
+            "pos": "WR",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0037132",
+            "adot": 0.4583,
+            "yac_per_rec": 9.3333,
+            "elusiveness": 1.5146,
+            "broken_tackle_rate": 0.5,
+            "ypc": 4.2,
+            "avg_separation_yds": 3.8277,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.625,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.0,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.625,
+                    "yac_per_reception": 4.2,
+                    "ypc": 4.2,
+                    "yac_per_rec": 9.3333,
+                    "adot": 0.4583,
+                    "deep_target_rate": 0.0,
+                    "elusiveness": 1.5146,
+                    "broken_tackle_rate": 0.5,
+                    "avg_separation_yds": 3.8277
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.625,
+                "ypc": 4.2,
+                "yac_per_rec": 9.3333,
+                "adot": 0.4583,
+                "deep_target_rate": 0.0,
+                "elusiveness": 1.5146,
+                "broken_tackle_rate": 0.5,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    }
+                },
+                "avg_separation_yds": 3.8277
+            }
+        },
+        "Danny Gray": {
+            "pos": "WR",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0037828",
+            "adot": 11.5,
+            "yac_per_rec": 4.2,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.8,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.62,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.15,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2,
+                    "ypc": 4.2,
+                    "yac_per_rec": 4.2,
+                    "adot": 11.5,
+                    "deep_target_rate": 0.15,
+                    "elusiveness": 0.0,
+                    "broken_tackle_rate": 0.15,
+                    "avg_separation_yds": 2.8
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.62,
+                "ypc": 4.2,
+                "yac_per_rec": 4.2,
+                "adot": 11.5,
+                "deep_target_rate": 0.15,
+                "elusiveness": 0.0,
+                "broken_tackle_rate": 0.15,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    }
+                },
+                "avg_separation_yds": 2.8
+            }
+        },
+        "Darius Cooper": {
+            "pos": "WR",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0040024",
+            "adot": 8.42,
+            "yac_per_rec": 2.7667,
+            "elusiveness": -1.7782,
+            "broken_tackle_rate": 0.0,
+            "ypc": 4.2,
+            "avg_separation_yds": 1.3389,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.92,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.04,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.92,
+                    "yac_per_reception": 4.2,
+                    "ypc": 4.2,
+                    "yac_per_rec": 2.7667,
+                    "adot": 8.42,
+                    "deep_target_rate": 0.04,
+                    "elusiveness": -1.7782,
+                    "broken_tackle_rate": 0.0,
+                    "avg_separation_yds": 1.3389
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.92,
+                "ypc": 4.2,
+                "yac_per_rec": 2.7667,
+                "adot": 8.42,
+                "deep_target_rate": 0.04,
+                "elusiveness": -1.7782,
+                "broken_tackle_rate": 0.0,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    }
+                },
+                "avg_separation_yds": 1.3389
+            }
+        },
+        "Makai Lemon": {
+            "pos": "WR",
+            "target_share": 0.15,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0040867",
+            "rookie": true,
+            "draft_capital": {
+                "round": 1,
+                "pick": 20
+            },
+            "adot": 9.9166,
+            "yac_per_rec": 4.0027,
+            "elusiveness": 0.4476,
+            "broken_tackle_rate": 0.1334,
+            "ypc": 4.2,
+            "avg_separation_yds": 2.6,
+            "avg_cushion_yds": 5.8,
+            "catch_rate": 0.6883,
+            "route_profile": "intermediate",
+            "top_speed_mph": 21.0,
+            "deep_target_rate": 0.1162,
+            "contested_catch_rate": 0.48,
+            "splits": {
+                "primary": {
+                    "target_share": 0.15,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.6883,
+                    "yac_per_reception": 4.2,
+                    "ypc": 4.2,
+                    "yac_per_rec": 4.0027,
+                    "adot": 9.9166,
+                    "deep_target_rate": 0.1162,
+                    "elusiveness": 0.4476,
+                    "broken_tackle_rate": 0.1334,
+                    "avg_separation_yds": 2.6
+                },
+                "redzone": {
+                    "target_share": 0.15,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                },
+                "goalline": {
+                    "target_share": 0.15,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.62,
+                    "yac_per_reception": 4.2
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.15,
+                "carry_share": 0.0,
+                "catch_rate": 0.6883,
+                "ypc": 4.2,
+                "yac_per_rec": 4.0027,
+                "adot": 9.9166,
+                "deep_target_rate": 0.1162,
+                "elusiveness": 0.4476,
+                "broken_tackle_rate": 0.1334,
+                "avg_separation_yds": 2.6,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.15,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    },
+                    "redzone": {
+                        "target_share": 0.15,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    },
+                    "goalline": {
+                        "target_share": 0.15,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.62
+                    }
+                }
+            }
+        },
+        "Dallas Goedert": {
+            "pos": "TE",
+            "target_share": 0.146829,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0034351",
+            "adot": 7.1031,
+            "yac_per_rec": 4.6618,
+            "elusiveness": 0.4171,
+            "broken_tackle_rate": 0.2073,
+            "ypc": 3.75,
+            "avg_separation_yds": 3.7037,
+            "avg_cushion_yds": 6.241,
+            "catch_rate": 0.7437,
+            "route_profile": "short",
+            "top_speed_mph": 19.51,
+            "deep_target_rate": 0.0578,
+            "contested_catch_rate": 0.4697,
+            "splits": {
+                "primary": {
+                    "target_share": 0.146829,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.7437,
+                    "yac_per_reception": 6.097,
+                    "ypc": 3.75,
+                    "yac_per_rec": 4.6618,
+                    "adot": 7.1031,
+                    "deep_target_rate": 0.0578,
+                    "elusiveness": 0.4171,
+                    "broken_tackle_rate": 0.2073,
+                    "avg_separation_yds": 3.7037
+                },
+                "redzone": {
+                    "target_share": 0.156977,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.6667,
+                    "yac_per_reception": 4.1
+                },
+                "goalline": {
+                    "target_share": 0.220328,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.8,
+                    "yac_per_reception": 3.0
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.146829,
+                "carry_share": 0.0,
+                "catch_rate": 0.7437,
+                "ypc": 3.75,
+                "yac_per_rec": 4.6618,
+                "adot": 7.1031,
+                "deep_target_rate": 0.0578,
+                "elusiveness": 0.4171,
+                "broken_tackle_rate": 0.2073,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.146829,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.7568
+                    },
+                    "redzone": {
+                        "target_share": 0.156977,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.6667
+                    },
+                    "goalline": {
+                        "target_share": 0.220328,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.8
+                    }
+                },
+                "avg_separation_yds": 3.7037
+            }
+        },
+        "Grant Calcaterra": {
+            "pos": "TE",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0037086",
+            "adot": 8.231,
+            "yac_per_rec": 3.9481,
+            "elusiveness": -0.6866,
+            "broken_tackle_rate": 0.2083,
+            "ypc": 4.0,
+            "avg_separation_yds": 5.457,
+            "avg_cushion_yds": 7.333,
+            "catch_rate": 0.7222,
+            "route_profile": "short",
+            "top_speed_mph": 19.77,
+            "deep_target_rate": 0.1429,
+            "contested_catch_rate": 0.4917,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.7222,
+                    "yac_per_reception": 5.579,
+                    "ypc": 4.0,
+                    "yac_per_rec": 3.9481,
+                    "adot": 8.231,
+                    "deep_target_rate": 0.1429,
+                    "elusiveness": -0.6866,
+                    "broken_tackle_rate": 0.2083,
+                    "avg_separation_yds": 5.457
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.5,
+                    "yac_per_reception": 4.5
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 1.0,
+                    "yac_per_reception": 0.0
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.7222,
+                "ypc": 4.0,
+                "yac_per_rec": 3.9481,
+                "adot": 8.231,
+                "deep_target_rate": 0.1429,
+                "elusiveness": -0.6866,
+                "broken_tackle_rate": 0.2083,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.7917
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.5
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 1.0
+                    }
+                },
+                "avg_separation_yds": 5.457
+            }
+        },
+        "Johnny Mundt": {
+            "pos": "TE",
+            "target_share": 0.010488,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0033246",
+            "adot": 5.0187,
+            "yac_per_rec": 6.3289,
+            "elusiveness": 0.5365,
+            "broken_tackle_rate": 0.3421,
+            "ypc": 4.0,
+            "avg_separation_yds": 3.9357,
+            "avg_cushion_yds": 6.012,
+            "catch_rate": 0.5993,
+            "route_profile": "short",
+            "top_speed_mph": 19.6,
+            "deep_target_rate": 0.0625,
+            "contested_catch_rate": 0.5139,
+            "splits": {
+                "primary": {
+                    "target_share": 0.010488,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.5993,
+                    "yac_per_reception": 6.049,
+                    "ypc": 4.0,
+                    "yac_per_rec": 6.3289,
+                    "adot": 5.0187,
+                    "deep_target_rate": 0.0625,
+                    "elusiveness": 0.5365,
+                    "broken_tackle_rate": 0.3421,
+                    "avg_separation_yds": 3.9357
+                },
+                "redzone": {
+                    "target_share": 0.010465,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.4,
+                    "yac_per_reception": 8.5
+                },
+                "goalline": {
+                    "target_share": 0.020984,
+                    "carry_share": 0.0,
+                    "catch_rate": 1.0,
+                    "yac_per_reception": 0.0
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.010488,
+                "carry_share": 0.0,
+                "catch_rate": 0.5993,
+                "ypc": 4.0,
+                "yac_per_rec": 6.3289,
+                "adot": 5.0187,
+                "deep_target_rate": 0.0625,
+                "elusiveness": 0.5365,
+                "broken_tackle_rate": 0.3421,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.010488,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.7439
+                    },
+                    "redzone": {
+                        "target_share": 0.010465,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.4
+                    },
+                    "goalline": {
+                        "target_share": 0.020984,
+                        "carry_share": 0.0,
+                        "catch_rate": 1.0
+                    }
+                },
+                "avg_separation_yds": 3.9357
+            }
+        },
+        "Stone Smartt": {
+            "pos": "TE",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0037475",
+            "adot": 9.4167,
+            "yac_per_rec": 4.5741,
+            "elusiveness": -0.7628,
+            "broken_tackle_rate": 0.1148,
+            "ypc": 4.0,
+            "avg_separation_yds": 3.4991,
+            "avg_cushion_yds": 4.808,
+            "catch_rate": 0.75,
+            "route_profile": "intermediate",
+            "top_speed_mph": 19.34,
+            "deep_target_rate": 0.1,
+            "contested_catch_rate": 0.5131,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.7255,
+                    "yac_per_reception": 4.054
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.5,
+                    "yac_per_reception": 6.0
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.0,
+                    "yac_per_reception": 4.105
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.75,
+                "ypc": 4.0,
+                "yac_per_rec": 4.5741,
+                "adot": 9.4167,
+                "deep_target_rate": 0.1,
+                "elusiveness": -0.7628,
+                "broken_tackle_rate": 0.1148,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0174,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.7255
+                    },
+                    "redzone": {
+                        "target_share": 0.0052,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.5
+                    },
+                    "goalline": {
+                        "target_share": 0.0084,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.0
+                    }
+                },
+                "avg_separation_yds": 3.4991
+            }
+        },
+        "EJ Jenkins": {
+            "pos": "TE",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0038498",
+            "adot": 4.5,
+            "yac_per_rec": 3.0,
+            "elusiveness": 1.24,
+            "broken_tackle_rate": 0.0,
+            "ypc": 4.2,
+            "avg_separation_yds": 3.0,
+            "avg_cushion_yds": 5.6,
+            "catch_rate": 0.5,
+            "route_profile": "short",
+            "top_speed_mph": 19.8,
+            "deep_target_rate": 0.0,
+            "contested_catch_rate": 0.52,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.5,
+                    "yac_per_reception": 4.5,
+                    "ypc": 4.2,
+                    "yac_per_rec": 3.0,
+                    "adot": 4.5,
+                    "deep_target_rate": 0.0,
+                    "elusiveness": 1.24,
+                    "broken_tackle_rate": 0.0,
+                    "avg_separation_yds": 3.0
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.68,
+                    "yac_per_reception": 4.5
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.68,
+                    "yac_per_reception": 4.5
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.5,
+                "ypc": 4.2,
+                "yac_per_rec": 3.0,
+                "adot": 4.5,
+                "deep_target_rate": 0.0,
+                "elusiveness": 1.24,
+                "broken_tackle_rate": 0.0,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.68
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.68
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.68
+                    }
+                },
+                "avg_separation_yds": 3.0
+            }
+        },
+        "Cameron Latu": {
+            "pos": "TE",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0038564",
+            "adot": 7.5,
+            "yac_per_rec": 4.5,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 3.0,
+            "avg_cushion_yds": 5.6,
+            "catch_rate": 0.68,
+            "route_profile": "short",
+            "top_speed_mph": 19.8,
+            "deep_target_rate": 0.06,
+            "contested_catch_rate": 0.52,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.68,
+                    "yac_per_reception": 4.5
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.68,
+                    "yac_per_reception": 4.5
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.68,
+                    "yac_per_reception": 4.5
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.68,
+                "ypc": 4.2,
+                "yac_per_rec": 4.5,
+                "adot": 7.5,
+                "deep_target_rate": 0.06,
+                "elusiveness": 0.0,
+                "broken_tackle_rate": 0.15,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.68
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.68
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.68
+                    }
+                },
+                "avg_separation_yds": 3.0
+            }
+        },
+        "Dae'Quan Wright": {
+            "pos": "TE",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0040927",
+            "rookie": true,
+            "adot": 7.5,
+            "yac_per_rec": 4.5,
+            "elusiveness": 0.0,
+            "broken_tackle_rate": 0.15,
+            "ypc": 4.2,
+            "avg_separation_yds": 3.0,
+            "avg_cushion_yds": 5.6,
+            "catch_rate": 0.68,
+            "route_profile": "short",
+            "top_speed_mph": 19.8,
+            "deep_target_rate": 0.06,
+            "contested_catch_rate": 0.52,
+            "splits": {
+                "primary": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.68,
+                    "yac_per_reception": 4.5
+                },
+                "redzone": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.68,
+                    "yac_per_reception": 4.5
+                },
+                "goalline": {
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.68,
+                    "yac_per_reception": 4.5
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.0,
+                "carry_share": 0.0,
+                "catch_rate": 0.68,
+                "ypc": 4.2,
+                "yac_per_rec": 4.5,
+                "adot": 7.5,
+                "deep_target_rate": 0.06,
+                "elusiveness": 0.0,
+                "broken_tackle_rate": 0.15,
+                "avg_separation_yds": 3.0,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.68
+                    },
+                    "redzone": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.68
+                    },
+                    "goalline": {
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.68
+                    }
+                }
+            }
+        },
+        "Eli Stowers": {
+            "pos": "TE",
+            "target_share": 0.057683,
+            "carry_share": 0.0,
+            "status": "active",
+            "player_id": "00-0041483",
+            "rookie": true,
+            "draft_capital": {
+                "round": 2,
+                "pick": 54
+            },
+            "adot": 7.781,
+            "yac_per_rec": 4.618,
+            "elusiveness": 0.3385,
+            "broken_tackle_rate": 0.1215,
+            "ypc": 4.2,
+            "avg_separation_yds": 3.0,
+            "avg_cushion_yds": 5.6,
+            "catch_rate": 0.6522,
+            "route_profile": "short",
+            "top_speed_mph": 19.8,
+            "deep_target_rate": 0.04671,
+            "contested_catch_rate": 0.52,
+            "splits": {
+                "primary": {
+                    "target_share": 0.057683,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.6522,
+                    "yac_per_reception": 4.5,
+                    "ypc": 4.2,
+                    "yac_per_rec": 4.618,
+                    "adot": 7.781,
+                    "deep_target_rate": 0.04671,
+                    "elusiveness": 0.3385,
+                    "broken_tackle_rate": 0.1215,
+                    "avg_separation_yds": 3.0
+                },
+                "redzone": {
+                    "target_share": 0.057558,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.68,
+                    "yac_per_reception": 4.5
+                },
+                "goalline": {
+                    "target_share": 0.078689,
+                    "carry_share": 0.0,
+                    "catch_rate": 0.68,
+                    "yac_per_reception": 4.5
+                }
+            },
+            "preseason_projection": {
+                "target_share": 0.057683,
+                "carry_share": 0.0,
+                "catch_rate": 0.6522,
+                "ypc": 4.2,
+                "yac_per_rec": 4.618,
+                "adot": 7.781,
+                "deep_target_rate": 0.04671,
+                "elusiveness": 0.3385,
+                "broken_tackle_rate": 0.1215,
+                "avg_separation_yds": 3.0,
+                "splits": {
+                    "primary": {
+                        "target_share": 0.057683,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.68
+                    },
+                    "redzone": {
+                        "target_share": 0.057558,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.68
+                    },
+                    "goalline": {
+                        "target_share": 0.078689,
+                        "carry_share": 0.0,
+                        "catch_rate": 0.68
+                    }
+                }
+            }
+        }
+    },
+    "roster_kind": "dfs_week"
+}
