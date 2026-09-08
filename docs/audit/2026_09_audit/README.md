@@ -52,5 +52,5 @@ before the next. Depth is deliberately uneven — the sim engine is the product.
 - [x] Phase 3 — see `phase_3_pipeline_storage.md`
 - [x] Phase 4 — see `phase_4_api_frontends_publishing.md`
 - [x] Phase 5 — see `phase_5_r_live.md`
-- [ ] Phase 6
+- [x] Phase 6 — see `phase_6_docs_tests_org.md`
 - [ ] Phase 7
