@@ -47,7 +47,7 @@ before the next. Depth is deliberately uneven — the sim engine is the product.
 ## Status
 
 - [x] Phase 0 — see `phase_0_inventory.md`
-- [ ] Phase 1
+- [x] Phase 1 — see `phase_1_sim_core.md`
 - [ ] Phase 2
 - [ ] Phase 3
 - [ ] Phase 4
