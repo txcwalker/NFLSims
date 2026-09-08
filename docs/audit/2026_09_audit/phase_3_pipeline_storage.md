@@ -33,19 +33,26 @@ At 950 MB now, this is a 3–4 year runway before it's genuinely unwieldy —
 
 ## S2-5 — the repo lives inside a syncing OneDrive folder, and OneDrive is writing conflict copies into it
 
-Found in `data/interim/`:
+A full-tree scan found conflict copies (`*-Cams-Desktop.*`) in **four**
+locations:
 ```
-sim_results_2025_games-Cams-Desktop.parquet     (Jun 11)
-sim_results_2025_players-Cams-Desktop.parquet    (Jun 11)
+.obsidian/workspace-Cams-Desktop.json  ... -2.json ... through -8.json   (8 copies)
+data/interim/sim_results_2025_games-Cams-Desktop.parquet
+data/interim/sim_results_2025_players-Cams-Desktop.parquet
+src/nfl_sim/__pycache__/batch.cpython-38-Cams-Desktop.pyc
+src/nfl_sim/__pycache__/game_engine.cpython-38-Cams-Desktop.pyc
+venv_py38_old/.../pandas/compat/numpy/__init__-Cams-Desktop.py   (and more .py inside the venv)
 ```
-and in `src/nfl_sim/__pycache__/`: `game_engine.cpython-38-Cams-Desktop.pyc`.
 
 OneDrive appends the machine name when it can't reconcile a file edited on two
-synced machines. So far it's only hit regeneratable caches and bytecode. **The
-real risk: it hits a roster JSON, an override CSV, or a source file** — and you
-get two silently-diverged copies, or an edit silently lost. For a project where
-"a value silently read wrong for months" is a recurring theme (AGENTS.md), this
-is a latent version of that.
+synced machines. **The `.obsidian/workspace.json` has been conflicted 8 separate
+times** — that file changes constantly, so OneDrive fails to sync this folder
+cleanly on a regular basis. So far the collisions have landed on regeneratable
+caches, bytecode, and editor state. **It is luck, not design, that none has hit
+a roster JSON, an override CSV, or a `.py` source file** — and when it does you
+get two silently-diverged copies or a lost edit, with no error. For a project
+whose recurring failure mode is "a value read wrong for months" (AGENTS.md),
+this is that risk waiting to happen. Borderline **S1**.
 
 **Fix (fix-pass, and it's the highest-leverage storage change):** get the repo
 out of the synced path. Options, best first:
