@@ -122,11 +122,13 @@ Only `proe` (→ overlay) and `deep_shot_rate` (→ `coach_aggression`, 4th-down
 bias) are live. Cam may be hand-tuning `screen_rate` / `play_action_rate` in the
 CSV believing they affect the sim.
 
-**Fix (fix-pass):** either (a) wire the ones that should matter — `screen_rate`
-and `play_action_rate` are real levers the air-yards / play-outcome models could
-consume — or (b) delete them from the builders, the JSONs, and the CSV and say
-so in the sheet. Not both half-done. This is a Cam decision (does he want these
-modeled at all), so it belongs in the Phase 7 synthesis for him to call.
+**Cam's call (2026-09-08): keep them — they may get wired in later.** So the
+fix is **documentation, not code**: mark them clearly as currently inert so
+nobody (future-Cam included) hand-tunes `screen_rate` in the CSV expecting a
+sim effect. Concretely (fix-pass): a header/comment block in
+`coach_coordinator_levers_2026.csv`, a line in AGENTS.md §8 (fragile areas) and
+`docs/models/play_selection_v_0_1_0.md`, listing which levers are live (`proe`,
+`deep_shot_rate`) vs staged-but-unconsumed.
 
 ---
 
@@ -187,8 +189,8 @@ it's part of "the DNA/roster layer" and feeds Cam's #1 (redundant processes).
 | # | sev | item | effort |
 |---|---|---|---|
 | S2-4 | S2 | retrain play-selection with dropback (`\|qb_scramble`) label | retrain + verify |
-| S3-9 | S3 | wire or delete the 6 dead coach levers — **Cam decision** | — |
-| S3-10 | S3 | delete dead+wrong scalar `predict_play_selection_proba` (with Phase 1 S3-4) | trivial |
+| S3-9 | S3 | **document** the 6 inert coach levers (Cam: keep, may wire later) — CSV header + AGENTS.md + model doc | doc only |
+| S3-10 | S3 | delete dead+wrong scalar `predict_play_selection_proba` — bundled with Phase 1 S3-4 (dead sequential path) | trivial |
 | S3-11 | S3 | roster-script triage → rolled into Phase 6 | — |
 
 Nothing here blocks Phase 3.
