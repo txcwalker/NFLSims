@@ -25,9 +25,15 @@ import os
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
+# Match run_full_season_sim_2026.py's toggle: the week-tree build step only
+# matters when the sim will actually read the trees (NFLSIM_WEEK_AWARE=1).
+# Off by default (2026-09-08) -- season-long starters, regular season + playoffs.
+WEEK_AWARE_ROSTERS = os.environ.get("NFLSIM_WEEK_AWARE", "0") == "1"
+
 STEPS = [
-    ("Week-by-week roster trees (injury returns + mid-season QB swaps)",
-     [sys.executable, "scripts/roster_management/build_season_week_rosters_v_0_1_0.py", "2026", "18"]),
+    *([("Week-by-week roster trees (injury returns + mid-season QB swaps)",
+        [sys.executable, "scripts/roster_management/build_season_week_rosters_v_0_1_0.py", "2026", "18"])]
+      if WEEK_AWARE_ROSTERS else []),
     ("Full season sim + playoffs (parquet caches, standings, teams_data.json)",
      [sys.executable, "scripts/simulation_runners/run_full_season_sim_2026.py"]),
     ("Team stats (team_stats_2026.csv)",

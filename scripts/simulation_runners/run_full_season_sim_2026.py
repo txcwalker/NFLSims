@@ -44,6 +44,14 @@ TEAM_FULL_NAMES = {
 
 SIM_YEAR = 2026
 
+# Week-aware roster trees (data/current_rosters/week_NN/) apply mid-season QB
+# swaps + injury return weeks per matchup. OFF by default (2026-09-08): the
+# week-tree path was implicated in a playoff-phase crash and Cam wants a clean
+# "season-long starters everywhere, regular season AND playoffs" run for the
+# next iteration. Set NFLSIM_WEEK_AWARE=1 to re-enable once that's diagnosed.
+# Playoffs already use the season-long tree regardless (see run_playoff_game).
+WEEK_AWARE_ROSTERS = os.environ.get("NFLSIM_WEEK_AWARE", "0") == "1"
+
 
 def _cache_is_stale(cache_paths, input_globs):
     """True if any cache file is missing, or any matching input file was
@@ -175,12 +183,15 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
 
     cache_input_globs = [
         f"data/current_rosters/*_traits_{SIM_YEAR}.json",
-        f"data/current_rosters/week_*/*_traits_{SIM_YEAR}.json",   # week-aware trees
         "data/dna/*.json",
         "data/dna/*.csv",
-        f"data/overrides/{SIM_YEAR}/qb_swaps_{SIM_YEAR}.csv",
         f"data/external/schedule_{SIM_YEAR}.csv",
     ]
+    if WEEK_AWARE_ROSTERS:
+        cache_input_globs += [
+            f"data/current_rosters/week_*/*_traits_{SIM_YEAR}.json",
+            f"data/overrides/{SIM_YEAR}/qb_swaps_{SIM_YEAR}.csv",
+        ]
     cache_paths = [games_cache_path, players_cache_path]
     stale = _cache_is_stale(cache_paths, cache_input_globs)
 
@@ -206,13 +217,14 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
             # (injury returns + mid-season QB swaps -- see
             # scripts/roster_management/build_season_week_rosters_v_0_1_0.py).
             # Falls back to the season-long tree if the week dir isn't built.
+            # Disabled unless NFLSIM_WEEK_AWARE=1 (see WEEK_AWARE_ROSTERS above).
             wk = int(row["week"])
             wk_dir = f"data/current_rosters/week_{wk:02d}"
-            if os.path.isdir(wk_dir):
+            if WEEK_AWARE_ROSTERS and os.path.isdir(wk_dir):
                 rosters_dir = wk_dir
             else:
                 rosters_dir = "data/current_rosters"
-                if not week_tree_missing_warned:
+                if not week_tree_missing_warned and WEEK_AWARE_ROSTERS:
                     print("  (week roster trees not found -- using season-long rosters. "
                           "Run build_season_week_rosters_v_0_1_0.py for week-aware sims.)")
                     week_tree_missing_warned = True
