@@ -50,7 +50,7 @@ before the next. Depth is deliberately uneven — the sim engine is the product.
 - [x] Phase 1 — see `phase_1_sim_core.md`
 - [x] Phase 2 — see `phase_2_play_selection_dna.md`
 - [x] Phase 3 — see `phase_3_pipeline_storage.md`
-- [ ] Phase 4
+- [x] Phase 4 — see `phase_4_api_frontends_publishing.md`
 - [ ] Phase 5
 - [ ] Phase 6
 - [ ] Phase 7
