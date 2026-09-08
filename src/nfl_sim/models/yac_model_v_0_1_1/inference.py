@@ -3,6 +3,9 @@ import json
 import joblib
 import numpy as np
 
+from ...utils import resolve_iteration_range
+
+
 class YACModelV011:
     def __init__(self, model_dir="src/nfl_sim/models/yac_model_v_0_1_1"):
         self.model_dir = model_dir
@@ -13,12 +16,23 @@ class YACModelV011:
             
         self.features = self.metadata['features']
         
-        # Load zone boosters
+        # Load zone boosters. Trained with early_stopping_rounds=30
+        # (train_zone_split.py, n_estimators=600) -> each has a best_iteration
+        # well short of its tree count; inplace_predict must be told to stop
+        # there. See ...utils.resolve_iteration_range / audit phase 1.
         self._boosters = {}
+        self._iter_range = {}
         for zone in ['primary', 'redzone', 'goalline']:
             path = os.path.join(model_dir, f"{zone}_yac_reg.joblib")
             if os.path.exists(path):
-                self._boosters[zone] = joblib.load(path).get_booster()
+                sk = joblib.load(path)
+                self._boosters[zone] = sk.get_booster()
+                self._iter_range[zone] = resolve_iteration_range(sk)
+
+    def iteration_range(self, zone):
+        """Tree slice for `zone`, mirroring the engine's fall-back-to-primary
+        booster lookup so the range always matches the booster actually used."""
+        return self._iter_range.get(zone if zone in self._boosters else 'primary', (0, 0))
                 
         # Find project root dynamically
         curr = os.path.dirname(os.path.abspath(__file__))
@@ -93,5 +107,5 @@ class YACModelV011:
             raise TypeError("Unsupported feature_data format.")
             
         X = X.astype(np.float32, copy=False)
-        pred = float(self._boosters[zone].inplace_predict(X)[0])
+        pred = float(self._boosters[zone].inplace_predict(X, iteration_range=self.iteration_range(zone))[0])
         return max(0.0, pred)

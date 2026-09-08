@@ -219,6 +219,19 @@ CLEAN_POCKET_THROWAWAY_RATE = 0.055
 PRESSURE_THROWAWAY_DIVERT = 0.06   # fraction of would-be-sacks that become throwaways
 
 
+# Kickoff return yardage (2026-09-08 audit, S2-2). Real 2025 post-rule-change
+# PBP (nfl_data_py, 2,315 returned kickoffs -- see docs/eda_outputs/kicking_timing
+# and scripts/eda/analyze_kicking_timing.py): return yards mean 24.3, sd 10.4,
+# median 25, essentially zero negative returns, and a 0.30% return-TD rate.
+# The old model drew lognormal(mean=0.2134, sigma=2.9122) - 1.0, whose sigma=2.9
+# tail put the *mean* return near 80 yds and turned ~6.7% of returns into TDs
+# (~0.6 kickoff-return TDs per game vs the real ~0.04). Modeled now as a
+# clipped Normal plus an explicit small house-call probability.
+KO_RETURN_MEAN = 24.3
+KO_RETURN_SD = 10.4
+KO_RETURN_TD_RATE = 0.003
+
+
 # Trench tail-widening (2026-09-06, Cam's call). The composite z-scores in
 # trench_dna.json (run_block_off_z / pass_block_off_z / run_def_z / pass_def_z)
 # are ~standard-normal, so the top/bottom teams sit only ~1.5-2 sd from average
@@ -1015,10 +1028,8 @@ class NFLGameEngine:
             # essentially instant (real 2021-2025 mean 0.009s, median/P25/P75
             # all 0s -- the whistle blows dead in the end zone, no live clock
             # runs) -- previously modeled with the same 4-7s range as returns,
-            # overstating touchback time every time. Returns keep the existing
-            # range (real median ~5s, matches).
+            # overstating touchback time every time.
             ko_runoff = np.zeros(n_ko, dtype=np.int32)
-            ko_runoff[~is_tb] = np.random.randint(4, 7, size=np.sum(~is_tb))
 
             # Initialize default yardline
             yardlines = np.zeros(n_ko, dtype=np.int32)
@@ -1026,18 +1037,23 @@ class NFLGameEngine:
             # Touchbacks go to 30-yard line (70 yards to go)
             yardlines[is_tb] = 70
 
-            # Returns: Shifted Log-Normal. Params undocumented -- no citation
-            # of source/fit methodology found (2026-07-21 audit). Flagged for
-            # a future real-data recheck, same as punt/INT/fumble return
-            # yardage below -- deprioritized since these are all comparatively
-            # rare plays; Cam's call is this matters more for its downstream
-            # clock-timing effect (long returns run more clock) than for the
-            # exact yardage shape, so a recheck should measure both together.
+            # Returns: clipped Normal fit to real 2025 post-rule PBP (mean 24.3,
+            # sd 10.4, ~0 negatives) plus an explicit 0.30% house-call rate --
+            # see the KO_RETURN_* module constants for why the old
+            # lognormal(0.2134, 2.9122) had to go.
             n_ret = np.sum(~is_tb)
             if n_ret > 0:
-                ret_vals = np.random.lognormal(mean=0.2134, sigma=2.9122, size=n_ret) - 1.0
-                ret_yds = np.round(ret_vals).astype(np.int32)
-                ko_runoff[~is_tb] = np.clip(np.round(4 + np.maximum(0, ret_yds) / 5.0), 4, 14).astype(np.int32)
+                ret_td_roll = np.random.rand(n_ret) < KO_RETURN_TD_RATE
+                ret_yds = np.clip(
+                    np.round(np.random.normal(KO_RETURN_MEAN, KO_RETURN_SD, size=n_ret)),
+                    0, 99,
+                ).astype(np.int32)
+                ret_yds[ret_td_roll] = 100  # forced return TD -> final_yds == 0 below
+
+                # Return live-clock runoff: real median 5s, P25-P75 5-6s, and it
+                # barely varies with return length (a return is ~5s of live
+                # action regardless) -- docs/eda_outputs/kicking_timing.
+                ko_runoff[~is_tb] = np.random.randint(5, 7, size=n_ret)
 
                 # Kickoff starts at 100 yards to go
                 final_yds = 100 - ret_yds
@@ -1358,10 +1374,15 @@ class NFLGameEngine:
                 booster_name = f"{zone}_{b}"
                 booster = self.registry.play_selection_buckets.get(booster_name)
                 if not booster:
-                    booster = self.registry.play_selection_buckets.get(f"primary_{b}")
-                    
+                    booster_name = f"primary_{b}"
+                    booster = self.registry.play_selection_buckets.get(booster_name)
+
                 if booster:
-                    base_pass_prob[sub_idx] = booster.inplace_predict(X_b_zone)
+                    # iteration_range: these buckets were early-stopped in
+                    # training; without this the booster serves its overfit
+                    # tail (see model_registry load comment / audit phase 1).
+                    base_pass_prob[sub_idx] = booster.inplace_predict(
+                        X_b_zone, iteration_range=self.registry.play_selection_iter_ranges.get(booster_name, (0, 0)))
                 else:
                     base_pass_prob[sub_idx] = 0.58
 
@@ -2002,7 +2023,8 @@ class NFLGameEngine:
                             ], axis=1)
                             
                             if booster:
-                                yac[zone_mask] = booster.inplace_predict(X_yac_zone)
+                                yac[zone_mask] = booster.inplace_predict(
+                                    X_yac_zone, iteration_range=self.registry.yac_model.iteration_range(zone))
                             else:
                                 yac[zone_mask] = 4.2
                                 
@@ -2173,7 +2195,8 @@ class NFLGameEngine:
                 ], axis=1)
                 
                 if booster:
-                    pred_log_zone = booster.inplace_predict(X_run_zone)
+                    pred_log_zone = booster.inplace_predict(
+                        X_run_zone, iteration_range=self.registry.rush_model.iteration_range(zone))
                     pred_unshifted[zone_mask] = np.exp(pred_log_zone) - 30.0
                 else:
                     pred_unshifted[zone_mask] = 4.0

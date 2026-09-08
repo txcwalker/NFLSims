@@ -22,6 +22,31 @@ calibrate (pass volume, air yards, scoring).
 
 ---
 
+> **UPDATE 2026-09-08 — S2-1 and S2-2 fixed** (carve-out, ahead of Phase 2).
+> Both verified, 97 tests green. Measured effect on a 12-matchup ×300 sample:
+>
+> | metric | before | after | real |
+> |---|---|---|---|
+> | game total | ~48–51 | **43.2** | ~44–45 |
+> | pass att / team / g | 30.6 | 30.6 | ~33–35 |
+> | pass yds / team / g | ~213 | 214 | ~215–235 |
+> | rush yds / team / g | — | 128 | ~110–120 |
+>
+> **S2-2 (kickoff) was the big one** — removing ~0.55 phantom return TDs/game
+> pulled scoring from ~5 pts over onto the real average. **S2-1 (iteration_range)
+> moved aggregates ~1%**, not the 2–15pp implied below — the 0.15 was the *worst
+> single bucket's worst prediction*, not the mean impact (most buckets: mean
+> |Δ| ~0.02). Still worth it: every model now matches its validated state.
+>
+> Net for Phase 2: the **pass-volume shortfall is now cleanly isolated** — 30.6
+> att/g vs 33–35 real, and it is NOT special-teams noise or overfit trees. It's
+> the play-selection base rate + game-script response, which is Phase 2's remit.
+> A full season regenerate (standings / win dist / per-team points) still needs
+> running in the end fix-pass; the sample above is the working baseline for
+> Phase 2's analysis.
+
+---
+
 ## S2-1 — `iteration_range` not applied to 4 hot-path models (serving overfit trees)
 
 **AGENTS.md §0 (2026-07-21) documented this exact bug and lesson:** an XGBoost
@@ -34,9 +59,9 @@ and **Gate 4** (`chaos_v_0_1_0/inference.py:106,130`). It was **not** applied to
 |---|---|---|---|
 | **play-selection** | `train.py:203` (`early_stopping_rounds=30`) | `game_engine.py:1364` bare | pass-prob **mean 0.02, max 0.15**; worst bucket `redzone_3_short` **peaked at iteration 4, serves 35 trees** (mean Δ 0.157) |
 | **air-yards** tri-gate + 3 regressors | `train_zone_split.py:188,208` | `air_yards_v_0_1_1/inference.py:89,104` bare | std-depth **±0.40 yd mean**, deep **±0.92 yd mean** (max 2.9) |
-| **YAC** zone regressors | `train_zone_split.py:170` (`n_estimators=600`) | `yac_model_v_0_1_1/inference.py:96` bare | not measured — same mechanism |
-| **rush-yards** zone | (check `train`) | `rush_yards_v_0_1_0/inference.py:98` bare | not measured |
-| chaos **Gate 2** | (check `train_gate2`) | `game_engine.py:1529` / `chaos/inference.py:93` bare | not measured |
+| **YAC** zone regressors | `train_zone_split.py:170` (`n_estimators=600`) | `yac_model_v_0_1_1/inference.py:96` bare | best_iteration 66/56/29 of 97/... → **31/41/68 overfit trees** |
+| **rush-yards** zone | no early stopping (confirmed — no `best_iteration` in artifact) | bare | **no issue** — fix is a defensive no-op |
+| chaos **Gate 2** | no early stopping (confirmed — 300/300 trees, empty attrs) | bare | **no issue** |
 
 `best_iteration` **is** retained in the saved artifacts (verified — it's in the
 booster `attributes()` for both the `.joblib` and `.json` saves), so the fix is

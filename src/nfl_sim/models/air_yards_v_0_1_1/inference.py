@@ -3,6 +3,8 @@ import json
 import numpy as np
 import os
 
+from ...utils import resolve_iteration_range
+
 MODEL_DIR = "src/nfl_sim/models/air_yards_v_0_1_1"
 
 class AirYardsDoubleHurdleSampler:
@@ -47,21 +49,31 @@ class AirYardsDoubleHurdleSampler:
         self.capture = False
         self.captured = []
         
-        # Load boosters for all zones
+        # Load boosters for all zones. Every gate/regressor here was trained
+        # with early_stopping_rounds=30 (train_zone_split.py), so each carries a
+        # best_iteration short of its full tree count -- inplace_predict() below
+        # must be told to stop there or it serves the overfit tail (measured:
+        # std depth +/-0.40 yd, deep +/-0.92 yd vs the validated model). See
+        # ...utils.resolve_iteration_range and docs/audit/2026_09_audit/phase_1.
         self._gate_boosters = {}
         self._reg_boosters = {}
-        
+        self._gate_iter_range = {}
+        self._reg_iter_range = {}
+
         for zone in ['primary', 'redzone', 'goalline']:
             gate_path = os.path.join(model_dir, f"{zone}_tri_gate.joblib")
             if os.path.exists(gate_path):
                 gate_sklearn = joblib.load(gate_path)
                 self._gate_boosters[zone] = gate_sklearn.get_booster()
-                
-                self._reg_boosters[zone] = {
-                    0: joblib.load(os.path.join(model_dir, f"{zone}_screen_reg.joblib")).get_booster(),
-                    1: joblib.load(os.path.join(model_dir, f"{zone}_std_reg.joblib")).get_booster(),
-                    2: joblib.load(os.path.join(model_dir, f"{zone}_deep_reg.joblib")).get_booster()
+                self._gate_iter_range[zone] = resolve_iteration_range(gate_sklearn)
+
+                reg_sklearn = {
+                    0: joblib.load(os.path.join(model_dir, f"{zone}_screen_reg.joblib")),
+                    1: joblib.load(os.path.join(model_dir, f"{zone}_std_reg.joblib")),
+                    2: joblib.load(os.path.join(model_dir, f"{zone}_deep_reg.joblib")),
                 }
+                self._reg_boosters[zone] = {lvl: m.get_booster() for lvl, m in reg_sklearn.items()}
+                self._reg_iter_range[zone] = {lvl: resolve_iteration_range(m) for lvl, m in reg_sklearn.items()}
 
     def sample(self, X, zone='primary'):
         if zone not in self._gate_boosters:
@@ -86,7 +98,7 @@ class AirYardsDoubleHurdleSampler:
             self.captured.append((np.array(X_feat, copy=True), zone))
 
         # 2. Gate
-        probs = self._gate_boosters[zone].inplace_predict(X_feat)
+        probs = self._gate_boosters[zone].inplace_predict(X_feat, iteration_range=self._gate_iter_range[zone])
         if probs.ndim == 1:
             probs = probs.reshape(1, -1)
 
@@ -101,7 +113,8 @@ class AirYardsDoubleHurdleSampler:
             n = int(mask.sum())
             if n == 0:
                 continue
-            base_preds = self._reg_boosters[zone][lvl].inplace_predict(X_feat[mask])
+            base_preds = self._reg_boosters[zone][lvl].inplace_predict(
+                X_feat[mask], iteration_range=self._reg_iter_range[zone][lvl])
 
             if lvl == 0:
                 # screen: near-symmetric, keep clipped Gaussian

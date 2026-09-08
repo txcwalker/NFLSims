@@ -16,6 +16,7 @@ import numpy as np
 import os
 import json
 import pandas as pd
+from .utils import resolve_iteration_range
 from .models.air_yards_v_0_1_1.inference import AirYardsDoubleHurdleSampler
 from .models.yac_model_v_0_1_1.inference import YACModelV011
 from .models.rush_yards_v_0_1_0.inference import RushYardsModelV010
@@ -91,7 +92,15 @@ class ModelRegistry:
             from .models.clock_pace_v_0_1_0.inference import ClockPaceModelV010
             self.clock_pace_model = ClockPaceModelV010(clock_pace_dir)
         
-        # Play Selection V.0.1.0 Buckets (three zones loaded dynamically)
+        # Play Selection V.0.1.0 Buckets (three zones loaded dynamically).
+        # Each bucket booster was trained with early_stopping_rounds=30
+        # (train.py) -- best_iteration is carried in the native-json booster
+        # attributes. game_engine.py calls inplace_predict on these directly,
+        # so it must pass the matching iteration_range or the model serves its
+        # overfit tail (measured: pass-prob off up to 0.15, worst in the
+        # redzone/short buckets). See utils.resolve_iteration_range / audit
+        # phase 1, and the identical Gate 2b/4 handling in chaos/inference.py.
+        self.play_selection_iter_ranges = {}
         ps_dir = os.path.join(self.model_dir, 'play_selection_v_0_1_0')
         if os.path.exists(ps_dir):
             for f in os.listdir(ps_dir):
@@ -99,7 +108,9 @@ class ModelRegistry:
                     b_name = f.replace('.json', '')
                     m = xgb.XGBClassifier()
                     m.load_model(os.path.join(ps_dir, f))
-                    self.play_selection_buckets[b_name] = m.get_booster()
+                    booster = m.get_booster()
+                    self.play_selection_buckets[b_name] = booster
+                    self.play_selection_iter_ranges[b_name] = resolve_iteration_range(booster)
 
         # Find project root dynamically
         curr = os.path.dirname(os.path.abspath(__file__))
@@ -138,10 +149,13 @@ class ModelRegistry:
         bucket = self.get_bucket_name(state['down'], state['distance'])
         
         # Select correct submodel based on zone
-        booster = self.play_selection_buckets.get(f"{zone}_{bucket}")
+        b_key = f"{zone}_{bucket}"
+        booster = self.play_selection_buckets.get(b_key)
         if not booster:
-            booster = self.play_selection_buckets.get(f"primary_{bucket}")
+            b_key = f"primary_{bucket}"
+            booster = self.play_selection_buckets.get(b_key)
         if not booster: return 0.58  # Baseline
+        iter_range = self.play_selection_iter_ranges.get(b_key, (0, 0))
         
         # Build features mapping
         qb_name = state.get('active_qb', 'Unknown')
@@ -188,7 +202,7 @@ class ModelRegistry:
         ]
         
         X = np.array([full_feat], dtype=np.float32)
-        return float(booster.inplace_predict(X)[0])
+        return float(booster.inplace_predict(X, iteration_range=iter_range)[0])
 
     def predict_4th_down_probas(self, features):
         yardline_100 = features[0]

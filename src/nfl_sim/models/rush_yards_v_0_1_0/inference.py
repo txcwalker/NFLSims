@@ -3,6 +3,8 @@ import json
 import numpy as np
 import xgboost as xgb
 
+from ...utils import resolve_iteration_range
+
 class RushYardsModelV010:
     def __init__(self, model_dir="src/nfl_sim/models/rush_yards_v_0_1_0"):
         self.model_dir = model_dir
@@ -14,15 +16,20 @@ class RushYardsModelV010:
         self.features = self.metadata['features']
         self.residuals_pools = self.metadata.get('residuals_pools', {})
         
-        # Load boosters
+        # Load boosters. If trained with early stopping, best_iteration is
+        # carried in the native-json booster attributes -- resolve_iteration_range
+        # reads it there and inplace_predict is told to stop at it (see audit
+        # phase 1 / models/chaos_v_0_1_0 for the same handling).
         self._boosters = {}
+        self._iter_range = {}
         for zone in ['primary', 'redzone', 'goalline']:
             path = os.path.join(model_dir, f"{zone}_rush_yards_model.json")
             if os.path.exists(path):
                 m = xgb.XGBRegressor()
                 m.load_model(path)
                 self._boosters[zone] = m.get_booster()
-                
+                self._iter_range[zone] = resolve_iteration_range(m)
+
         # Find project root dynamically
         curr = os.path.dirname(os.path.abspath(__file__))
         project_root = curr
@@ -41,7 +48,12 @@ class RushYardsModelV010:
             "target_share": 0.0,
             "carry_share": 0.0
         }
-        
+
+    def iteration_range(self, zone):
+        """Tree slice for `zone`, mirroring the engine's fall-back-to-primary
+        booster lookup so the range always matches the booster actually used."""
+        return self._iter_range.get(zone if zone in self._boosters else 'primary', (0, 0))
+
     def predict(self, feature_data, roster_traits=None, zone='primary'):
         if zone not in self._boosters:
             zone = 'primary'
@@ -95,7 +107,7 @@ class RushYardsModelV010:
             raise TypeError("Unsupported feature_data format.")
             
         X_f32 = X.astype(np.float32, copy=False)
-        pred_log = float(self._boosters[zone].inplace_predict(X_f32)[0])
+        pred_log = float(self._boosters[zone].inplace_predict(X_f32, iteration_range=self.iteration_range(zone))[0])
         pred_unshifted = np.exp(pred_log) - 30.0
         
         # Empirical residual noise injection
