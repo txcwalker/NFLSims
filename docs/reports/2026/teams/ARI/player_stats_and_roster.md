@@ -8,147 +8,147 @@
 
 | Player | Pos | Rush Att | Rush Yds | Rush TDs |
 | :--- | :---: | :---: | :---: | :---: |
-| **Jeremiyah Love** | RB | 203.0 | 811.0 | 3.0 |
-| **Tyler Allgeier** | RB | 98.0 | 384.0 | 2.0 |
-| **James Conner** | RB | 72.0 | 285.0 | 2.0 |
-| **Jacoby Brissett** | QB | 17.0 | 97.0 | 1.0 |
-| **Trey Benson** | RB | 8.0 | 27.0 | 0.0 |
-| **Marvin Harrison** | WR | 2.0 | 6.0 | 0.0 |
-| **Michael Wilson** | WR | 2.0 | 5.0 | 0.0 |
-| **Trey McBride** | TE | 2.0 | 6.0 | 0.0 |
-| **Total** | — | 404.0 | 1621.0 | 8.0 |
+| **Jeremiyah Love** | RB | 182.0 | 721.0 | 3.0 |
+| **Tyler Allgeier** | RB | 87.0 | 339.0 | 2.0 |
+| **James Conner** | RB | 65.0 | 254.0 | 1.0 |
+| **Jacoby Brissett** | QB | 18.0 | 103.0 | 1.0 |
+| **Trey Benson** | RB | 7.0 | 25.0 | 0.0 |
+| **Marvin Harrison** | WR | 2.0 | 4.0 | 0.0 |
+| **Michael Wilson** | WR | 2.0 | 4.0 | 0.0 |
+| **Trey McBride** | TE | 2.0 | 4.0 | 0.0 |
+| **Total** | — | 365.0 | 1454.0 | 7.0 |
 
 **By Targets (season median)**
 
 | Player | Pos | Targets | Rec | Rec Yds | Rec TDs |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Trey McBride** | TE | 126.0 | 87.0 | 818.0 | 6.0 |
-| **Marvin Harrison** | WR | 104.0 | 62.0 | 748.0 | 5.0 |
-| **Michael Wilson** | WR | 92.0 | 55.0 | 680.0 | 4.0 |
-| **Jeremiyah Love** | RB | 59.0 | 44.0 | 385.0 | 2.0 |
-| **Kendrick Bourne** | WR | 31.0 | 21.0 | 244.0 | 1.0 |
-| **Devin Duvernay** | WR | 26.0 | 16.0 | 209.0 | 1.0 |
-| **James Conner** | RB | 26.0 | 21.0 | 176.0 | 1.0 |
-| **Elijah Higgins** | TE | 24.0 | 17.0 | 158.0 | 1.0 |
-| **Jalen Brooks** | WR | 17.0 | 10.0 | 122.0 | 1.0 |
-| **Tyler Allgeier** | RB | 13.0 | 10.0 | 68.0 | 0.0 |
-| **Trey Benson** | RB | 7.5 | 6.0 | 42.0 | 0.0 |
-| **Total** | — | 525.5 | 349.0 | 3650.0 | 22.0 |
+| **Trey McBride** | TE | 136.0 | 94.0 | 880.0 | 7.0 |
+| **Marvin Harrison** | WR | 113.0 | 67.0 | 808.5 | 6.0 |
+| **Michael Wilson** | WR | 100.0 | 60.0 | 739.5 | 5.0 |
+| **Jeremiyah Love** | RB | 64.0 | 48.0 | 415.0 | 2.0 |
+| **Kendrick Bourne** | WR | 34.0 | 23.0 | 261.0 | 2.0 |
+| **James Conner** | RB | 29.0 | 23.0 | 187.0 | 1.0 |
+| **Devin Duvernay** | WR | 28.0 | 17.0 | 228.0 | 1.0 |
+| **Elijah Higgins** | TE | 26.0 | 19.0 | 168.0 | 1.0 |
+| **Jalen Brooks** | WR | 19.0 | 11.0 | 130.0 | 1.0 |
+| **Tyler Allgeier** | RB | 14.0 | 11.0 | 76.0 | 0.0 |
+| **Trey Benson** | RB | 8.0 | 7.0 | 47.0 | 0.0 |
+| **Total** | — | 571.0 | 380.0 | 3940.0 | 26.0 |
 
 ## Quarterbacks
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Jacoby Brissett** | QB | Pass Yds | 2897.0 | 3290.7 | 3521.0 | **3705.5** | 3875.0 | 4128.1 | 4591.0 |
-| **Jacoby Brissett** | QB | Pass TDs | 12.0 | 18.0 | 22.0 | **25.0** | 27.0 | 32.0 | 42.0 |
-| **Jacoby Brissett** | QB | Cmp % | 54.7 | 59.2 | 61.2 | **62.6** | 63.9 | 65.9 | 70.4 |
-| **Jacoby Brissett** | QB | INTs | 2.0 | 6.0 | 9.0 | **11.0** | 14.0 | 18.0 | 22.0 |
-| **Jacoby Brissett** | QB | Std Fantasy | 137.4 | 184.3 | 207.2 | **226.1** | 244.2 | 271.8 | 327.0 |
-| **Jacoby Brissett** | QB | DK Fantasy | 160.8 | 206.5 | 229.8 | **248.3** | 267.8 | 294.8 | 346.0 |
-| **Team Total** | — | Pass Yds | 2897.0 | 3290.7 | 3521.0 | **3705.5** | 3875.0 | 4128.1 | 4591.0 |
-| **Team Total** | — | Pass TDs | 12.0 | 18.0 | 22.0 | **25.0** | 27.0 | 32.0 | 42.0 |
-| **Team Total** | — | Cmp % | 54.7 | 59.2 | 61.2 | **62.6** | 63.9 | 65.9 | 70.4 |
-| **Team Total** | — | INTs | 2.0 | 6.0 | 9.0 | **11.0** | 14.0 | 18.0 | 22.0 |
-| **Team Total** | — | Std Fantasy | 137.4 | 184.3 | 207.2 | **226.1** | 244.2 | 271.8 | 327.0 |
-| **Team Total** | — | DK Fantasy | 160.8 | 206.5 | 229.8 | **248.3** | 267.8 | 294.8 | 346.0 |
+| **Jacoby Brissett** | QB | Pass Yds | 2922.0 | 3565.9 | 3810.8 | **3996.0** | 4189.5 | 4434.1 | 4894.0 |
+| **Jacoby Brissett** | QB | Pass TDs | 14.0 | 20.0 | 24.0 | **27.0** | 30.0 | 34.0 | 44.0 |
+| **Jacoby Brissett** | QB | Cmp % | 55.5 | 59.0 | 61.0 | **62.5** | 63.9 | 65.9 | 68.6 |
+| **Jacoby Brissett** | QB | INTs | 3.0 | 7.0 | 10.0 | **12.0** | 15.0 | 19.0 | 26.0 |
+| **Jacoby Brissett** | QB | Std Fantasy | 159.9 | 201.3 | 226.3 | **244.4** | 264.0 | 294.0 | 349.2 |
+| **Jacoby Brissett** | QB | DK Fantasy | 184.8 | 226.0 | 252.3 | **271.2** | 291.9 | 322.3 | 372.2 |
+| **Team Total** | — | Pass Yds | 2922.0 | 3565.9 | 3810.8 | **3996.0** | 4189.5 | 4434.1 | 4894.0 |
+| **Team Total** | — | Pass TDs | 14.0 | 20.0 | 24.0 | **27.0** | 30.0 | 34.0 | 44.0 |
+| **Team Total** | — | Cmp % | 55.5 | 59.0 | 61.0 | **62.5** | 63.9 | 65.9 | 68.6 |
+| **Team Total** | — | INTs | 3.0 | 7.0 | 10.0 | **12.0** | 15.0 | 19.0 | 26.0 |
+| **Team Total** | — | Std Fantasy | 159.9 | 201.3 | 226.3 | **244.4** | 264.0 | 294.0 | 349.2 |
+| **Team Total** | — | DK Fantasy | 184.8 | 226.0 | 252.3 | **271.2** | 291.9 | 322.3 | 372.2 |
 
 ## Running Backs
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **James Conner** | RB3 | Rush Att | 49.0 | 58.0 | 67.0 | **72.0** | 78.0 | 87.0 | 100.0 |
-| **James Conner** | RB3 | Rush Yds | 106.0 | 193.9 | 244.0 | **285.0** | 324.0 | 387.0 | 469.0 |
-| **James Conner** | RB3 | Rush TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 4.0 | 6.0 |
-| **James Conner** | RB3 | Receptions | 11.0 | 15.0 | 18.0 | **21.0** | 24.0 | 29.0 | 36.0 |
-| **James Conner** | RB3 | Std Fantasy | 36.6 | 48.2 | 61.7 | **72.3** | 82.9 | 99.5 | 125.3 |
-| **James Conner** | RB3 | DK Fantasy | 46.3 | 58.1 | 72.2 | **83.7** | 95.3 | 113.3 | 136.3 |
-| **Jeremiyah Love** | RB1 | Rush Att | 155.0 | 180.0 | 193.0 | **203.0** | 213.0 | 229.0 | 250.0 |
-| **Jeremiyah Love** | RB1 | Rush Yds | 502.0 | 664.0 | 752.0 | **811.0** | 882.2 | 1009.0 | 1201.0 |
+| **James Conner** | RB3 | Rush Att | 37.0 | 51.0 | 59.0 | **65.0** | 70.2 | 79.0 | 98.0 |
+| **James Conner** | RB3 | Rush Yds | 96.0 | 168.0 | 216.0 | **254.0** | 289.0 | 354.0 | 476.0 |
+| **James Conner** | RB3 | Rush TDs | 0.0 | 0.0 | 1.0 | **1.0** | 2.0 | 4.0 | 6.0 |
+| **James Conner** | RB3 | Receptions | 10.0 | 16.0 | 20.0 | **23.0** | 26.0 | 31.0 | 41.0 |
+| **James Conner** | RB3 | Std Fantasy | 28.3 | 47.4 | 60.4 | **70.6** | 82.2 | 98.5 | 145.7 |
+| **James Conner** | RB3 | DK Fantasy | 34.8 | 57.1 | 72.0 | **83.0** | 95.3 | 112.9 | 157.2 |
+| **Jeremiyah Love** | RB1 | Rush Att | 130.0 | 158.0 | 172.0 | **182.0** | 192.0 | 207.0 | 225.0 |
+| **Jeremiyah Love** | RB1 | Rush Yds | 467.0 | 570.0 | 656.0 | **721.0** | 790.0 | 898.0 | 1043.0 |
 | **Jeremiyah Love** | RB1 | Rush TDs | 0.0 | 1.0 | 2.0 | **3.0** | 5.0 | 7.0 | 10.0 |
-| **Jeremiyah Love** | RB1 | Receptions | 22.0 | 34.0 | 40.0 | **44.0** | 49.0 | 55.0 | 64.0 |
-| **Jeremiyah Love** | RB1 | Std Fantasy | 113.0 | 139.0 | 159.9 | **175.4** | 190.9 | 218.8 | 267.0 |
-| **Jeremiyah Love** | RB1 | DK Fantasy | 134.0 | 159.9 | 184.0 | **201.1** | 218.8 | 250.4 | 302.5 |
-| **Trey Benson** | RB4 | Rush Att | 1.0 | 3.0 | 6.0 | **8.0** | 10.0 | 13.0 | 20.0 |
-| **Trey Benson** | RB4 | Rush Yds | -11.0 | 6.0 | 17.8 | **27.0** | 40.0 | 69.0 | 117.0 |
+| **Jeremiyah Love** | RB1 | Receptions | 25.0 | 36.0 | 43.0 | **48.0** | 52.0 | 60.0 | 70.0 |
+| **Jeremiyah Love** | RB1 | Std Fantasy | 92.6 | 133.7 | 152.9 | **170.6** | 187.4 | 213.1 | 257.8 |
+| **Jeremiyah Love** | RB1 | DK Fantasy | 115.1 | 157.7 | 178.1 | **197.3** | 216.9 | 244.8 | 304.8 |
+| **Trey Benson** | RB4 | Rush Att | 0.0 | 3.0 | 5.0 | **7.0** | 9.0 | 12.0 | 19.0 |
+| **Trey Benson** | RB4 | Rush Yds | -8.0 | 5.0 | 15.0 | **25.0** | 38.0 | 64.0 | 137.0 |
 | **Trey Benson** | RB4 | Rush TDs | 0.0 | 0.0 | 0.0 | **0.0** | 0.0 | 1.0 | 3.0 |
-| **Trey Benson** | RB4 | Receptions | 0.0 | 2.0 | 4.0 | **6.0** | 8.0 | 11.0 | 14.0 |
-| **Trey Benson** | RB4 | Std Fantasy | -0.1 | 4.3 | 8.2 | **12.6** | 17.3 | 25.5 | 45.3 |
-| **Trey Benson** | RB4 | DK Fantasy | 1.1 | 6.2 | 10.9 | **15.8** | 20.8 | 30.2 | 50.8 |
-| **Tyler Allgeier** | RB2 | Rush Att | 69.0 | 82.0 | 91.0 | **98.0** | 105.0 | 115.0 | 131.0 |
-| **Tyler Allgeier** | RB2 | Rush Yds | 178.0 | 280.0 | 340.0 | **384.0** | 430.0 | 502.0 | 601.0 |
-| **Tyler Allgeier** | RB2 | Rush TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 5.0 | 10.0 |
-| **Tyler Allgeier** | RB2 | Receptions | 2.0 | 6.0 | 8.0 | **10.0** | 12.0 | 16.0 | 23.0 |
-| **Tyler Allgeier** | RB2 | Std Fantasy | 28.7 | 45.0 | 57.8 | **66.8** | 77.6 | 92.4 | 123.0 |
-| **Tyler Allgeier** | RB2 | DK Fantasy | 32.7 | 49.7 | 63.2 | **72.6** | 83.8 | 98.8 | 130.0 |
-| **Team Total** | — | Rush Att | 318.0 | 346.0 | 366.0 | **381.0** | 396.0 | 420.0 | 447.0 |
-| **Team Total** | — | Rush Yds | 1102.0 | 1306.0 | 1423.8 | **1517.0** | 1619.2 | 1759.1 | 2073.0 |
-| **Team Total** | — | Rush TDs | 1.0 | 4.0 | 6.0 | **8.0** | 10.0 | 13.0 | 17.0 |
-| **Team Total** | — | Receptions | 51.0 | 67.0 | 76.0 | **82.0** | 88.0 | 97.0 | 110.0 |
-| **Team Total** | — | Std Fantasy | 238.0 | 277.1 | 308.2 | **330.6** | 351.7 | 384.4 | 426.9 |
-| **Team Total** | — | DK Fantasy | 279.5 | 319.1 | 351.7 | **376.8** | 399.5 | 436.5 | 482.4 |
+| **Trey Benson** | RB4 | Receptions | 1.0 | 3.0 | 5.0 | **7.0** | 8.0 | 11.0 | 17.0 |
+| **Trey Benson** | RB4 | Std Fantasy | -2.2 | 4.7 | 8.9 | **12.9** | 18.2 | 27.6 | 49.0 |
+| **Trey Benson** | RB4 | DK Fantasy | -0.7 | 6.2 | 11.7 | **16.6** | 22.2 | 32.3 | 54.5 |
+| **Tyler Allgeier** | RB2 | Rush Att | 60.0 | 72.0 | 81.0 | **87.0** | 94.0 | 103.0 | 114.0 |
+| **Tyler Allgeier** | RB2 | Rush Yds | 153.0 | 238.0 | 292.0 | **339.0** | 379.0 | 453.1 | 582.0 |
+| **Tyler Allgeier** | RB2 | Rush TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 5.0 | 9.0 |
+| **Tyler Allgeier** | RB2 | Receptions | 2.0 | 6.0 | 9.0 | **11.0** | 13.0 | 16.0 | 24.0 |
+| **Tyler Allgeier** | RB2 | Std Fantasy | 27.3 | 40.8 | 53.1 | **61.6** | 72.5 | 86.4 | 123.4 |
+| **Tyler Allgeier** | RB2 | DK Fantasy | 31.4 | 46.9 | 59.0 | **68.1** | 78.8 | 93.9 | 128.9 |
+| **Team Total** | — | Rush Att | 274.0 | 307.0 | 327.0 | **342.0** | 357.0 | 378.0 | 407.0 |
+| **Team Total** | — | Rush Yds | 955.0 | 1131.0 | 1259.0 | **1343.5** | 1445.0 | 1585.0 | 1777.0 |
+| **Team Total** | — | Rush TDs | 0.0 | 3.0 | 5.0 | **7.0** | 9.0 | 12.0 | 22.0 |
+| **Team Total** | — | Receptions | 61.0 | 74.0 | 83.0 | **89.0** | 95.0 | 106.0 | 117.0 |
+| **Team Total** | — | Std Fantasy | 213.0 | 263.9 | 297.3 | **319.2** | 340.8 | 378.4 | 424.1 |
+| **Team Total** | — | DK Fantasy | 257.5 | 309.6 | 344.4 | **368.5** | 392.0 | 433.1 | 490.2 |
 
 ## Wide Receivers & Tight Ends
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Devin Duvernay** | WR5 | Targets | 12.0 | 18.0 | 22.0 | **26.0** | 29.0 | 34.0 | 45.0 |
-| **Devin Duvernay** | WR5 | Receptions | 7.0 | 10.0 | 13.0 | **16.0** | 18.0 | 22.0 | 27.0 |
-| **Devin Duvernay** | WR5 | Rec Yds | 62.0 | 110.0 | 167.0 | **209.0** | 263.0 | 346.0 | 452.0 |
-| **Devin Duvernay** | WR5 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 6.0 |
-| **Devin Duvernay** | WR5 | Std Fantasy | 10.9 | 18.1 | 27.9 | **36.1** | 45.0 | 58.7 | 82.6 |
-| **Devin Duvernay** | WR5 | DK Fantasy | 14.4 | 23.2 | 34.7 | **43.7** | 53.5 | 69.2 | 95.2 |
-| **Elijah Higgins** | WR6 | Targets | 9.0 | 16.0 | 20.0 | **24.0** | 27.0 | 32.0 | 40.0 |
-| **Elijah Higgins** | WR6 | Receptions | 6.0 | 11.0 | 14.0 | **17.0** | 20.0 | 25.0 | 32.0 |
-| **Elijah Higgins** | WR6 | Rec Yds | 30.0 | 81.0 | 123.0 | **158.0** | 192.0 | 253.0 | 308.0 |
-| **Elijah Higgins** | WR6 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 1.0 | 3.0 | 5.0 |
-| **Elijah Higgins** | WR6 | Std Fantasy | 6.4 | 15.1 | 23.1 | **29.3** | 36.5 | 48.1 | 66.0 |
-| **Elijah Higgins** | WR6 | DK Fantasy | 9.4 | 21.4 | 30.9 | **38.0** | 46.2 | 59.1 | 80.5 |
-| **Jalen Brooks** | WR7 | Targets | 6.0 | 11.0 | 15.0 | **17.0** | 20.0 | 25.0 | 34.0 |
-| **Jalen Brooks** | WR7 | Receptions | 2.0 | 5.0 | 8.0 | **10.0** | 12.0 | 16.0 | 21.0 |
-| **Jalen Brooks** | WR7 | Rec Yds | 7.0 | 48.0 | 86.0 | **122.0** | 159.0 | 223.0 | 350.0 |
-| **Jalen Brooks** | WR7 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 1.0 | 2.0 | 4.0 |
-| **Jalen Brooks** | WR7 | Std Fantasy | 2.3 | 8.3 | 15.2 | **21.0** | 27.6 | 38.3 | 53.6 |
-| **Jalen Brooks** | WR7 | DK Fantasy | 4.0 | 11.6 | 19.4 | **26.1** | 33.6 | 45.3 | 61.1 |
-| **Kendrick Bourne** | WR4 | Targets | 14.0 | 22.0 | 27.0 | **31.0** | 35.0 | 41.0 | 50.0 |
-| **Kendrick Bourne** | WR4 | Receptions | 8.0 | 14.0 | 18.0 | **21.0** | 24.0 | 29.0 | 36.0 |
-| **Kendrick Bourne** | WR4 | Rec Yds | 49.0 | 134.9 | 196.0 | **244.0** | 294.2 | 372.1 | 531.0 |
-| **Kendrick Bourne** | WR4 | Rec TDs | 0.0 | 0.0 | 1.0 | **1.0** | 2.0 | 4.0 | 7.0 |
-| **Kendrick Bourne** | WR4 | Std Fantasy | 9.4 | 23.9 | 35.3 | **44.0** | 52.4 | 69.1 | 90.7 |
-| **Kendrick Bourne** | WR4 | DK Fantasy | 13.9 | 31.4 | 44.6 | **54.5** | 64.5 | 83.3 | 107.2 |
-| **Marvin Harrison** | WR2 | Targets | 69.0 | 87.0 | 97.0 | **104.0** | 111.0 | 122.0 | 140.0 |
-| **Marvin Harrison** | WR2 | Receptions | 36.0 | 49.0 | 57.0 | **62.0** | 68.0 | 75.0 | 87.0 |
-| **Marvin Harrison** | WR2 | Rec Yds | 321.0 | 550.0 | 669.0 | **748.0** | 833.0 | 961.0 | 1167.0 |
-| **Marvin Harrison** | WR2 | Rec TDs | 0.0 | 2.0 | 4.0 | **5.0** | 7.0 | 9.0 | 15.0 |
-| **Marvin Harrison** | WR2 | Std Fantasy | 65.4 | 102.0 | 122.4 | **137.6** | 155.5 | 181.0 | 230.5 |
-| **Marvin Harrison** | WR2 | DK Fantasy | 86.0 | 128.2 | 153.2 | **172.3** | 193.1 | 223.7 | 282.5 |
-| **Michael Wilson** | WR3 | Targets | 64.0 | 77.0 | 86.0 | **92.0** | 99.0 | 108.0 | 121.0 |
-| **Michael Wilson** | WR3 | Receptions | 35.0 | 43.0 | 50.0 | **55.0** | 61.0 | 68.0 | 83.0 |
-| **Michael Wilson** | WR3 | Rec Yds | 323.0 | 498.9 | 590.8 | **680.0** | 769.0 | 882.0 | 1105.0 |
-| **Michael Wilson** | WR3 | Rec TDs | 0.0 | 1.0 | 3.0 | **4.0** | 6.0 | 8.0 | 12.0 |
-| **Michael Wilson** | WR3 | Std Fantasy | 64.0 | 88.2 | 107.6 | **121.5** | 138.1 | 159.8 | 206.9 |
-| **Michael Wilson** | WR3 | DK Fantasy | 83.0 | 112.3 | 134.7 | **151.8** | 170.7 | 197.1 | 249.9 |
-| **Trey McBride** | WR1 | Targets | 84.0 | 108.0 | 118.0 | **126.0** | 134.0 | 145.0 | 162.0 |
-| **Trey McBride** | WR1 | Receptions | 55.0 | 73.0 | 81.0 | **87.0** | 93.0 | 103.0 | 114.0 |
-| **Trey McBride** | WR1 | Rec Yds | 454.0 | 646.0 | 744.0 | **818.0** | 903.2 | 1040.0 | 1199.0 |
-| **Trey McBride** | WR1 | Rec TDs | 0.0 | 3.0 | 5.0 | **6.0** | 8.0 | 11.0 | 16.0 |
-| **Trey McBride** | WR1 | Std Fantasy | 95.3 | 128.9 | 148.3 | **163.6** | 179.5 | 205.4 | 255.3 |
-| **Trey McBride** | WR1 | DK Fantasy | 122.8 | 167.6 | 192.5 | **209.9** | 229.1 | 261.0 | 318.3 |
-| **Team Total** | — | Targets | 351.0 | 386.0 | 407.0 | **421.0** | 436.0 | 458.0 | 491.0 |
-| **Team Total** | — | Receptions | 188.0 | 241.0 | 257.8 | **269.0** | 280.0 | 297.0 | 322.0 |
-| **Team Total** | — | Rec Yds | 2212.0 | 2639.8 | 2851.0 | **3003.0** | 3173.2 | 3403.2 | 3871.0 |
-| **Team Total** | — | Rec TDs | 9.0 | 14.0 | 18.0 | **21.0** | 23.0 | 28.0 | 34.0 |
-| **Team Total** | — | Std Fantasy | 388.0 | 486.2 | 529.5 | **560.4** | 590.7 | 639.4 | 704.2 |
-| **Team Total** | — | DK Fantasy | 485.0 | 619.0 | 667.5 | **704.5** | 740.5 | 796.9 | 874.2 |
+| **Devin Duvernay** | WR5 | Targets | 15.0 | 19.0 | 24.0 | **28.0** | 31.0 | 36.0 | 42.0 |
+| **Devin Duvernay** | WR5 | Receptions | 6.0 | 10.0 | 14.0 | **17.0** | 19.0 | 24.0 | 33.0 |
+| **Devin Duvernay** | WR5 | Rec Yds | 44.0 | 120.0 | 179.0 | **228.0** | 274.2 | 362.0 | 500.0 |
+| **Devin Duvernay** | WR5 | Rec TDs | 0.0 | 0.0 | 0.8 | **1.0** | 2.0 | 4.0 | 5.0 |
+| **Devin Duvernay** | WR5 | Std Fantasy | 8.4 | 20.3 | 30.8 | **38.3** | 48.1 | 61.3 | 84.2 |
+| **Devin Duvernay** | WR5 | DK Fantasy | 12.4 | 25.8 | 38.3 | **47.0** | 57.5 | 72.7 | 98.2 |
+| **Elijah Higgins** | WR6 | Targets | 11.0 | 18.0 | 22.0 | **26.0** | 29.0 | 35.0 | 44.0 |
+| **Elijah Higgins** | WR6 | Receptions | 8.0 | 12.0 | 16.0 | **19.0** | 22.0 | 27.0 | 34.0 |
+| **Elijah Higgins** | WR6 | Rec Yds | 39.0 | 90.0 | 134.0 | **168.0** | 210.0 | 275.0 | 421.0 |
+| **Elijah Higgins** | WR6 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 5.0 |
+| **Elijah Higgins** | WR6 | Std Fantasy | 8.6 | 17.1 | 25.3 | **31.7** | 39.6 | 53.9 | 78.3 |
+| **Elijah Higgins** | WR6 | DK Fantasy | 12.6 | 24.0 | 33.6 | **41.2** | 50.5 | 66.6 | 92.3 |
+| **Jalen Brooks** | WR7 | Targets | 6.0 | 12.0 | 16.0 | **19.0** | 22.0 | 26.0 | 36.0 |
+| **Jalen Brooks** | WR7 | Receptions | 3.0 | 6.0 | 9.0 | **11.0** | 13.0 | 16.0 | 22.0 |
+| **Jalen Brooks** | WR7 | Rec Yds | 10.0 | 60.0 | 95.0 | **130.0** | 169.0 | 228.1 | 344.0 |
+| **Jalen Brooks** | WR7 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 1.0 | 2.0 | 6.0 |
+| **Jalen Brooks** | WR7 | Std Fantasy | 3.0 | 10.1 | 16.7 | **22.2** | 28.3 | 40.6 | 68.5 |
+| **Jalen Brooks** | WR7 | DK Fantasy | 5.0 | 14.0 | 21.3 | **27.9** | 34.8 | 47.9 | 75.5 |
+| **Kendrick Bourne** | WR4 | Targets | 18.0 | 25.0 | 30.0 | **34.0** | 38.0 | 45.0 | 54.0 |
+| **Kendrick Bourne** | WR4 | Receptions | 11.0 | 15.0 | 19.0 | **23.0** | 26.0 | 31.0 | 39.0 |
+| **Kendrick Bourne** | WR4 | Rec Yds | 77.0 | 152.9 | 212.0 | **261.0** | 309.0 | 402.0 | 511.0 |
+| **Kendrick Bourne** | WR4 | Rec TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 4.0 | 7.0 |
+| **Kendrick Bourne** | WR4 | Std Fantasy | 13.2 | 28.5 | 38.5 | **47.0** | 57.7 | 72.8 | 99.2 |
+| **Kendrick Bourne** | WR4 | DK Fantasy | 18.7 | 37.0 | 48.7 | **58.5** | 70.3 | 87.8 | 115.2 |
+| **Marvin Harrison** | WR2 | Targets | 77.0 | 95.0 | 106.0 | **113.0** | 120.0 | 133.0 | 146.0 |
+| **Marvin Harrison** | WR2 | Receptions | 41.0 | 53.0 | 62.0 | **67.0** | 73.0 | 82.0 | 96.0 |
+| **Marvin Harrison** | WR2 | Rec Yds | 426.0 | 602.9 | 720.8 | **808.5** | 900.0 | 1054.3 | 1335.0 |
+| **Marvin Harrison** | WR2 | Rec TDs | 0.0 | 2.0 | 4.0 | **6.0** | 7.0 | 10.0 | 14.0 |
+| **Marvin Harrison** | WR2 | Std Fantasy | 75.7 | 111.7 | 133.6 | **149.1** | 167.7 | 193.7 | 235.1 |
+| **Marvin Harrison** | WR2 | DK Fantasy | 96.2 | 140.0 | 168.1 | **187.3** | 208.8 | 241.3 | 290.6 |
+| **Michael Wilson** | WR3 | Targets | 72.0 | 85.0 | 94.0 | **100.0** | 108.0 | 117.0 | 133.0 |
+| **Michael Wilson** | WR3 | Receptions | 32.0 | 48.0 | 55.0 | **60.0** | 65.0 | 73.0 | 83.0 |
+| **Michael Wilson** | WR3 | Rec Yds | 397.0 | 539.0 | 649.0 | **739.5** | 827.0 | 963.0 | 1200.0 |
+| **Michael Wilson** | WR3 | Rec TDs | 0.0 | 2.0 | 3.0 | **5.0** | 6.0 | 9.0 | 11.0 |
+| **Michael Wilson** | WR3 | Std Fantasy | 65.7 | 98.7 | 118.0 | **132.4** | 150.3 | 174.2 | 212.8 |
+| **Michael Wilson** | WR3 | DK Fantasy | 88.2 | 126.7 | 148.1 | **165.9** | 185.8 | 215.1 | 263.3 |
+| **Trey McBride** | WR1 | Targets | 106.0 | 118.0 | 129.0 | **136.0** | 144.0 | 156.0 | 178.0 |
+| **Trey McBride** | WR1 | Receptions | 69.0 | 80.0 | 88.0 | **94.0** | 100.0 | 110.0 | 124.0 |
+| **Trey McBride** | WR1 | Rec Yds | 558.0 | 683.9 | 800.8 | **880.0** | 969.0 | 1086.0 | 1269.0 |
+| **Trey McBride** | WR1 | Rec TDs | 1.0 | 3.0 | 5.0 | **7.0** | 9.0 | 11.0 | 15.0 |
+| **Trey McBride** | WR1 | Std Fantasy | 112.6 | 139.7 | 160.8 | **176.1** | 194.2 | 218.9 | 259.9 |
+| **Trey McBride** | WR1 | DK Fantasy | 149.6 | 183.0 | 208.4 | **227.3** | 248.6 | 278.2 | 327.4 |
+| **Team Total** | — | Targets | 390.0 | 419.0 | 441.0 | **457.0** | 473.2 | 497.0 | 525.0 |
+| **Team Total** | — | Receptions | 233.0 | 262.9 | 280.0 | **291.0** | 303.0 | 320.0 | 351.0 |
+| **Team Total** | — | Rec Yds | 2383.0 | 2845.9 | 3075.8 | **3239.5** | 3420.0 | 3686.1 | 4000.0 |
+| **Team Total** | — | Rec TDs | 11.0 | 16.0 | 20.0 | **22.0** | 25.0 | 30.0 | 38.0 |
+| **Team Total** | — | Std Fantasy | 458.2 | 531.4 | 573.2 | **604.1** | 638.4 | 689.2 | 778.2 |
+| **Team Total** | — | DK Fantasy | 590.7 | 673.1 | 724.3 | **761.7** | 803.8 | 865.1 | 967.2 |
 
 ## Defense & Special Teams
 
 | DST Team | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Defense** | Sacks | 13.0 | 18.0 | 23.0 | **27.0** | 30.0 | 36.0 | 49.0 |
-| **Defense** | INTs | 1.0 | 4.0 | 7.0 | **8.0** | 10.0 | 14.0 | 18.0 |
-| **Defense** | Fumble Rec | 0.0 | 1.0 | 3.0 | **4.0** | 5.0 | 7.0 | 10.0 |
+| **Defense** | Sacks | 13.0 | 20.0 | 25.0 | **28.0** | 32.0 | 38.0 | 48.0 |
+| **Defense** | INTs | 1.0 | 4.0 | 7.0 | **9.0** | 11.0 | 14.0 | 20.0 |
+| **Defense** | Fumble Rec | 0.0 | 1.0 | 2.0 | **4.0** | 5.0 | 7.0 | 12.0 |
 | **Defense** | TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 6.0 |
-| **Defense** | Pts Allowed | 285.0 | 345.0 | 384.0 | **409.0** | 438.0 | 479.0 | 548.0 |
-| **Defense** | Std Fantasy | 6.0 | 34.0 | 49.0 | **59.5** | 71.0 | 89.0 | 110.0 |
-| **Defense** | DK Fantasy | 6.0 | 34.0 | 49.0 | **59.5** | 71.0 | 89.0 | 110.0 |
+| **Defense** | Pts Allowed | 304.0 | 354.9 | 395.8 | **421.0** | 447.2 | 490.0 | 549.0 |
+| **Defense** | Std Fantasy | 14.0 | 34.0 | 48.0 | **59.0** | 71.0 | 90.0 | 134.0 |
+| **Defense** | DK Fantasy | 14.0 | 34.0 | 48.0 | **59.0** | 71.0 | 90.0 | 134.0 |
 

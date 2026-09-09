@@ -8,152 +8,152 @@
 
 | Player | Pos | Rush Att | Rush Yds | Rush TDs |
 | :--- | :---: | :---: | :---: | :---: |
-| **Omarion Hampton** | RB | 238.0 | 1071.0 | 6.0 |
-| **Kimani Vidal** | RB | 94.0 | 417.5 | 2.0 |
-| **Keaton Mitchell** | RB | 68.0 | 301.5 | 2.0 |
-| **Justin Herbert** | QB | 32.0 | 195.0 | 1.0 |
-| **Tre Harris** | WR | 11.0 | 51.0 | 0.0 |
-| **Alec Ingold** | RB | 8.0 | 35.0 | 0.0 |
-| **Total** | — | 451.0 | 2071.0 | 11.0 |
+| **Omarion Hampton** | RB | 221.0 | 987.0 | 5.0 |
+| **Kimani Vidal** | RB | 87.0 | 387.5 | 2.0 |
+| **Keaton Mitchell** | RB | 63.0 | 274.0 | 2.0 |
+| **Justin Herbert** | QB | 33.0 | 208.0 | 1.0 |
+| **Tre Harris** | WR | 11.0 | 47.0 | 0.0 |
+| **Alec Ingold** | RB | 8.0 | 32.0 | 0.0 |
+| **Total** | — | 423.0 | 1935.5 | 10.0 |
 
 **By Targets (season median)**
 
 | Player | Pos | Targets | Rec | Rec Yds | Rec TDs |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Ladd McConkey** | WR | 122.0 | 83.0 | 946.0 | 7.0 |
-| **Quentin Johnston** | WR | 81.0 | 52.0 | 637.0 | 5.0 |
-| **Tre Harris** | WR | 54.0 | 37.0 | 407.5 | 2.0 |
-| **Keaton Mitchell** | RB | 47.0 | 35.5 | 290.0 | 2.0 |
-| **Oronde Gadsden** | TE | 43.0 | 30.0 | 340.0 | 2.0 |
-| **Omarion Hampton** | RB | 39.0 | 32.0 | 236.0 | 1.0 |
-| **David Njoku** | TE | 32.0 | 21.0 | 188.0 | 2.0 |
-| **Derius Davis** | WR | 19.0 | 13.0 | 169.5 | 1.0 |
-| **Charlie Kolar** | TE | 15.0 | 11.0 | 97.0 | 1.0 |
-| **KeAndre Lambert-Smith** | WR | 14.0 | 9.0 | 125.5 | 1.0 |
-| **Kimani Vidal** | RB | 13.0 | 10.0 | 85.5 | 0.0 |
-| **Alec Ingold** | RB | 5.0 | 4.0 | 23.0 | 0.0 |
-| **Total** | — | 484.0 | 337.5 | 3545.0 | 24.0 |
+| **Ladd McConkey** | WR | 130.0 | 89.0 | 1013.5 | 8.0 |
+| **Quentin Johnston** | WR | 87.0 | 56.0 | 690.0 | 6.0 |
+| **Tre Harris** | WR | 57.0 | 39.0 | 428.0 | 2.0 |
+| **Keaton Mitchell** | RB | 51.0 | 39.0 | 321.0 | 2.0 |
+| **Oronde Gadsden** | TE | 46.0 | 32.0 | 366.5 | 2.0 |
+| **Omarion Hampton** | RB | 42.0 | 35.0 | 254.5 | 1.0 |
+| **David Njoku** | TE | 35.0 | 23.0 | 197.0 | 2.0 |
+| **Derius Davis** | WR | 20.0 | 13.0 | 177.0 | 1.0 |
+| **Charlie Kolar** | TE | 17.0 | 12.0 | 109.5 | 1.0 |
+| **KeAndre Lambert-Smith** | WR | 15.0 | 10.0 | 134.0 | 1.0 |
+| **Kimani Vidal** | RB | 14.0 | 11.0 | 93.0 | 0.0 |
+| **Alec Ingold** | RB | 5.0 | 4.0 | 25.0 | 0.0 |
+| **Total** | — | 519.0 | 363.0 | 3809.0 | 26.0 |
 
 ## Quarterbacks
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Justin Herbert** | QB | Pass Yds | 2877.0 | 3207.9 | 3429.0 | **3605.0** | 3792.0 | 4033.1 | 4403.0 |
-| **Justin Herbert** | QB | Pass TDs | 13.0 | 20.0 | 24.0 | **27.0** | 30.0 | 35.0 | 41.0 |
-| **Justin Herbert** | QB | Cmp % | 58.5 | 61.8 | 64.1 | **65.5** | 66.9 | 68.8 | 71.5 |
-| **Justin Herbert** | QB | INTs | 1.0 | 4.0 | 6.0 | **8.0** | 10.0 | 13.0 | 19.0 |
-| **Justin Herbert** | QB | Std Fantasy | 160.7 | 207.1 | 233.5 | **252.2** | 272.1 | 300.1 | 337.8 |
-| **Justin Herbert** | QB | DK Fantasy | 184.7 | 227.5 | 251.7 | **270.7** | 291.0 | 319.8 | 362.8 |
-| **Team Total** | — | Pass Yds | 2877.0 | 3207.9 | 3429.0 | **3605.0** | 3792.0 | 4033.1 | 4403.0 |
-| **Team Total** | — | Pass TDs | 13.0 | 20.0 | 24.0 | **27.0** | 30.0 | 35.0 | 41.0 |
-| **Team Total** | — | Cmp % | 58.5 | 61.8 | 64.1 | **65.5** | 66.9 | 68.8 | 71.5 |
-| **Team Total** | — | INTs | 1.0 | 4.0 | 6.0 | **8.0** | 10.0 | 13.0 | 19.0 |
-| **Team Total** | — | Std Fantasy | 160.7 | 207.1 | 233.5 | **252.2** | 272.1 | 300.1 | 337.8 |
-| **Team Total** | — | DK Fantasy | 184.7 | 227.5 | 251.7 | **270.7** | 291.0 | 319.8 | 362.8 |
+| **Justin Herbert** | QB | Pass Yds | 3139.0 | 3444.9 | 3700.0 | **3873.0** | 4034.2 | 4291.1 | 4757.0 |
+| **Justin Herbert** | QB | Pass TDs | 14.0 | 22.0 | 26.0 | **29.0** | 33.0 | 37.0 | 48.0 |
+| **Justin Herbert** | QB | Cmp % | 58.5 | 62.3 | 64.1 | **65.4** | 66.8 | 68.6 | 72.1 |
+| **Justin Herbert** | QB | INTs | 1.0 | 4.0 | 7.0 | **9.0** | 11.0 | 14.0 | 21.0 |
+| **Justin Herbert** | QB | Std Fantasy | 176.5 | 224.6 | 250.8 | **271.2** | 291.1 | 320.9 | 376.7 |
+| **Justin Herbert** | QB | DK Fantasy | 202.5 | 246.3 | 272.0 | **293.1** | 314.8 | 343.5 | 415.7 |
+| **Team Total** | — | Pass Yds | 3139.0 | 3444.9 | 3700.0 | **3873.0** | 4034.2 | 4291.1 | 4757.0 |
+| **Team Total** | — | Pass TDs | 14.0 | 22.0 | 26.0 | **29.0** | 33.0 | 37.0 | 48.0 |
+| **Team Total** | — | Cmp % | 58.5 | 62.3 | 64.1 | **65.4** | 66.8 | 68.6 | 72.1 |
+| **Team Total** | — | INTs | 1.0 | 4.0 | 7.0 | **9.0** | 11.0 | 14.0 | 21.0 |
+| **Team Total** | — | Std Fantasy | 176.5 | 224.6 | 250.8 | **271.2** | 291.1 | 320.9 | 376.7 |
+| **Team Total** | — | DK Fantasy | 202.5 | 246.3 | 272.0 | **293.1** | 314.8 | 343.5 | 415.7 |
 
 ## Running Backs
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Alec Ingold** | RB4 | Rush Att | 1.0 | 4.0 | 6.0 | **8.0** | 10.0 | 13.0 | 18.0 |
-| **Alec Ingold** | RB4 | Rush Yds | 1.0 | 11.0 | 24.0 | **35.0** | 51.0 | 78.0 | 132.0 |
-| **Alec Ingold** | RB4 | Rush TDs | 0.0 | 0.0 | 0.0 | **0.0** | 0.0 | 1.0 | 3.0 |
-| **Alec Ingold** | RB4 | Receptions | 0.0 | 1.0 | 2.0 | **4.0** | 5.0 | 7.0 | 11.0 |
-| **Alec Ingold** | RB4 | Std Fantasy | 0.6 | 3.4 | 6.5 | **10.4** | 14.9 | 22.6 | 42.1 |
-| **Alec Ingold** | RB4 | DK Fantasy | 0.7 | 4.3 | 8.4 | **12.4** | 17.0 | 25.3 | 46.1 |
-| **Keaton Mitchell** | RB3 | Rush Att | 43.0 | 55.0 | 62.0 | **68.0** | 74.0 | 83.0 | 99.0 |
-| **Keaton Mitchell** | RB3 | Rush Yds | 133.0 | 211.0 | 261.0 | **301.5** | 345.0 | 418.0 | 557.0 |
+| **Alec Ingold** | RB4 | Rush Att | 0.0 | 4.0 | 6.0 | **8.0** | 10.0 | 13.0 | 17.0 |
+| **Alec Ingold** | RB4 | Rush Yds | -7.0 | 9.0 | 21.0 | **32.0** | 45.2 | 72.0 | 121.0 |
+| **Alec Ingold** | RB4 | Rush TDs | 0.0 | 0.0 | 0.0 | **0.0** | 0.0 | 1.0 | 2.0 |
+| **Alec Ingold** | RB4 | Receptions | 0.0 | 1.0 | 3.0 | **4.0** | 5.0 | 7.0 | 12.0 |
+| **Alec Ingold** | RB4 | Std Fantasy | 0.4 | 3.6 | 6.6 | **10.1** | 14.9 | 22.2 | 48.0 |
+| **Alec Ingold** | RB4 | DK Fantasy | 0.8 | 4.5 | 8.4 | **12.2** | 17.2 | 25.2 | 54.0 |
+| **Keaton Mitchell** | RB3 | Rush Att | 31.0 | 51.0 | 58.0 | **63.0** | 69.0 | 76.0 | 92.0 |
+| **Keaton Mitchell** | RB3 | Rush Yds | 110.0 | 195.0 | 237.0 | **274.0** | 317.2 | 393.0 | 498.0 |
 | **Keaton Mitchell** | RB3 | Rush TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 4.0 | 7.0 |
-| **Keaton Mitchell** | RB3 | Receptions | 19.0 | 26.0 | 32.0 | **35.5** | 40.0 | 46.0 | 54.0 |
-| **Keaton Mitchell** | RB3 | Std Fantasy | 45.3 | 70.9 | 88.0 | **100.5** | 114.2 | 134.9 | 168.2 |
-| **Keaton Mitchell** | RB3 | DK Fantasy | 56.8 | 87.3 | 105.0 | **119.0** | 134.2 | 157.4 | 189.4 |
-| **Kimani Vidal** | RB2 | Rush Att | 64.0 | 78.0 | 87.0 | **94.0** | 101.0 | 110.0 | 126.0 |
-| **Kimani Vidal** | RB2 | Rush Yds | 236.0 | 312.0 | 370.0 | **417.5** | 464.0 | 545.1 | 685.0 |
+| **Keaton Mitchell** | RB3 | Receptions | 21.0 | 29.0 | 35.0 | **39.0** | 43.0 | 49.0 | 59.0 |
+| **Keaton Mitchell** | RB3 | Std Fantasy | 56.5 | 73.0 | 90.3 | **102.9** | 117.1 | 137.8 | 178.1 |
+| **Keaton Mitchell** | RB3 | DK Fantasy | 69.5 | 89.5 | 109.6 | **123.4** | 138.0 | 162.2 | 203.1 |
+| **Kimani Vidal** | RB2 | Rush Att | 58.0 | 71.0 | 81.0 | **87.0** | 94.0 | 104.0 | 121.0 |
+| **Kimani Vidal** | RB2 | Rush Yds | 177.0 | 282.0 | 343.0 | **387.5** | 435.0 | 511.0 | 692.0 |
 | **Kimani Vidal** | RB2 | Rush TDs | 0.0 | 0.0 | 1.0 | **2.0** | 4.0 | 6.0 | 9.0 |
-| **Kimani Vidal** | RB2 | Receptions | 2.0 | 5.0 | 8.0 | **10.0** | 12.0 | 15.0 | 23.0 |
-| **Kimani Vidal** | RB2 | Std Fantasy | 32.5 | 51.2 | 62.6 | **73.5** | 85.1 | 105.2 | 145.3 |
-| **Kimani Vidal** | RB2 | DK Fantasy | 36.0 | 55.4 | 67.7 | **79.6** | 91.4 | 112.4 | 152.3 |
-| **Omarion Hampton** | RB1 | Rush Att | 179.0 | 211.0 | 226.0 | **238.0** | 250.0 | 268.0 | 299.0 |
-| **Omarion Hampton** | RB1 | Rush Yds | 699.0 | 891.0 | 992.0 | **1071.0** | 1153.0 | 1277.1 | 1570.0 |
-| **Omarion Hampton** | RB1 | Rush TDs | 0.0 | 2.0 | 4.0 | **6.0** | 8.0 | 11.0 | 18.0 |
-| **Omarion Hampton** | RB1 | Receptions | 16.0 | 23.0 | 29.0 | **32.0** | 36.0 | 42.0 | 53.0 |
-| **Omarion Hampton** | RB1 | Std Fantasy | 125.1 | 149.6 | 173.0 | **190.1** | 206.7 | 230.3 | 300.1 |
-| **Omarion Hampton** | RB1 | DK Fantasy | 138.6 | 168.7 | 195.8 | **214.6** | 231.4 | 259.0 | 332.1 |
-| **Team Total** | — | Rush Att | 316.0 | 369.0 | 392.0 | **409.0** | 426.0 | 451.0 | 486.0 |
-| **Team Total** | — | Rush Yds | 1328.0 | 1581.8 | 1731.8 | **1834.0** | 1948.2 | 2134.0 | 2397.0 |
-| **Team Total** | — | Rush TDs | 3.0 | 6.0 | 9.0 | **11.0** | 13.0 | 17.0 | 21.0 |
-| **Team Total** | — | Receptions | 51.0 | 68.0 | 76.0 | **82.0** | 88.0 | 96.0 | 114.0 |
-| **Team Total** | — | Std Fantasy | 273.0 | 316.6 | 352.0 | **378.1** | 403.6 | 443.3 | 512.5 |
-| **Team Total** | — | DK Fantasy | 320.0 | 362.2 | 400.7 | **428.0** | 456.7 | 496.5 | 567.5 |
+| **Kimani Vidal** | RB2 | Receptions | 3.0 | 6.0 | 8.0 | **11.0** | 13.0 | 16.0 | 25.0 |
+| **Kimani Vidal** | RB2 | Std Fantasy | 28.2 | 47.6 | 61.1 | **71.0** | 82.0 | 102.8 | 139.0 |
+| **Kimani Vidal** | RB2 | DK Fantasy | 35.7 | 52.1 | 66.7 | **77.2** | 88.2 | 110.1 | 147.0 |
+| **Omarion Hampton** | RB1 | Rush Att | 173.0 | 194.0 | 209.0 | **221.0** | 233.0 | 251.0 | 281.0 |
+| **Omarion Hampton** | RB1 | Rush Yds | 647.0 | 800.9 | 906.8 | **987.0** | 1064.0 | 1182.0 | 1389.0 |
+| **Omarion Hampton** | RB1 | Rush TDs | 0.0 | 2.0 | 4.0 | **5.0** | 7.0 | 10.0 | 18.0 |
+| **Omarion Hampton** | RB1 | Receptions | 19.0 | 25.0 | 31.0 | **35.0** | 39.0 | 45.0 | 57.0 |
+| **Omarion Hampton** | RB1 | Std Fantasy | 110.8 | 142.7 | 164.8 | **180.9** | 200.3 | 229.9 | 285.1 |
+| **Omarion Hampton** | RB1 | DK Fantasy | 126.8 | 161.9 | 186.3 | **203.9** | 225.6 | 257.4 | 316.6 |
+| **Team Total** | — | Rush Att | 301.0 | 341.0 | 363.0 | **379.0** | 399.0 | 423.0 | 457.0 |
+| **Team Total** | — | Rush Yds | 1202.0 | 1424.0 | 1585.8 | **1692.5** | 1804.2 | 1971.1 | 2187.0 |
+| **Team Total** | — | Rush TDs | 0.0 | 5.0 | 8.0 | **10.0** | 12.0 | 16.0 | 25.0 |
+| **Team Total** | — | Receptions | 60.0 | 74.0 | 82.0 | **88.0** | 94.0 | 104.0 | 118.0 |
+| **Team Total** | — | Std Fantasy | 247.7 | 307.0 | 344.9 | **369.1** | 394.9 | 432.9 | 516.6 |
+| **Team Total** | — | DK Fantasy | 293.2 | 353.0 | 394.8 | **420.6** | 449.1 | 490.2 | 571.1 |
 
 ## Wide Receivers & Tight Ends
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Charlie Kolar** | WR7 | Targets | 4.0 | 9.0 | 13.0 | **15.0** | 18.0 | 22.0 | 29.0 |
-| **Charlie Kolar** | WR7 | Receptions | 3.0 | 6.0 | 9.0 | **11.0** | 13.2 | 17.0 | 24.0 |
-| **Charlie Kolar** | WR7 | Rec Yds | 4.0 | 37.0 | 71.0 | **97.0** | 137.0 | 189.0 | 323.0 |
-| **Charlie Kolar** | WR7 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 6.0 |
-| **Charlie Kolar** | WR7 | Std Fantasy | 3.4 | 8.7 | 16.1 | **22.7** | 30.3 | 43.6 | 74.2 |
-| **Charlie Kolar** | WR7 | DK Fantasy | 5.3 | 12.9 | 21.1 | **27.9** | 37.2 | 51.4 | 84.7 |
-| **David Njoku** | TE1 | Targets | 15.0 | 23.0 | 29.0 | **32.0** | 36.0 | 42.0 | 53.0 |
-| **David Njoku** | TE1 | Receptions | 8.0 | 14.0 | 18.0 | **21.0** | 24.0 | 29.0 | 37.0 |
-| **David Njoku** | TE1 | Rec Yds | 40.0 | 102.0 | 146.0 | **188.0** | 231.0 | 291.0 | 397.0 |
-| **David Njoku** | TE1 | Rec TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 4.0 | 7.0 |
-| **David Njoku** | TE1 | Std Fantasy | 12.4 | 22.3 | 32.7 | **41.1** | 50.1 | 63.8 | 96.8 |
-| **David Njoku** | TE1 | DK Fantasy | 16.9 | 29.8 | 42.0 | **52.1** | 62.0 | 76.9 | 114.8 |
-| **Derius Davis** | WR5 | Targets | 4.0 | 12.0 | 16.0 | **19.0** | 22.0 | 26.0 | 33.0 |
-| **Derius Davis** | WR5 | Receptions | 2.0 | 7.0 | 10.0 | **13.0** | 15.0 | 19.0 | 26.0 |
-| **Derius Davis** | WR5 | Rec Yds | 15.0 | 79.0 | 129.0 | **169.5** | 210.0 | 281.0 | 386.0 |
-| **Derius Davis** | WR5 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 6.0 |
-| **Derius Davis** | WR5 | Std Fantasy | 2.5 | 13.5 | 22.7 | **29.9** | 37.6 | 50.1 | 73.1 |
-| **Derius Davis** | WR5 | DK Fantasy | 3.5 | 17.5 | 28.2 | **36.3** | 45.3 | 59.9 | 82.1 |
-| **KeAndre Lambert-Smith** | WR6 | Targets | 4.0 | 8.0 | 11.0 | **14.0** | 16.0 | 20.0 | 28.0 |
-| **KeAndre Lambert-Smith** | WR6 | Receptions | 2.0 | 4.0 | 7.0 | **9.0** | 11.0 | 14.0 | 21.0 |
-| **KeAndre Lambert-Smith** | WR6 | Rec Yds | 9.0 | 42.0 | 88.0 | **125.5** | 166.0 | 240.0 | 328.0 |
-| **KeAndre Lambert-Smith** | WR6 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 1.0 | 2.0 | 5.0 |
-| **KeAndre Lambert-Smith** | WR6 | Std Fantasy | 2.6 | 7.6 | 14.9 | **21.6** | 28.4 | 40.6 | 65.3 |
-| **KeAndre Lambert-Smith** | WR6 | DK Fantasy | 3.6 | 10.1 | 18.8 | **26.0** | 33.8 | 48.0 | 73.8 |
-| **Ladd McConkey** | WR1 | Targets | 86.0 | 105.0 | 114.0 | **122.0** | 129.0 | 141.0 | 159.0 |
-| **Ladd McConkey** | WR1 | Receptions | 54.0 | 68.0 | 77.0 | **83.0** | 89.0 | 98.0 | 108.0 |
-| **Ladd McConkey** | WR1 | Rec Yds | 557.0 | 744.0 | 862.8 | **946.0** | 1035.0 | 1196.0 | 1404.0 |
-| **Ladd McConkey** | WR1 | Rec TDs | 1.0 | 3.0 | 6.0 | **7.0** | 9.0 | 12.0 | 20.0 |
-| **Ladd McConkey** | WR1 | Std Fantasy | 103.7 | 140.5 | 163.7 | **179.4** | 196.8 | 225.3 | 279.4 |
-| **Ladd McConkey** | WR1 | DK Fantasy | 137.7 | 177.7 | 206.7 | **226.3** | 247.5 | 281.8 | 342.9 |
-| **Oronde Gadsden** | WR4 | Targets | 20.0 | 32.0 | 38.0 | **43.0** | 48.0 | 55.0 | 69.0 |
-| **Oronde Gadsden** | WR4 | Receptions | 13.0 | 21.0 | 26.0 | **30.0** | 34.0 | 40.0 | 47.0 |
-| **Oronde Gadsden** | WR4 | Rec Yds | 118.0 | 211.9 | 287.0 | **340.0** | 395.2 | 489.0 | 611.0 |
-| **Oronde Gadsden** | WR4 | Rec TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 5.0 | 9.0 |
-| **Oronde Gadsden** | WR4 | Std Fantasy | 23.6 | 38.6 | 52.2 | **62.3** | 72.0 | 88.9 | 108.6 |
-| **Oronde Gadsden** | WR4 | DK Fantasy | 30.7 | 50.1 | 65.9 | **77.7** | 88.8 | 107.8 | 131.1 |
-| **Quentin Johnston** | WR2 | Targets | 56.0 | 68.0 | 76.0 | **81.0** | 87.0 | 96.0 | 108.0 |
-| **Quentin Johnston** | WR2 | Receptions | 30.0 | 41.0 | 48.0 | **52.0** | 57.0 | 64.0 | 74.0 |
-| **Quentin Johnston** | WR2 | Rec Yds | 317.0 | 462.9 | 562.8 | **637.0** | 719.2 | 848.0 | 1091.0 |
-| **Quentin Johnston** | WR2 | Rec TDs | 0.0 | 2.0 | 4.0 | **5.0** | 7.0 | 10.0 | 14.0 |
-| **Quentin Johnston** | WR2 | Std Fantasy | 49.6 | 88.6 | 107.7 | **122.3** | 139.2 | 163.9 | 197.5 |
-| **Quentin Johnston** | WR2 | DK Fantasy | 67.1 | 111.6 | 132.6 | **149.6** | 169.6 | 198.7 | 248.1 |
-| **Tre Harris** | WR3 | Targets | 32.0 | 42.0 | 49.0 | **54.0** | 59.0 | 67.0 | 80.0 |
-| **Tre Harris** | WR3 | Receptions | 22.0 | 28.0 | 32.0 | **37.0** | 41.0 | 46.0 | 56.0 |
-| **Tre Harris** | WR3 | Rec Yds | 174.0 | 269.0 | 340.0 | **407.5** | 474.2 | 585.0 | 770.0 |
+| **Charlie Kolar** | WR7 | Targets | 7.0 | 11.0 | 14.0 | **17.0** | 20.0 | 23.0 | 29.0 |
+| **Charlie Kolar** | WR7 | Receptions | 2.0 | 7.0 | 10.0 | **12.0** | 15.0 | 18.0 | 23.0 |
+| **Charlie Kolar** | WR7 | Rec Yds | 11.0 | 45.0 | 80.0 | **109.5** | 143.2 | 203.0 | 318.0 |
+| **Charlie Kolar** | WR7 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 4.0 | 6.0 |
+| **Charlie Kolar** | WR7 | Std Fantasy | 3.7 | 11.7 | 18.4 | **24.6** | 32.0 | 45.6 | 61.4 |
+| **Charlie Kolar** | WR7 | DK Fantasy | 5.2 | 16.0 | 23.6 | **30.7** | 39.2 | 53.6 | 72.4 |
+| **David Njoku** | TE1 | Targets | 19.0 | 25.0 | 31.0 | **35.0** | 39.0 | 45.0 | 56.0 |
+| **David Njoku** | TE1 | Receptions | 7.0 | 16.0 | 20.0 | **23.0** | 26.0 | 31.0 | 41.0 |
+| **David Njoku** | TE1 | Rec Yds | 33.0 | 113.0 | 161.0 | **197.0** | 237.2 | 309.1 | 459.0 |
+| **David Njoku** | TE1 | Rec TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 5.0 | 9.0 |
+| **David Njoku** | TE1 | Std Fantasy | 6.8 | 25.7 | 35.4 | **44.1** | 52.8 | 69.1 | 102.1 |
+| **David Njoku** | TE1 | DK Fantasy | 10.3 | 34.9 | 46.1 | **55.8** | 65.7 | 82.9 | 118.6 |
+| **Derius Davis** | WR5 | Targets | 9.0 | 13.0 | 17.0 | **20.0** | 23.0 | 28.0 | 34.0 |
+| **Derius Davis** | WR5 | Receptions | 4.0 | 8.0 | 11.0 | **13.0** | 16.0 | 20.0 | 26.0 |
+| **Derius Davis** | WR5 | Rec Yds | 21.0 | 91.0 | 138.0 | **177.0** | 221.0 | 292.0 | 438.0 |
+| **Derius Davis** | WR5 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 5.0 |
+| **Derius Davis** | WR5 | Std Fantasy | 6.9 | 15.6 | 24.6 | **31.8** | 39.6 | 52.2 | 75.7 |
+| **Derius Davis** | WR5 | DK Fantasy | 9.2 | 20.2 | 30.3 | **38.8** | 47.5 | 61.2 | 88.7 |
+| **KeAndre Lambert-Smith** | WR6 | Targets | 5.0 | 9.0 | 12.0 | **15.0** | 17.0 | 21.0 | 26.0 |
+| **KeAndre Lambert-Smith** | WR6 | Receptions | 2.0 | 5.0 | 8.0 | **10.0** | 12.0 | 15.0 | 19.0 |
+| **KeAndre Lambert-Smith** | WR6 | Rec Yds | 8.0 | 53.0 | 95.0 | **134.0** | 176.0 | 242.0 | 353.0 |
+| **KeAndre Lambert-Smith** | WR6 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 1.0 | 3.0 | 5.0 |
+| **KeAndre Lambert-Smith** | WR6 | Std Fantasy | 1.8 | 8.7 | 16.0 | **23.0** | 29.5 | 42.2 | 61.8 |
+| **KeAndre Lambert-Smith** | WR6 | DK Fantasy | 2.8 | 11.3 | 20.1 | **27.8** | 35.2 | 49.1 | 70.3 |
+| **Ladd McConkey** | WR1 | Targets | 97.0 | 111.0 | 122.0 | **130.0** | 138.0 | 150.0 | 169.0 |
+| **Ladd McConkey** | WR1 | Receptions | 56.0 | 74.0 | 83.0 | **89.0** | 95.0 | 105.0 | 132.0 |
+| **Ladd McConkey** | WR1 | Rec Yds | 573.0 | 798.0 | 925.8 | **1013.5** | 1105.0 | 1251.1 | 1504.0 |
+| **Ladd McConkey** | WR1 | Rec TDs | 1.0 | 4.0 | 6.0 | **8.0** | 10.0 | 13.0 | 18.0 |
+| **Ladd McConkey** | WR1 | Std Fantasy | 110.6 | 149.9 | 175.8 | **192.4** | 213.1 | 241.0 | 314.4 |
+| **Ladd McConkey** | WR1 | DK Fantasy | 148.6 | 192.1 | 223.3 | **243.8** | 267.6 | 302.4 | 400.4 |
+| **Oronde Gadsden** | WR4 | Targets | 28.0 | 36.0 | 42.0 | **46.0** | 51.0 | 59.0 | 69.0 |
+| **Oronde Gadsden** | WR4 | Receptions | 14.0 | 23.0 | 29.0 | **32.0** | 36.0 | 42.0 | 54.0 |
+| **Oronde Gadsden** | WR4 | Rec Yds | 153.0 | 234.9 | 313.0 | **366.5** | 427.0 | 523.0 | 685.0 |
+| **Oronde Gadsden** | WR4 | Rec TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 5.0 | 8.0 |
+| **Oronde Gadsden** | WR4 | Std Fantasy | 26.1 | 42.9 | 56.2 | **66.0** | 76.8 | 95.7 | 116.8 |
+| **Oronde Gadsden** | WR4 | DK Fantasy | 35.1 | 55.5 | 71.8 | **82.2** | 95.4 | 116.7 | 139.3 |
+| **Quentin Johnston** | WR2 | Targets | 57.0 | 74.0 | 81.0 | **87.0** | 94.0 | 103.0 | 117.0 |
+| **Quentin Johnston** | WR2 | Receptions | 35.0 | 45.0 | 51.0 | **56.0** | 61.0 | 69.0 | 81.0 |
+| **Quentin Johnston** | WR2 | Rec Yds | 340.0 | 495.9 | 610.8 | **690.0** | 769.0 | 899.0 | 1110.0 |
+| **Quentin Johnston** | WR2 | Rec TDs | 0.0 | 3.0 | 4.0 | **6.0** | 8.0 | 10.0 | 15.0 |
+| **Quentin Johnston** | WR2 | Std Fantasy | 72.6 | 97.2 | 117.4 | **132.7** | 148.0 | 178.0 | 219.5 |
+| **Quentin Johnston** | WR2 | DK Fantasy | 94.1 | 121.6 | 145.0 | **162.7** | 180.4 | 215.1 | 265.0 |
+| **Tre Harris** | WR3 | Targets | 36.0 | 46.0 | 52.0 | **57.0** | 62.0 | 70.0 | 82.0 |
+| **Tre Harris** | WR3 | Receptions | 21.0 | 29.0 | 34.0 | **39.0** | 43.0 | 50.0 | 61.0 |
+| **Tre Harris** | WR3 | Rec Yds | 150.0 | 286.0 | 361.0 | **428.0** | 506.2 | 616.0 | 746.0 |
 | **Tre Harris** | WR3 | Rec TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 5.0 | 9.0 |
-| **Tre Harris** | WR3 | Std Fantasy | 36.2 | 52.6 | 67.2 | **77.8** | 90.3 | 109.1 | 160.8 |
-| **Tre Harris** | WR3 | DK Fantasy | 47.2 | 67.9 | 84.3 | **97.0** | 111.1 | 133.0 | 188.8 |
-| **Team Total** | — | Targets | 328.0 | 348.0 | 367.0 | **381.0** | 395.0 | 415.0 | 452.0 |
-| **Team Total** | — | Receptions | 206.0 | 232.0 | 246.0 | **256.0** | 266.2 | 283.0 | 305.0 |
-| **Team Total** | — | Rec Yds | 2283.0 | 2584.9 | 2790.0 | **2939.5** | 3106.0 | 3312.3 | 3740.0 |
-| **Team Total** | — | Rec TDs | 11.0 | 16.0 | 20.0 | **23.0** | 26.0 | 30.0 | 37.0 |
-| **Team Total** | — | Std Fantasy | 433.0 | 494.0 | 535.1 | **563.2** | 594.3 | 639.9 | 714.5 |
-| **Team Total** | — | DK Fantasy | 549.5 | 620.3 | 664.5 | **701.2** | 736.0 | 789.6 | 870.0 |
+| **Tre Harris** | WR3 | Std Fantasy | 33.0 | 56.8 | 70.6 | **82.2** | 95.8 | 115.2 | 147.6 |
+| **Tre Harris** | WR3 | DK Fantasy | 47.0 | 73.4 | 88.7 | **103.0** | 118.2 | 139.6 | 177.3 |
+| **Team Total** | — | Targets | 342.0 | 374.9 | 396.0 | **410.0** | 422.0 | 443.0 | 497.0 |
+| **Team Total** | — | Receptions | 215.0 | 249.9 | 265.0 | **275.5** | 286.0 | 301.0 | 348.0 |
+| **Team Total** | — | Rec Yds | 2440.0 | 2743.8 | 2997.0 | **3152.0** | 3320.2 | 3553.0 | 3965.0 |
+| **Team Total** | — | Rec TDs | 11.0 | 18.0 | 22.0 | **25.0** | 28.0 | 32.0 | 40.0 |
+| **Team Total** | — | Std Fantasy | 453.1 | 529.4 | 572.7 | **603.8** | 637.0 | 680.7 | 803.7 |
+| **Team Total** | — | DK Fantasy | 567.6 | 666.1 | 715.6 | **753.3** | 790.5 | 842.2 | 975.2 |
 
 ## Defense & Special Teams
 
 | DST Team | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Defense** | Sacks | 21.0 | 32.0 | 38.0 | **43.0** | 47.0 | 54.0 | 64.0 |
-| **Defense** | INTs | 2.0 | 4.0 | 7.0 | **8.0** | 11.0 | 14.0 | 20.0 |
-| **Defense** | Fumble Rec | 0.0 | 1.0 | 3.0 | **4.0** | 6.0 | 9.0 | 14.0 |
-| **Defense** | TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 7.0 |
-| **Defense** | Pts Allowed | 291.0 | 322.0 | 364.0 | **391.0** | 418.0 | 459.1 | 571.0 |
-| **Defense** | Std Fantasy | 33.0 | 53.0 | 69.0 | **83.0** | 95.0 | 117.0 | 143.0 |
-| **Defense** | DK Fantasy | 33.0 | 53.0 | 69.0 | **83.0** | 95.0 | 117.0 | 143.0 |
+| **Defense** | Sacks | 26.0 | 35.0 | 42.0 | **46.0** | 51.0 | 58.0 | 73.0 |
+| **Defense** | INTs | 1.0 | 4.0 | 7.0 | **9.0** | 11.0 | 14.0 | 23.0 |
+| **Defense** | Fumble Rec | 0.0 | 2.0 | 3.0 | **5.0** | 6.0 | 8.0 | 13.0 |
+| **Defense** | TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 6.0 |
+| **Defense** | Pts Allowed | 296.0 | 330.9 | 369.0 | **401.5** | 429.0 | 466.0 | 554.0 |
+| **Defense** | Std Fantasy | 29.0 | 56.0 | 72.0 | **84.0** | 98.0 | 119.0 | 160.0 |
+| **Defense** | DK Fantasy | 29.0 | 56.0 | 72.0 | **84.0** | 98.0 | 119.0 | 160.0 |
 
