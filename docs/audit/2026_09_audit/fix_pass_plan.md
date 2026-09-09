@@ -200,7 +200,7 @@ returns), **week-aware toggle** (playoff crash workaround).
 
 ## Batch E — Engine calibration + storage (needs D1's floor first)
 
-### E1 · 🟠 S2-4 — retrain play-selection with a dropback label · effort M
+### E1 · ✅ DONE 2026-09-09 · S2-4 — retrain play-selection with a dropback label · effort M
 - **From:** Phase 2. **Why found:** `train.py:134` uses
   `is_pass = (play_type == "pass")`, which in `nfl_data_py` excludes scrambles
   (those are `play_type == "run"`). So the model's 57.5% is *already* net of

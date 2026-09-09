@@ -6,6 +6,47 @@ Work done alongside the completion-rate calibration (A2). The base
 averages 57.5% pass leaguewide, exactly the real 2021-2025 rate. Two fixes
 layered on top, plus the throwaway mechanism which is really a completion issue.
 
+---
+
+## UPDATE 2026-09-09 — V.0.4.0 dropback label (audit S2-4)
+
+The V.0.3.0 label `is_pass = (play_type == "pass")` **excluded QB scrambles**
+(nflfastR files those as `play_type == "run"`). The engine treats a "pass"
+decision as a dropback and then independently diverts ~5% of them to scrambles
+— so scrambles were subtracted twice and the realized box pass rate came out
+~3pp under real. Diagnosis (2026-09-09, full week-1 sim + real 2021-25 PBP):
+
+| stage | old | real |
+|---|---|---|
+| base model alone | 0.587 | `play_type==pass` 5yr **0.577** |
+| + PROE + Q4 overlay | 0.575 | — |
+| **realized box pass rate** | **0.544** | **0.567** |
+
+Every one of the 32 teams was below its own 5yr rate (mean −3.0pp) — a uniform
+league-wide mechanical drain, i.e. NOT a per-coach PROE problem. The base model
+does **not** lean run; PROE nets −1.2pp and lands the decision at ≈ real.
+
+**Fix:** retrain with `is_pass = (play_type == "pass") | (qb_scramble == 1)` —
+a true DROPBACK rate (2020-25 label rate **0.609**, scrambles 2.9% of plays).
+The engine's att/sack/scramble split of *that* is what now matches real box
+scores. No PROE change, no feature change, `iteration_range`/`best_iteration`
+handling unchanged. Per-bucket `pred` vs `real` stays tight in every
+high-volume bucket.
+
+Week-1 sim result (old → new):
+
+| metric | old | new | real |
+|---|---|---|---|
+| base_pass_prob | 0.587 | 0.618 | dropback 5yr 0.606 |
+| adjusted (+PROE) | 0.575 | 0.604 | — |
+| pass att / team / g | 30.7 | **32.6** | 32.0 |
+| rush att / team / g | 27.6 | **26.2** | 26.3 |
+| sacks / team / g | ~2.3 | 2.47 | 2.41 |
+| **box pass rate** | 0.544 | **0.572** | 0.567 |
+
++0.5pp over real now (was −2.3pp under) — negligible, and the right side of the
+line given over/unders were reading low. Full-season regenerate follows.
+
 ## What changed (`game_engine.py`, all module-level constants, all reversible)
 
 | constant | value | what |
