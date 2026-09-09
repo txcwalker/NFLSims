@@ -39,13 +39,18 @@ Week-1 sim result (old → new):
 |---|---|---|---|
 | base_pass_prob | 0.587 | 0.618 | dropback 5yr 0.606 |
 | adjusted (+PROE) | 0.575 | 0.604 | — |
-| pass att / team / g | 30.7 | **32.6** | 32.0 |
-| rush att / team / g | 27.6 | **26.2** | 26.3 |
+| pass att / team / g | 30.7 | **32.7** | 32.0 |
+| pass yds / team / g | ~213 | **226** | ~225 |
+| yds / att | — | 6.91 | ~7.0 |
+| rush att / team / g | 27.6 | **26.3** | 26.3 |
+| rush yds / team / g | ~126 | **119** | ~117 |
 | sacks / team / g | ~2.3 | 2.47 | 2.41 |
 | **box pass rate** | 0.544 | **0.572** | 0.567 |
+| **game total** | 43.0 | **44.2** | ~44–45 |
 
-+0.5pp over real now (was −2.3pp under) — negligible, and the right side of the
-line given over/unders were reading low. Full-season regenerate follows.
+Box pass rate +0.5pp over real now (was −2.3pp under) — negligible. Every
+offensive volume metric now within ~1% of real. Net scoring effect +1.2 to the
+total (pass yds +13, rush yds −7). Full-season regenerate follows.
 
 ## What changed (`game_engine.py`, all module-level constants, all reversible)
 
