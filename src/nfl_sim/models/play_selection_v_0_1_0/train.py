@@ -1,11 +1,23 @@
 """
-Play selection model — pass/run choice, per (down/distance bucket x zone).
+Play selection model — dropback/run choice, per (down/distance bucket x zone).
 
 No training script existed for this model before this one (confirmed: zero
 .py files in this folder). Written from scratch following the same
 methodology as the air-yards/YAC zone-split retrains: live nfl_data_py pull +
 data/dna/*.json joins, GroupShuffleSplit by game_id for a 70/15/15
 train/val/test split, 2020+ training window.
+
+Label change V.0.3.0 -> V.0.4.0 (2026-09-09, audit finding S2-4): the target
+was `is_pass = (play_type == "pass")`, which in nflfastR EXCLUDES QB scrambles
+(those are `play_type == "run"`). But the game engine treats every "pass"
+decision as a dropback and then independently diverts ~5% of them to scrambles
+(game_engine.py's scramble_rate roll) -- so scrambles were being subtracted
+twice, and the realized box pass rate came out ~3pp under real (0.544 vs
+0.567). The target is now `is_pass = pass-or-scramble` (a true DROPBACK rate,
+~0.606 league vs ~0.577 for the old label). The engine's att/sack/scramble
+split of that prediction is now the thing that matches real box scores. See
+docs/audit/2026_09_audit/phase_2_play_selection_dna.md and
+docs/implementation_plans/play_selection_calibration_notes.md.
 
 Architecture: 11 down/distance buckets (1_10, 1_long, 1_short, 2_short,
 2_med, 2_long, 3_short, 3_med, 3_long, 4_short, 4_med_long) x 3 zones
@@ -131,7 +143,14 @@ def load_and_prepare(use_cache=True):
     df = df[df["down"].isin([1, 2, 3, 4])].copy()
     print(f"Pass/run plays after filtering: {len(df)}")
 
-    df["is_pass"] = (df["play_type"] == "pass").astype(int)
+    # DROPBACK label (V.0.4.0, S2-4): a "pass" play_type (completions +
+    # incompletions + sacks) OR a QB scramble (nflfastR files those as
+    # play_type == "run"). This is what the engine's play-selection roll
+    # actually decides -- see the module docstring.
+    df["is_pass"] = ((df["play_type"] == "pass") | (df["qb_scramble"] == 1)).astype(int)
+    scr_n = int((df["qb_scramble"] == 1).sum())
+    print(f"  dropback rate {df['is_pass'].mean():.4f}  (of which {scr_n} scrambles, "
+          f"{scr_n / len(df) * 100:.1f}% of plays)")
     df["zone"] = zone_of(df["yardline_100"].values)
     df["bucket"] = bucket_of(df["down"].values, df["ydstogo"].values)
     df["score_differential"] = df["score_differential"].fillna(0)
@@ -248,7 +267,8 @@ def run(save=True, use_cache=True):
                         print(f"[{key}] copied primary_{bucket}'s classifier as fallback")
 
         metadata = {
-            "version": "V.0.3.0",
+            "version": "V.0.4.0",
+            "label": "is_pass = play_type=='pass' OR qb_scramble==1 (dropback rate)",
             "trained_by": "train.py",
             "seasons": SEASONS,
             "split": "GroupShuffleSplit by game_id, 70/15/15 train/val/test",
