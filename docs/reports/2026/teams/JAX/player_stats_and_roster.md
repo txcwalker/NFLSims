@@ -8,139 +8,139 @@
 
 | Player | Pos | Rush Att | Rush Yds | Rush TDs |
 | :--- | :---: | :---: | :---: | :---: |
-| **Bhayshul Tuten** | RB | 194.0 | 850.0 | 4.0 |
-| **Chris Rodriguez** | RB | 154.0 | 663.0 | 5.0 |
-| **Trevor Lawrence** | QB | 34.0 | 189.0 | 2.0 |
-| **Ameer Abdullah** | RB | 32.0 | 141.0 | 0.0 |
-| **Travis Hunter** | WR | 13.0 | 56.0 | 0.0 |
+| **Bhayshul Tuten** | RB | 194.0 | 853.0 | 4.0 |
+| **Chris Rodriguez** | RB | 153.0 | 655.0 | 4.0 |
+| **Trevor Lawrence** | QB | 33.0 | 188.0 | 2.0 |
+| **Ameer Abdullah** | RB | 32.0 | 142.0 | 0.0 |
+| **Travis Hunter** | WR | 13.0 | 55.0 | 0.0 |
 | **Parker Washington** | WR | 4.0 | 14.0 | 0.0 |
-| **Brian Thomas** | WR | 3.0 | 13.0 | 0.0 |
-| **Total** | — | 434.0 | 1926.0 | 11.0 |
+| **Brian Thomas** | WR | 3.0 | 14.0 | 0.0 |
+| **Total** | — | 432.0 | 1921.0 | 10.0 |
 
 **By Targets (season median)**
 
 | Player | Pos | Targets | Rec | Rec Yds | Rec TDs |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Parker Washington** | WR | 114.0 | 70.0 | 852.0 | 6.0 |
-| **Jakobi Meyers** | WR | 108.0 | 73.0 | 819.0 | 5.0 |
-| **Brian Thomas** | WR | 86.0 | 55.0 | 685.5 | 7.0 |
-| **Brenton Strange** | TE | 70.0 | 48.0 | 524.0 | 4.0 |
-| **Travis Hunter** | WR | 67.0 | 44.0 | 472.0 | 3.0 |
-| **Bhayshul Tuten** | RB | 42.0 | 32.0 | 232.5 | 1.0 |
-| **Josh Cameron** | WR | 21.0 | 13.0 | 151.0 | 1.0 |
-| **Ameer Abdullah** | RB | 12.0 | 9.0 | 62.0 | 0.0 |
-| **Chris Rodriguez** | RB | 7.0 | 6.0 | 53.5 | 0.0 |
-| **Quintin Morris** | TE | 5.0 | 3.0 | 36.0 | 0.0 |
-| **Total** | — | 532.0 | 353.0 | 3887.5 | 27.0 |
+| **Parker Washington** | WR | 114.0 | 71.0 | 857.5 | 7.0 |
+| **Jakobi Meyers** | WR | 107.0 | 72.0 | 795.5 | 5.0 |
+| **Brian Thomas** | WR | 86.0 | 54.0 | 677.0 | 7.0 |
+| **Brenton Strange** | TE | 69.0 | 48.0 | 517.0 | 4.0 |
+| **Travis Hunter** | WR | 68.0 | 44.0 | 476.5 | 3.0 |
+| **Bhayshul Tuten** | RB | 43.0 | 33.0 | 236.0 | 1.0 |
+| **Josh Cameron** | WR | 21.0 | 13.0 | 152.5 | 1.0 |
+| **Ameer Abdullah** | RB | 12.0 | 9.0 | 61.0 | 0.0 |
+| **Chris Rodriguez** | RB | 7.0 | 6.0 | 58.0 | 0.0 |
+| **Quintin Morris** | TE | 5.0 | 3.0 | 35.5 | 0.0 |
+| **Total** | — | 532.0 | 353.0 | 3866.5 | 28.0 |
 
 ## Quarterbacks
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Trevor Lawrence** | QB | Pass Yds | 3016.0 | 3477.0 | 3760.0 | **3925.0** | 4118.8 | 4368.0 | 4693.0 |
-| **Trevor Lawrence** | QB | Pass TDs | 15.0 | 23.0 | 27.0 | **30.0** | 33.0 | 38.0 | 44.0 |
-| **Trevor Lawrence** | QB | Cmp % | 56.2 | 59.2 | 61.3 | **62.7** | 64.2 | 66.0 | 69.6 |
-| **Trevor Lawrence** | QB | INTs | 2.0 | 6.0 | 8.0 | **10.0** | 13.0 | 17.0 | 23.0 |
-| **Trevor Lawrence** | QB | Std Fantasy | 175.5 | 228.6 | 255.2 | **273.7** | 295.2 | 324.7 | 367.7 |
-| **Trevor Lawrence** | QB | DK Fantasy | 195.5 | 250.1 | 277.8 | **297.3** | 319.4 | 350.7 | 404.7 |
-| **Team Total** | — | Pass Yds | 3016.0 | 3477.0 | 3760.0 | **3925.0** | 4118.8 | 4368.0 | 4693.0 |
-| **Team Total** | — | Pass TDs | 15.0 | 23.0 | 27.0 | **30.0** | 33.0 | 38.0 | 44.0 |
-| **Team Total** | — | Cmp % | 56.2 | 59.2 | 61.3 | **62.7** | 64.2 | 66.0 | 69.6 |
-| **Team Total** | — | INTs | 2.0 | 6.0 | 8.0 | **10.0** | 13.0 | 17.0 | 23.0 |
-| **Team Total** | — | Std Fantasy | 175.5 | 228.6 | 255.2 | **273.7** | 295.2 | 324.7 | 367.7 |
-| **Team Total** | — | DK Fantasy | 195.5 | 250.1 | 277.8 | **297.3** | 319.4 | 350.7 | 404.7 |
+| **Trevor Lawrence** | QB | Pass Yds | 3144.0 | 3485.8 | 3735.8 | **3915.0** | 4092.2 | 4315.5 | 4817.0 |
+| **Trevor Lawrence** | QB | Pass TDs | 15.0 | 22.0 | 27.0 | **30.0** | 33.0 | 38.0 | 45.0 |
+| **Trevor Lawrence** | QB | Cmp % | 56.4 | 59.2 | 61.2 | **62.7** | 64.2 | 66.1 | 68.9 |
+| **Trevor Lawrence** | QB | INTs | 2.0 | 6.0 | 8.0 | **10.0** | 12.0 | 16.0 | 21.0 |
+| **Trevor Lawrence** | QB | Std Fantasy | 196.7 | 226.2 | 253.5 | **273.9** | 296.7 | 326.3 | 365.1 |
+| **Trevor Lawrence** | QB | DK Fantasy | 213.2 | 249.1 | 276.0 | **297.8** | 320.1 | 351.9 | 385.6 |
+| **Team Total** | — | Pass Yds | 3144.0 | 3485.8 | 3735.8 | **3915.0** | 4092.2 | 4315.5 | 4817.0 |
+| **Team Total** | — | Pass TDs | 15.0 | 22.0 | 27.0 | **30.0** | 33.0 | 38.0 | 45.0 |
+| **Team Total** | — | Cmp % | 56.4 | 59.2 | 61.2 | **62.7** | 64.2 | 66.1 | 68.9 |
+| **Team Total** | — | INTs | 2.0 | 6.0 | 8.0 | **10.0** | 12.0 | 16.0 | 21.0 |
+| **Team Total** | — | Std Fantasy | 196.7 | 226.2 | 253.5 | **273.9** | 296.7 | 326.3 | 365.1 |
+| **Team Total** | — | DK Fantasy | 213.2 | 249.1 | 276.0 | **297.8** | 320.1 | 351.9 | 385.6 |
 
 ## Running Backs
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Ameer Abdullah** | RB3 | Rush Att | 17.0 | 23.0 | 28.0 | **32.0** | 36.0 | 41.0 | 50.0 |
-| **Ameer Abdullah** | RB3 | Rush Yds | 40.0 | 83.0 | 114.0 | **141.0** | 171.0 | 221.0 | 327.0 |
-| **Ameer Abdullah** | RB3 | Rush TDs | 0.0 | 0.0 | 0.0 | **0.0** | 1.0 | 2.0 | 4.0 |
-| **Ameer Abdullah** | RB3 | Receptions | 1.0 | 5.0 | 7.0 | **9.0** | 12.0 | 15.0 | 20.0 |
-| **Ameer Abdullah** | RB3 | Std Fantasy | 9.1 | 17.4 | 24.1 | **29.4** | 35.3 | 45.2 | 59.3 |
-| **Ameer Abdullah** | RB3 | DK Fantasy | 11.6 | 20.9 | 28.8 | **34.4** | 41.0 | 51.8 | 64.4 |
-| **Bhayshul Tuten** | RB1 | Rush Att | 148.0 | 170.0 | 184.8 | **194.0** | 205.2 | 220.0 | 250.0 |
-| **Bhayshul Tuten** | RB1 | Rush Yds | 500.0 | 690.0 | 785.0 | **850.0** | 923.0 | 1039.1 | 1279.0 |
-| **Bhayshul Tuten** | RB1 | Rush TDs | 0.0 | 1.0 | 3.0 | **4.0** | 6.0 | 8.0 | 14.0 |
-| **Bhayshul Tuten** | RB1 | Receptions | 13.0 | 23.0 | 29.0 | **32.0** | 36.0 | 42.0 | 55.0 |
-| **Bhayshul Tuten** | RB1 | Std Fantasy | 96.6 | 124.7 | 142.8 | **157.9** | 171.5 | 199.2 | 245.3 |
-| **Bhayshul Tuten** | RB1 | DK Fantasy | 107.1 | 141.0 | 162.2 | **177.2** | 193.5 | 222.4 | 272.8 |
-| **Chris Rodriguez** | RB2 | Rush Att | 112.0 | 130.0 | 145.8 | **154.0** | 163.0 | 178.0 | 195.0 |
-| **Chris Rodriguez** | RB2 | Rush Yds | 395.0 | 510.0 | 595.0 | **663.0** | 727.0 | 815.0 | 982.0 |
-| **Chris Rodriguez** | RB2 | Rush TDs | 0.0 | 2.0 | 3.0 | **5.0** | 6.0 | 8.0 | 12.0 |
-| **Chris Rodriguez** | RB2 | Receptions | 1.0 | 3.0 | 5.0 | **6.0** | 8.0 | 11.0 | 17.0 |
-| **Chris Rodriguez** | RB2 | Std Fantasy | 57.4 | 75.3 | 91.9 | **105.2** | 117.4 | 137.4 | 180.1 |
-| **Chris Rodriguez** | RB2 | DK Fantasy | 58.4 | 79.4 | 96.4 | **110.5** | 123.0 | 143.0 | 188.1 |
-| **Team Total** | — | Rush Att | 298.0 | 341.0 | 365.0 | **382.0** | 397.0 | 420.0 | 461.0 |
-| **Team Total** | — | Rush Yds | 1110.0 | 1405.8 | 1558.0 | **1664.0** | 1771.0 | 1936.0 | 2176.0 |
-| **Team Total** | — | Rush TDs | 1.0 | 5.0 | 8.0 | **10.0** | 12.0 | 15.0 | 21.0 |
-| **Team Total** | — | Receptions | 30.0 | 38.0 | 44.0 | **49.0** | 54.0 | 60.0 | 77.0 |
-| **Team Total** | — | Std Fantasy | 182.1 | 242.9 | 271.7 | **293.7** | 314.9 | 345.1 | 396.4 |
-| **Team Total** | — | DK Fantasy | 206.6 | 269.3 | 300.1 | **323.5** | 346.9 | 380.0 | 428.9 |
+| **Ameer Abdullah** | RB3 | Rush Att | 16.0 | 23.0 | 28.0 | **32.0** | 36.0 | 43.0 | 56.0 |
+| **Ameer Abdullah** | RB3 | Rush Yds | 31.0 | 81.0 | 117.0 | **142.0** | 171.0 | 222.0 | 324.0 |
+| **Ameer Abdullah** | RB3 | Rush TDs | 0.0 | 0.0 | 0.0 | **0.0** | 1.0 | 2.0 | 3.0 |
+| **Ameer Abdullah** | RB3 | Receptions | 2.0 | 5.0 | 8.0 | **9.0** | 12.0 | 15.0 | 21.0 |
+| **Ameer Abdullah** | RB3 | Std Fantasy | 7.6 | 17.1 | 23.6 | **29.5** | 35.6 | 46.8 | 69.6 |
+| **Ameer Abdullah** | RB3 | DK Fantasy | 10.3 | 20.9 | 28.1 | **34.4** | 41.4 | 53.4 | 76.6 |
+| **Bhayshul Tuten** | RB1 | Rush Att | 147.0 | 170.0 | 184.0 | **194.0** | 205.2 | 222.0 | 243.0 |
+| **Bhayshul Tuten** | RB1 | Rush Yds | 561.0 | 686.9 | 789.0 | **853.0** | 929.0 | 1040.0 | 1273.0 |
+| **Bhayshul Tuten** | RB1 | Rush TDs | 0.0 | 1.0 | 3.0 | **4.0** | 6.0 | 8.0 | 16.0 |
+| **Bhayshul Tuten** | RB1 | Receptions | 15.0 | 24.0 | 29.0 | **33.0** | 37.0 | 42.0 | 64.0 |
+| **Bhayshul Tuten** | RB1 | Std Fantasy | 84.7 | 123.7 | 143.9 | **158.1** | 173.8 | 198.5 | 252.5 |
+| **Bhayshul Tuten** | RB1 | DK Fantasy | 105.2 | 140.3 | 163.4 | **177.9** | 194.7 | 222.0 | 274.5 |
+| **Chris Rodriguez** | RB2 | Rush Att | 116.0 | 131.0 | 144.0 | **153.0** | 162.0 | 174.0 | 206.0 |
+| **Chris Rodriguez** | RB2 | Rush Yds | 412.0 | 500.0 | 599.0 | **655.0** | 719.0 | 815.0 | 983.0 |
+| **Chris Rodriguez** | RB2 | Rush TDs | 0.0 | 2.0 | 3.0 | **4.0** | 6.0 | 8.0 | 11.0 |
+| **Chris Rodriguez** | RB2 | Receptions | 0.0 | 3.0 | 5.0 | **6.0** | 8.0 | 11.0 | 18.0 |
+| **Chris Rodriguez** | RB2 | Std Fantasy | 57.9 | 75.8 | 91.7 | **103.5** | 116.4 | 138.0 | 176.6 |
+| **Chris Rodriguez** | RB2 | DK Fantasy | 62.0 | 79.7 | 96.1 | **108.5** | 121.8 | 145.0 | 185.6 |
+| **Team Total** | — | Rush Att | 318.0 | 342.0 | 362.0 | **379.0** | 396.0 | 420.0 | 464.0 |
+| **Team Total** | — | Rush Yds | 1230.0 | 1416.0 | 1558.8 | **1657.5** | 1767.0 | 1933.0 | 2377.0 |
+| **Team Total** | — | Rush TDs | 1.0 | 5.0 | 8.0 | **10.0** | 12.0 | 15.0 | 19.0 |
+| **Team Total** | — | Receptions | 29.0 | 38.0 | 45.0 | **49.0** | 54.0 | 61.0 | 81.0 |
+| **Team Total** | — | Std Fantasy | 197.7 | 240.6 | 272.1 | **292.4** | 316.3 | 350.8 | 396.2 |
+| **Team Total** | — | DK Fantasy | 224.2 | 268.1 | 300.1 | **323.0** | 349.1 | 386.2 | 429.5 |
 
 ## Wide Receivers & Tight Ends
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Brenton Strange** | WR5 | Targets | 43.0 | 56.0 | 64.0 | **70.0** | 76.0 | 83.0 | 96.0 |
-| **Brenton Strange** | WR5 | Receptions | 27.0 | 37.0 | 44.0 | **48.0** | 52.0 | 59.0 | 70.0 |
-| **Brenton Strange** | WR5 | Rec Yds | 263.0 | 356.0 | 451.0 | **524.0** | 598.0 | 717.0 | 843.0 |
-| **Brenton Strange** | WR5 | Rec TDs | 0.0 | 1.0 | 3.0 | **4.0** | 6.0 | 8.0 | 12.0 |
-| **Brenton Strange** | WR5 | Std Fantasy | 46.6 | 69.8 | 87.7 | **102.0** | 115.4 | 138.4 | 172.5 |
-| **Brenton Strange** | WR5 | DK Fantasy | 60.1 | 90.4 | 110.8 | **126.8** | 142.6 | 168.3 | 202.2 |
-| **Brian Thomas** | WR3 | Targets | 60.0 | 71.0 | 80.0 | **86.0** | 93.0 | 102.0 | 117.0 |
-| **Brian Thomas** | WR3 | Receptions | 34.0 | 43.0 | 50.0 | **55.0** | 59.0 | 67.0 | 78.0 |
-| **Brian Thomas** | WR3 | Rec Yds | 396.0 | 495.0 | 612.0 | **685.5** | 767.2 | 905.1 | 1077.0 |
-| **Brian Thomas** | WR3 | Rec TDs | 1.0 | 3.0 | 5.0 | **7.0** | 8.0 | 11.0 | 15.0 |
-| **Brian Thomas** | WR3 | Std Fantasy | 72.9 | 99.6 | 121.8 | **137.9** | 153.6 | 179.7 | 211.1 |
-| **Brian Thomas** | WR3 | DK Fantasy | 93.4 | 122.8 | 149.1 | **168.1** | 186.4 | 217.0 | 252.6 |
-| **Jakobi Meyers** | WR2 | Targets | 65.0 | 91.0 | 100.0 | **108.0** | 115.0 | 125.0 | 141.0 |
-| **Jakobi Meyers** | WR2 | Receptions | 46.0 | 60.0 | 67.0 | **73.0** | 79.0 | 87.0 | 100.0 |
-| **Jakobi Meyers** | WR2 | Rec Yds | 493.0 | 615.0 | 733.0 | **819.0** | 894.0 | 1031.3 | 1292.0 |
-| **Jakobi Meyers** | WR2 | Rec TDs | 0.0 | 2.0 | 4.0 | **5.0** | 7.0 | 10.0 | 13.0 |
-| **Jakobi Meyers** | WR2 | Std Fantasy | 83.9 | 115.8 | 134.8 | **150.0** | 165.7 | 192.4 | 221.5 |
-| **Jakobi Meyers** | WR2 | DK Fantasy | 110.4 | 148.9 | 171.5 | **189.6** | 208.9 | 241.3 | 275.7 |
-| **Josh Cameron** | WR6 | Targets | 9.0 | 14.0 | 18.0 | **21.0** | 24.0 | 29.0 | 36.0 |
-| **Josh Cameron** | WR6 | Receptions | 4.0 | 8.0 | 11.0 | **13.0** | 16.0 | 19.0 | 25.0 |
-| **Josh Cameron** | WR6 | Rec Yds | 23.0 | 72.0 | 119.0 | **151.0** | 193.0 | 267.0 | 455.0 |
+| **Brenton Strange** | WR5 | Targets | 44.0 | 56.0 | 64.0 | **69.0** | 74.0 | 83.0 | 98.0 |
+| **Brenton Strange** | WR5 | Receptions | 27.0 | 37.0 | 43.0 | **48.0** | 52.0 | 59.0 | 72.0 |
+| **Brenton Strange** | WR5 | Rec Yds | 249.0 | 356.9 | 446.0 | **517.0** | 589.0 | 696.1 | 969.0 |
+| **Brenton Strange** | WR5 | Rec TDs | 0.0 | 1.0 | 3.0 | **4.0** | 5.0 | 8.0 | 11.0 |
+| **Brenton Strange** | WR5 | Std Fantasy | 43.3 | 68.7 | 85.0 | **99.3** | 112.2 | 135.1 | 170.9 |
+| **Brenton Strange** | WR5 | DK Fantasy | 58.8 | 88.9 | 108.1 | **123.7** | 139.6 | 164.9 | 211.9 |
+| **Brian Thomas** | WR3 | Targets | 57.0 | 71.0 | 80.0 | **86.0** | 92.0 | 101.0 | 120.0 |
+| **Brian Thomas** | WR3 | Receptions | 33.0 | 43.0 | 50.0 | **54.0** | 59.0 | 67.0 | 85.0 |
+| **Brian Thomas** | WR3 | Rec Yds | 312.0 | 491.9 | 600.8 | **677.0** | 771.0 | 888.0 | 1193.0 |
+| **Brian Thomas** | WR3 | Rec TDs | 0.0 | 3.0 | 5.0 | **7.0** | 8.0 | 11.0 | 18.0 |
+| **Brian Thomas** | WR3 | Std Fantasy | 67.3 | 97.1 | 122.1 | **137.8** | 154.2 | 177.3 | 235.0 |
+| **Brian Thomas** | WR3 | DK Fantasy | 85.8 | 120.5 | 148.5 | **167.3** | 186.7 | 214.5 | 280.9 |
+| **Jakobi Meyers** | WR2 | Targets | 75.0 | 90.0 | 99.0 | **107.0** | 114.0 | 125.0 | 143.0 |
+| **Jakobi Meyers** | WR2 | Receptions | 45.0 | 58.0 | 66.0 | **72.0** | 78.0 | 88.0 | 102.0 |
+| **Jakobi Meyers** | WR2 | Rec Yds | 478.0 | 606.0 | 712.0 | **795.5** | 884.0 | 1032.0 | 1213.0 |
+| **Jakobi Meyers** | WR2 | Rec TDs | 0.0 | 2.0 | 4.0 | **5.0** | 7.0 | 9.0 | 15.0 |
+| **Jakobi Meyers** | WR2 | Std Fantasy | 77.4 | 111.7 | 131.9 | **147.7** | 164.9 | 190.3 | 238.0 |
+| **Jakobi Meyers** | WR2 | DK Fantasy | 101.8 | 143.9 | 168.4 | **186.9** | 207.2 | 238.5 | 290.5 |
+| **Josh Cameron** | WR6 | Targets | 8.0 | 14.0 | 18.0 | **21.0** | 24.0 | 29.0 | 39.0 |
+| **Josh Cameron** | WR6 | Receptions | 4.0 | 8.0 | 11.0 | **13.0** | 16.0 | 19.0 | 30.0 |
+| **Josh Cameron** | WR6 | Rec Yds | 23.0 | 74.0 | 118.8 | **152.5** | 191.2 | 255.0 | 418.0 |
 | **Josh Cameron** | WR6 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 6.0 |
-| **Josh Cameron** | WR6 | Std Fantasy | 4.8 | 14.0 | 22.0 | **28.5** | 36.4 | 49.8 | 69.5 |
-| **Josh Cameron** | WR6 | DK Fantasy | 7.3 | 18.6 | 27.8 | **35.2** | 44.0 | 58.8 | 79.5 |
-| **Parker Washington** | WR1 | Targets | 76.0 | 95.0 | 107.0 | **114.0** | 121.0 | 131.0 | 147.0 |
-| **Parker Washington** | WR1 | Receptions | 45.0 | 58.0 | 65.0 | **70.0** | 76.0 | 85.0 | 101.0 |
-| **Parker Washington** | WR1 | Rec Yds | 485.0 | 639.0 | 757.0 | **852.0** | 940.2 | 1087.0 | 1379.0 |
-| **Parker Washington** | WR1 | Rec TDs | 1.0 | 3.0 | 5.0 | **6.0** | 8.0 | 11.0 | 18.0 |
-| **Parker Washington** | WR1 | Std Fantasy | 74.9 | 125.0 | 144.4 | **161.1** | 178.0 | 203.5 | 270.0 |
-| **Parker Washington** | WR1 | DK Fantasy | 100.9 | 156.8 | 180.9 | **201.1** | 220.6 | 252.2 | 324.0 |
-| **Quintin Morris** | TE1 | Targets | 0.0 | 2.0 | 4.0 | **5.0** | 7.0 | 10.0 | 14.0 |
-| **Quintin Morris** | TE1 | Receptions | 0.0 | 1.0 | 2.0 | **3.0** | 5.0 | 7.0 | 11.0 |
-| **Quintin Morris** | TE1 | Rec Yds | -5.0 | 1.0 | 19.0 | **36.0** | 58.0 | 99.0 | 209.0 |
-| **Quintin Morris** | TE1 | Rec TDs | 0.0 | 0.0 | 0.0 | **0.0** | 1.0 | 1.0 | 3.0 |
-| **Quintin Morris** | TE1 | Std Fantasy | -0.9 | 0.6 | 3.5 | **6.6** | 11.3 | 17.9 | 32.3 |
-| **Quintin Morris** | TE1 | DK Fantasy | 0.0 | 1.2 | 4.6 | **8.4** | 13.5 | 20.9 | 36.3 |
-| **Travis Hunter** | WR4 | Targets | 42.0 | 55.0 | 62.0 | **67.0** | 74.0 | 82.0 | 93.0 |
-| **Travis Hunter** | WR4 | Receptions | 24.0 | 34.0 | 40.0 | **44.0** | 48.0 | 55.0 | 65.0 |
-| **Travis Hunter** | WR4 | Rec Yds | 192.0 | 312.0 | 405.0 | **472.0** | 548.0 | 668.0 | 817.0 |
-| **Travis Hunter** | WR4 | Rec TDs | 0.0 | 1.0 | 2.0 | **3.0** | 4.0 | 6.0 | 10.0 |
-| **Travis Hunter** | WR4 | Std Fantasy | 44.1 | 65.6 | 81.5 | **94.5** | 107.0 | 127.4 | 157.9 |
-| **Travis Hunter** | WR4 | DK Fantasy | 56.1 | 84.6 | 102.7 | **117.8** | 131.9 | 156.5 | 191.0 |
-| **Team Total** | — | Targets | 391.0 | 433.0 | 457.0 | **471.0** | 488.0 | 513.0 | 558.0 |
-| **Team Total** | — | Receptions | 254.0 | 278.0 | 295.0 | **307.0** | 319.0 | 335.0 | 371.0 |
-| **Team Total** | — | Rec Yds | 2701.0 | 3149.0 | 3400.8 | **3579.0** | 3738.2 | 3988.1 | 4355.0 |
-| **Team Total** | — | Rec TDs | 13.0 | 21.0 | 25.0 | **28.0** | 31.0 | 36.0 | 41.0 |
-| **Team Total** | — | Std Fantasy | 532.1 | 607.6 | 653.0 | **686.8** | 720.0 | 769.0 | 870.7 |
-| **Team Total** | — | DK Fantasy | 674.1 | 757.6 | 813.7 | **852.0** | 893.4 | 953.4 | 1075.2 |
+| **Josh Cameron** | WR6 | Std Fantasy | 4.8 | 13.8 | 21.7 | **28.6** | 36.1 | 48.3 | 79.7 |
+| **Josh Cameron** | WR6 | DK Fantasy | 6.9 | 18.2 | 27.4 | **35.4** | 43.5 | 57.3 | 94.7 |
+| **Parker Washington** | WR1 | Targets | 83.0 | 96.0 | 107.0 | **114.0** | 122.0 | 131.0 | 156.0 |
+| **Parker Washington** | WR1 | Receptions | 46.0 | 58.0 | 65.0 | **71.0** | 76.0 | 85.0 | 100.0 |
+| **Parker Washington** | WR1 | Rec Yds | 467.0 | 657.0 | 766.0 | **857.5** | 950.0 | 1076.0 | 1352.0 |
+| **Parker Washington** | WR1 | Rec TDs | 0.0 | 3.0 | 5.0 | **7.0** | 8.0 | 11.0 | 19.0 |
+| **Parker Washington** | WR1 | Std Fantasy | 91.5 | 121.5 | 145.1 | **163.1** | 180.0 | 207.5 | 272.7 |
+| **Parker Washington** | WR1 | DK Fantasy | 116.0 | 152.6 | 182.1 | **203.6** | 222.7 | 256.5 | 335.8 |
+| **Quintin Morris** | TE1 | Targets | 0.0 | 2.0 | 4.0 | **5.0** | 7.0 | 9.0 | 16.0 |
+| **Quintin Morris** | TE1 | Receptions | 0.0 | 1.0 | 2.0 | **3.0** | 5.0 | 7.0 | 10.0 |
+| **Quintin Morris** | TE1 | Rec Yds | -4.0 | 1.0 | 18.0 | **35.5** | 58.0 | 98.0 | 210.0 |
+| **Quintin Morris** | TE1 | Rec TDs | 0.0 | 0.0 | 0.0 | **0.0** | 1.0 | 2.0 | 3.0 |
+| **Quintin Morris** | TE1 | Std Fantasy | -0.7 | 0.7 | 3.2 | **6.6** | 11.1 | 19.0 | 31.4 |
+| **Quintin Morris** | TE1 | DK Fantasy | 0.0 | 1.2 | 4.4 | **8.4** | 13.3 | 21.8 | 34.9 |
+| **Travis Hunter** | WR4 | Targets | 42.0 | 54.0 | 62.0 | **68.0** | 74.0 | 82.0 | 94.0 |
+| **Travis Hunter** | WR4 | Receptions | 23.0 | 33.0 | 39.0 | **44.0** | 48.0 | 55.0 | 69.0 |
+| **Travis Hunter** | WR4 | Rec Yds | 226.0 | 308.0 | 407.0 | **476.5** | 552.2 | 669.0 | 802.0 |
+| **Travis Hunter** | WR4 | Rec TDs | 0.0 | 1.0 | 2.0 | **3.0** | 4.0 | 6.0 | 11.0 |
+| **Travis Hunter** | WR4 | Std Fantasy | 48.1 | 64.0 | 82.2 | **94.8** | 107.5 | 129.6 | 159.8 |
+| **Travis Hunter** | WR4 | DK Fantasy | 62.1 | 82.5 | 103.2 | **117.6** | 132.0 | 157.5 | 192.3 |
+| **Team Total** | — | Targets | 396.0 | 431.0 | 455.0 | **471.0** | 487.0 | 509.0 | 557.0 |
+| **Team Total** | — | Receptions | 247.0 | 278.0 | 295.0 | **306.0** | 317.0 | 335.0 | 358.0 |
+| **Team Total** | — | Rec Yds | 2720.0 | 3140.8 | 3371.5 | **3542.5** | 3719.2 | 3947.2 | 4346.0 |
+| **Team Total** | — | Rec TDs | 15.0 | 20.0 | 25.0 | **28.0** | 31.0 | 36.0 | 43.0 |
+| **Team Total** | — | Std Fantasy | 499.4 | 600.0 | 649.2 | **683.6** | 717.7 | 763.3 | 817.7 |
+| **Team Total** | — | DK Fantasy | 634.9 | 750.9 | 809.9 | **849.8** | 889.0 | 948.1 | 1014.2 |
 
 ## Defense & Special Teams
 
 | DST Team | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Defense** | Sacks | 14.0 | 23.0 | 28.0 | **32.0** | 36.0 | 42.0 | 54.0 |
-| **Defense** | INTs | 2.0 | 5.0 | 7.8 | **9.0** | 12.0 | 15.0 | 21.0 |
-| **Defense** | Fumble Rec | 0.0 | 1.0 | 3.0 | **4.0** | 5.0 | 8.0 | 13.0 |
-| **Defense** | TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 6.0 |
-| **Defense** | Pts Allowed | 269.0 | 330.9 | 366.0 | **392.0** | 418.0 | 456.0 | 520.0 |
-| **Defense** | Std Fantasy | 17.0 | 43.0 | 60.0 | **72.0** | 85.0 | 104.0 | 144.0 |
-| **Defense** | DK Fantasy | 17.0 | 43.0 | 60.0 | **72.0** | 85.0 | 104.0 | 144.0 |
+| **Defense** | Sacks | 14.0 | 23.0 | 29.0 | **32.0** | 36.0 | 41.0 | 54.0 |
+| **Defense** | INTs | 1.0 | 5.0 | 7.0 | **10.0** | 12.0 | 16.0 | 22.0 |
+| **Defense** | Fumble Rec | 0.0 | 1.0 | 2.0 | **4.0** | 5.0 | 7.0 | 10.0 |
+| **Defense** | TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 5.0 |
+| **Defense** | Pts Allowed | 274.0 | 328.0 | 368.0 | **393.5** | 421.0 | 462.0 | 523.0 |
+| **Defense** | Std Fantasy | 26.0 | 44.0 | 61.0 | **72.0** | 84.0 | 102.0 | 141.0 |
+| **Defense** | DK Fantasy | 26.0 | 44.0 | 61.0 | **72.0** | 84.0 | 102.0 | 141.0 |
 
