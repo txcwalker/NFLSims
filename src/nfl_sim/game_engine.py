@@ -203,6 +203,25 @@ def _anchor_adot(adot):
 SEP_BONUS_SCALE = 0.13
 OPEN_FIELD_CALIBRATION_OFFSET = 0.0
 
+# Team-strength spread (2026-09-09, docs/implementation_plans/
+# defense_and_cpoe_spread_plan.md). The completion model had two places it
+# under-transmitted real skill/matchup, flattening the win spread (expected-wins
+# std 2.03 vs real ~2.7; a projected bottom-3 ARI sim'd -3.4 vs Vegas -10.5):
+#
+# QB_CPOE_COMPLETION_GAIN: CPOE entered the final catch prob at 1:1. Bumped so
+#   the per-QB completion spread matches real starters (~58-72%). The raw CPOE
+#   inputs for the actual 2026 starters already sit in a sane -3.2..+6.1 range
+#   (roster projections applied), so no input clip -- some QBs really are that
+#   bad. Backtrack: 1.0.
+# PASS_DEF_COMPLETION_SCALE: the completion model had ZERO defensive input --
+#   a WR completed at the same rate vs any secondary. This subtracts
+#   scale * (opponent's raw pass_def_z) from the catch prob. NOTE pass_def_z is
+#   the pass-RUSH composite, not coverage -- this proxies "teams that rush well
+#   disrupt the pass game" (real r ~0.4-0.5), an explicit stopgap until a real
+#   coverage / EPA-allowed feature exists. Backtrack: 0.0.
+QB_CPOE_COMPLETION_GAIN = 1.4
+PASS_DEF_COMPLETION_SCALE = 0.015
+
 
 # Throwaway rate (2026-09-06). Real QBs throw the ball away ~5% of dropbacks
 # (PFF charting; AGENTS.md §11.6 target). The engine only ever produced ~0.4%
@@ -417,6 +436,12 @@ class NFLGameEngine:
         self.pass_block_off_z_home = _trench_spread(trench_pass_home.get('pass_block_off_z', 0.0))
         self.pass_def_z_away = _trench_spread(trench_pass_away.get('pass_def_z', 0.0))
         self.pass_def_z_home = _trench_spread(trench_pass_home.get('pass_def_z', 0.0))
+        # Raw (un-_trench_spread'd) pass_def_z -- the completion-model defense
+        # term (PASS_DEF_COMPLETION_SCALE) uses this, not the spread version.
+        # The spread widening was calibrated for the sack gates; completion gets
+        # the plain z so the effect stays conservative.
+        self.pass_def_z_raw_away = float(trench_pass_away.get('pass_def_z', 0.0))
+        self.pass_def_z_raw_home = float(trench_pass_home.get('pass_def_z', 0.0))
 
         # Rush trench matchup gate (v0.4.0): replaces the old trench_tiers-based
         # run_mult_*_off flat per-game scalar. Composite z-scores
@@ -1868,6 +1893,16 @@ class NFLGameEngine:
                         sep_mean = avg_separation_yds_recv[is_normal]
                         sep_roll = np.maximum(0.0, np.random.normal(sep_mean, 1.0))
 
+                        # Team pass-defense term (2026-09-09): raw pass_def_z of
+                        # the DEFENDING (non-possessing) team. Subtracted from the
+                        # final catch prob on both paths below -- a disruptive
+                        # pass D lowers opponent completion. Proxy via pass-rush
+                        # composite, see PASS_DEF_COMPLETION_SCALE note.
+                        pass_def_z_def = np.where(
+                            self.possession_is_away[is_normal],
+                            self.pass_def_z_raw_home, self.pass_def_z_raw_away,
+                        ).astype(np.float32)
+
                         # Split plays into Contested (sep_roll <= 1.0) and Open (sep_roll > 1.0).
                         # The 1-yard cutoff matches the community definition of a
                         # "contested catch" (receiver has 1 yard of separation or
@@ -1896,11 +1931,14 @@ class NFLGameEngine:
                             ay_val_c = play_air_yards[is_normal][is_contested]
                             adot_val_c = avg_target_depth_yds_recv[is_normal][is_contested]
                             contested_wr_rate = contested_catch_rate_recv[is_normal][is_contested]
-                            qb_cpoe_val_c = qb_cpoe[is_normal][is_contested] / 100.0
+                            qb_cpoe_val_c = qb_cpoe[is_normal][is_contested] / 100.0 * QB_CPOE_COMPLETION_GAIN
 
                             skill_c = SKILL_SHRINK * (_logit_arr(contested_wr_rate) - _depth_logit(_anchor_adot(adot_val_c)))
                             logit_p_c = _depth_logit(ay_val_c) + skill_c
-                            probs_normal[is_contested] = _sigmoid_arr(logit_p_c) + qb_cpoe_val_c
+                            probs_normal[is_contested] = (
+                                _sigmoid_arr(logit_p_c) + qb_cpoe_val_c
+                                - PASS_DEF_COMPLETION_SCALE * pass_def_z_def[is_contested]
+                            )
 
                         # 2. OPEN FIELD PATH (sep_roll > 1.0): anchored to the zone catch rate,
                         # plus the zero-mean separation deviation and the flat calibration offset.
@@ -1921,8 +1959,12 @@ class NFLGameEngine:
                             # completion quantity, not logit-space; adding it pre-sigmoid
                             # compresses it -- Round 7 fix). Flat calibration offset: see the
                             # module-level OPEN_FIELD_CALIBRATION_OFFSET note.
-                            qb_cpoe_val = qb_cpoe[is_normal][is_open] / 100.0
-                            probs_normal[is_open] = _sigmoid_arr(logit_p) + qb_cpoe_val - OPEN_FIELD_CALIBRATION_OFFSET
+                            qb_cpoe_val = qb_cpoe[is_normal][is_open] / 100.0 * QB_CPOE_COMPLETION_GAIN
+                            probs_normal[is_open] = (
+                                _sigmoid_arr(logit_p) + qb_cpoe_val
+                                - PASS_DEF_COMPLETION_SCALE * pass_def_z_def[is_open]
+                                - OPEN_FIELD_CALIBRATION_OFFSET
+                            )
                             
                         # Apply to catch_prob and clip final probabilities to [0.01, 0.99]
                         catch_prob[is_normal] = np.clip(probs_normal, 0.01, 0.99)

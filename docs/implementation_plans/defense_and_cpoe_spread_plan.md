@@ -16,24 +16,21 @@ situational can't be made bad enough.
 
 ---
 
-## A — widen the QB CPOE → completion coefficient (+ clip the input)
+## A — widen the QB CPOE → completion coefficient
+
+> **Revised 2026-09-09 — NO input clip** (Cam's call). The earlier draft
+> proposed clipping to (−6, +7) to tame NYJ Zappe (−13.55) / IND Richardson
+> (−8.67). Those aren't the starters — `_get_starter_static` reads career
+> attempts from `qb_dna.json` and correctly picks **Geno Smith (NYJ, +3.16
+> roster proj) / Daniel Jones (IND, +2.25)**. The actual 2026 starters span
+> **−3.16 (CLE Watson) … +6.14 (CIN Burrow)**, already sane, so: no clip —
+> some QBs really are that bad, and nobody projects above +7 even on small
+> samples.
 
 ### What
 
-1. **Clip the raw `qb_cpoe` input** to a real-starter range at assembly
-   (`game_engine.py:1527`), before it feeds *any* model:
-   ```python
-   QB_CPOE_CLIP = (-6.0, 7.0)   # real season-starter CPOE range; the raw
-                                # values have small-sample tails (NYJ Zappe
-                                # -13.55, IND Richardson -8.67) that are noise
-   qb_cpoe = np.clip(
-       np.where(self.possession_is_away, away_feat['qb_cpoe'], home_feat['qb_cpoe']),
-       *QB_CPOE_CLIP,
-   ).astype(np.float32)
-   ```
-
-2. **Multiply the completion-side CPOE term** by a gain > 1 at both the
-   contested (`:1899`) and open (`:1924`) paths:
+**Multiply the completion-side CPOE term** by a gain > 1 at both the contested
+and open paths (`qb_cpoe` stays raw; the gain is a model param):
    ```python
    QB_CPOE_COMPLETION_GAIN = 1.4   # backtrack: 1.0
 
