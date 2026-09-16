@@ -1,4 +1,4 @@
-import numpy as np
+import pulp
 
 def solve_showdown_iteration(names, salaries, scores, salary_cap=50000):
     """
@@ -80,187 +80,72 @@ def solve_showdown_iteration(names, salaries, scores, salary_cap=50000):
     return best_lineup
 
 
-def solve_traditional_iteration(names, salaries, positions, teams, scores, salary_cap=50000):
+def solve_optimal_lineup_milp(names, salaries, positions, scores, salary_cap=50000):
     """
-    Finds the optimal Traditional lineup for a single trial iteration.
-    Lineup structure: 1 QB, 2 RB, 3 WR, 1 TE, 1 FLEX (RB/WR/TE), 1 DST.
-    names, salaries, positions, teams, scores: lists/arrays of player attributes.
+    Finds the PROVABLY optimal Traditional lineup for a single trial
+    iteration via a real MILP solve (PuLP + CBC), replacing this module's
+    former solve_traditional_iteration -- a hand-rolled branch-and-bound
+    that (a) wasn't actually exact (it ran under a fixed 1.5s/call time
+    budget and returned its best-found-so-far lineup once that ran out, not
+    a proven optimum) and (b) at ~1.5s/call was far too slow to run across
+    more than a small sample of a week's ~10,000 sim iterations -- see
+    src/api/app.py's OPTIMAL_LINEUP_SAMPLE_ITERATIONS and WORKLOG
+    2026-09-15. Benchmarked against a real ~400-player multi-game slate:
+    ~0.05-0.2s/solve, ~15x faster AND exact, which is what makes running it
+    across genuinely every iteration of a week's sim (instead of 15 of
+    them) affordable as a batch pass -- see
+    scripts/simulation_runners/compute_optimal_pct_2026.py.
+
+    Same constraint set as src.api.app._solve_lineup_ilp (1 QB, >=2 RB,
+    >=3 WR, >=1 TE, 1 DST, 9 total, FLEX absorbing the extra RB/WR/TE slot,
+    salary cap), minus that function's multi-lineup-portfolio constraints
+    (locks/excludes/exposure/min-unique) -- this is always exactly one,
+    unconstrained, single-lineup solve for one iteration's score draw, not
+    a whole generated portfolio.
+
+    names, positions: parallel lists, one entry per player -- any hashable
+        value (a plain name string, or a (player, team) tuple), passed
+        straight through into the returned lineup so the caller can key
+        counts however it needs to.
+    salaries: parallel list/array of DK salaries.
+    scores: parallel array of this iteration's simulated DK score per player.
+
+    Returns the list of 9 selected entries from `names`, or [] if no legal
+    lineup exists (too few players at some position) or CBC can't find a
+    feasible solution (e.g. salary cap unreachable with this pool).
     """
     n = len(names)
     if n < 9:
         return []
-        
-    qbs = []
-    rbs = []
-    wrs = []
-    tes = []
-    dsts = []
-    
-    for i in range(n):
-        if scores[i] < -5.0:
-            continue
-        pos = positions[i]
-        sal = salaries[i]
-        item = (scores[i], sal, names[i])
-        
-        if pos == 'QB':
-            qbs.append(item)
-        elif pos == 'RB':
-            rbs.append(item)
-        elif pos == 'WR':
-            wrs.append(item)
-        elif pos == 'TE':
-            tes.append(item)
-        elif pos == 'DST':
-            dsts.append(item)
-            
-    if not qbs or len(rbs) < 2 or len(wrs) < 3 or not tes or not dsts:
+
+    qb_idx = [i for i in range(n) if positions[i] == 'QB']
+    rb_idx = [i for i in range(n) if positions[i] == 'RB']
+    wr_idx = [i for i in range(n) if positions[i] == 'WR']
+    te_idx = [i for i in range(n) if positions[i] == 'TE']
+    dst_idx = [i for i in range(n) if positions[i] == 'DST']
+    flex_idx = rb_idx + wr_idx + te_idx
+
+    if not qb_idx or len(rb_idx) < 2 or len(wr_idx) < 3 or not te_idx or not dst_idx:
         return []
-        
-    # Helper to prune by union of top scores and top cheapest
-    def prune_position_group(group, limit_score, limit_cheap):
-        group.sort(key=lambda x: x[0], reverse=True)
-        top_scores = group[:limit_score]
-        
-        group.sort(key=lambda x: x[1])
-        top_cheapest = group[:limit_cheap]
-        
-        seen = set()
-        union_list = []
-        for x in top_scores + top_cheapest:
-            player_name = x[2]
-            if player_name not in seen:
-                seen.add(player_name)
-                union_list.append(x)
-        
-        union_list.sort(key=lambda x: x[0], reverse=True)
-        return union_list
 
-    qbs = prune_position_group(qbs, 4, 3)
-    dsts = prune_position_group(dsts, 4, 3)
-    tes = prune_position_group(tes, 6, 4)
-    rbs = prune_position_group(rbs, 10, 8)
-    wrs = prune_position_group(wrs, 12, 10)
-    
-    def find_top_k_rb(rbs, num_rb, rem_cap, k=10):
-        results = []
-        def dfs(idx, count, cur_sal, cur_score, selected):
-            if count == num_rb:
-                results.append((cur_score, cur_sal, list(selected)))
-                results.sort(key=lambda x: x[0], reverse=True)
-                if len(results) > k:
-                    results.pop()
-                return
-            if idx >= len(rbs) or count + (len(rbs) - idx) < num_rb:
-                return
-            # Score pruning
-            if len(results) == k:
-                rem_needed = num_rb - count
-                max_possible = cur_score + sum(rbs[j][0] for j in range(idx, idx + rem_needed))
-                if max_possible <= results[-1][0]:
-                    return
-            s_pts, s_sal, s_name = rbs[idx]
-            if cur_sal + s_sal <= rem_cap:
-                selected.append(idx)
-                dfs(idx + 1, count + 1, cur_sal + s_sal, cur_score + s_pts, selected)
-                selected.pop()
-            dfs(idx + 1, count, cur_sal, cur_score, selected)
-        dfs(0, 0, 0, 0.0, [])
-        return results
+    prob = pulp.LpProblem('OptimalLineup', pulp.LpMaximize)
+    x = [pulp.LpVariable(f'x_{i}', cat='Binary') for i in range(n)]
 
-    def find_top_k_wr(wrs, num_wr, rem_cap, k=10):
-        results = []
-        def dfs(idx, count, cur_sal, cur_score, selected):
-            if count == num_wr:
-                results.append((cur_score, cur_sal, list(selected)))
-                results.sort(key=lambda x: x[0], reverse=True)
-                if len(results) > k:
-                    results.pop()
-                return
-            if idx >= len(wrs) or count + (len(wrs) - idx) < num_wr:
-                return
-            # Score pruning
-            if len(results) == k:
-                rem_needed = num_wr - count
-                max_possible = cur_score + sum(wrs[j][0] for j in range(idx, idx + rem_needed))
-                if max_possible <= results[-1][0]:
-                    return
-            s_pts, s_sal, s_name = wrs[idx]
-            if cur_sal + s_sal <= rem_cap:
-                selected.append(idx)
-                dfs(idx + 1, count + 1, cur_sal + s_sal, cur_score + s_pts, selected)
-                selected.pop()
-            dfs(idx + 1, count, cur_sal, cur_score, selected)
-        dfs(0, 0, 0, 0.0, [])
-        return results
+    prob += pulp.lpSum(float(scores[i]) * x[i] for i in range(n))
+    prob += pulp.lpSum(salaries[i] * x[i] for i in range(n)) <= salary_cap
+    prob += pulp.lpSum(x[i] for i in qb_idx) == 1
+    prob += pulp.lpSum(x[i] for i in rb_idx) >= 2
+    prob += pulp.lpSum(x[i] for i in wr_idx) >= 3
+    prob += pulp.lpSum(x[i] for i in te_idx) >= 1
+    prob += pulp.lpSum(x[i] for i in dst_idx) == 1
+    prob += pulp.lpSum(x[i] for i in flex_idx) >= 6
+    prob += pulp.lpSum(x[i] for i in range(n)) == 9
 
-    def find_top_k_te(tes, num_te, rem_cap, k=10):
-        results = []
-        def dfs(idx, count, cur_sal, cur_score, selected):
-            if count == num_te:
-                results.append((cur_score, cur_sal, list(selected)))
-                results.sort(key=lambda x: x[0], reverse=True)
-                if len(results) > k:
-                    results.pop()
-                return
-            if idx >= len(tes) or count + (len(tes) - idx) < num_te:
-                return
-            # Score pruning
-            if len(results) == k:
-                rem_needed = num_te - count
-                max_possible = cur_score + sum(tes[j][0] for j in range(idx, idx + rem_needed))
-                if max_possible <= results[-1][0]:
-                    return
-            s_pts, s_sal, s_name = tes[idx]
-            if cur_sal + s_sal <= rem_cap:
-                selected.append(idx)
-                dfs(idx + 1, count + 1, cur_sal + s_sal, cur_score + s_pts, selected)
-                selected.pop()
-            dfs(idx + 1, count, cur_sal, cur_score, selected)
-        dfs(0, 0, 0, 0.0, [])
-        return results
+    prob.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=5))
+    if prob.status != 1:  # not optimal
+        return []
 
-    best_score = -1.0
-    best_lineup = []
-    
-    for qb_score, qb_sal, qb_name in qbs:
-        for dst_score, dst_sal, dst_name in dsts:
-            rem_cap = salary_cap - qb_sal - dst_sal
-            if rem_cap < 0:
-                continue
-                
-            cases = [
-                (3, 3, 1),
-                (2, 4, 1),
-                (2, 3, 2)
-            ]
-            for num_rb, num_wr, num_te in cases:
-                if len(rbs) < num_rb or len(wrs) < num_wr or len(tes) < num_te:
-                    continue
-                    
-                # Find top 50 RB combinations
-                rb_combos = find_top_k_rb(rbs, num_rb, rem_cap, k=50)
-                for rb_score, rb_sal, rb_sel in rb_combos:
-                    rem_cap_after_rb = rem_cap - rb_sal
-                    
-                    # Find top 50 WR combinations
-                    wr_combos = find_top_k_wr(wrs, num_wr, rem_cap_after_rb, k=50)
-                    for wr_score, wr_sal, wr_sel in wr_combos:
-                        rem_cap_after_wr = rem_cap_after_rb - wr_sal
-                        
-                        # Find top 1 TE combination (the best one)
-                        te_combos = find_top_k_te(tes, num_te, rem_cap_after_wr, k=1)
-                        if te_combos:
-                            te_score, te_sal, te_sel = te_combos[0]
-                            
-                            total_score = qb_score + dst_score + rb_score + wr_score + te_score
-                            if total_score > best_score:
-                                    best_score = total_score
-                                    best_lineup = (
-                                        [qb_name, dst_name] +
-                                        [rbs[i][2] for i in rb_sel] +
-                                        [wrs[i][2] for i in wr_sel] +
-                                        [tes[i][2] for i in te_sel]
-                                    )
-                                
-    return best_lineup
+    selected = [i for i in range(n) if pulp.value(x[i]) and pulp.value(x[i]) > 0.5]
+    if len(selected) != 9:
+        return []
+    return [names[i] for i in selected]

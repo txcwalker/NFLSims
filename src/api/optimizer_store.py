@@ -113,7 +113,8 @@ def _utc_now_iso() -> str:
 def _build_summary(b: Dict[str, Any]) -> Dict[str, Any]:
     """Lightweight row for the Builds panel list (no lineups/players_used)."""
     portfolio = b.get("portfolio") or {}
-    contest = (b.get("settings") or {}).get("contest") or {}
+    settings = b.get("settings") or {}
+    contest = settings.get("contest") or {}
     return {
         "build_id": b.get("build_id"),
         "created_at": b.get("created_at"),
@@ -121,9 +122,14 @@ def _build_summary(b: Dict[str, Any]) -> Dict[str, Any]:
         "label": b.get("label"),
         "pinned": bool(b.get("pinned")),
         "submitted": bool(b.get("submitted")),
+        "account_id": b.get("account_id"),
         "n_lineups": len(b.get("lineups") or []),
         "portfolio_ev": portfolio.get("total_ev_pct"),
         "contest_name": contest.get("name"),
+        # Real contest entry fee wins over the settings-panel default -- see
+        # patch_build's account_id branch, which uses the same fallback to
+        # cost a build for the Bankroll page.
+        "entry_fee": contest.get("entry_fee", settings.get("entryFee")),
         "inputs_hash": b.get("inputs_hash"),
     }
 
@@ -176,11 +182,15 @@ def write_build(season: int, week: int, build: Dict[str, Any]) -> Dict[str, Any]
 
 
 def patch_build(season: int, week: int, build_id: str, patch: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Update the mutable metadata of a build (label / pinned / submitted / submission)."""
+    """Update the mutable metadata of a build (label / pinned / submitted /
+    submission / account_id -- see account_store.py). Setting account_id also
+    bulk-registers the build's lineups as paper entries -- see app.py's
+    patch_optimizer_build, which is where that side effect lives (this
+    module stays a plain file store)."""
     b = read_build(season, week, build_id)
     if b is None:
         return None
-    for k in ("label", "pinned", "submitted", "submission"):
+    for k in ("label", "pinned", "submitted", "submission", "account_id"):
         if k in patch:
             b[k] = patch[k]
     _atomic_write_json(_build_path(season, week, build_id), b)

@@ -12,13 +12,16 @@ Full design rationale (endpoints, multiprocessing notes): see app.md.
 """
 
 import os
+import re
 import json
 import glob
 import math
 import time
+import zlib
 import itertools
 import functools
 import hashlib
+import threading
 import numpy as np
 import pandas as pd
 import pulp
@@ -37,8 +40,22 @@ except ImportError:
 from src.nfl_sim.batch import BatchSimulator, StatAggregator
 from src.nfl_sim.scoring import calculate_fantasy_points
 from src.nfl_sim.field_simulator import build_field_sample, score_field_at_iteration, load_archetype_params
-from src.scrapers.dk_scraper import get_dk_salaries, get_dk_contests, get_dk_contest_payout, get_dk_slates, resolve_dk_salary
+from src.scrapers.dk_scraper import (
+    get_dk_salaries, get_dk_contests, get_dk_contest_payout, get_dk_slates, resolve_dk_salary,
+    get_dk_showdown_slates, get_dk_showdown_salaries, resolve_main_slate_draft_group_id,
+    get_main_slate_pin, load_prelock_salary_snapshot,
+)
+from src.ownership.heuristic import _ownership_soft_cap, _compute_ownership, _compute_showdown_ownership
+from src.ownership.model_inference import predict_classic_ownership, predict_showdown_ownership
 from src.api import optimizer_store
+from src.api import workspace_store
+from src.api import paper_store
+from src.api import sim_replay_store
+from src.api import account_store
+from src.api.lineup_stats import (
+    get_default_payout_structure as _get_default_payout_structure,
+    compute_lineup_field_stats_batch as _compute_lineup_field_stats_batch,
+)
 
 # Positional (chess-style) evaluator — lazily constructed singleton so the heavy
 # WP/EP model loads + KEP curve build happen once, not per request.
@@ -106,9 +123,9 @@ async def no_store_cache_headers(request, call_next):
 # PATH RESOLUTION & DATA LOADERS
 # -------------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# DFS site is scoped to 2026 Week 1 only for now (see /api/weeks below) -- that's
-# the only week with real DraftKings salaries live (get_dk_salaries()) and the
-# only one currently relevant to a pre-season dev build.
+# DFS site is scoped to 2026 Weeks 1-2 for now (see /api/weeks below) -- those
+# are the only weeks with real DraftKings salaries live (get_dk_salaries()) and
+# the only ones currently relevant to a pre-season dev build.
 SCHEDULE_CSV_PATH = os.path.join(BASE_DIR, "data", "external", "schedule_2026.csv")
 TEAM_COACHES_PATH = os.path.join(BASE_DIR, "data", "dna", "team_to_coach_2026.json")
 COACH_DNA_PATH = os.path.join(BASE_DIR, "data", "dna", "coach_dna.json")
@@ -121,6 +138,22 @@ ALL_PLAYERS_CACHED = None
 LAST_LOADED_TIME_GAMES = 0.0
 LAST_LOADED_TIME_PLAYERS = 0.0
 WEEK_PROJECTIONS_CACHE = {}
+# Per-(week,year,draft_group_id) lock so concurrent /api/week_projections callers
+# wait for the first computation instead of each kicking off their own optimal-
+# lineup solve. Same stampede failure mode as WEEK_SIM_RESULTS_CACHE below (see
+# WORKLOG 2026-09-09/2026-09-13) -- even the exact MILP solve
+# (solve_optimal_lineup_milp) used for OPTIMAL_LINEUP_SAMPLE_ITERATIONS below
+# costs real time per call, so a handful of concurrent cold hits (the frontend
+# fires one request per draft_group_id variant on load) would otherwise each
+# kick off their own redundant sample.
+_WEEK_PROJECTIONS_LOCKS: Dict[tuple, "threading.Lock"] = {}
+_week_projections_locks_guard = threading.Lock()
+# Live-request fallback sample size for optimal_pct, used only when
+# scripts/simulation_runners/compute_optimal_pct_2026.py hasn't been run yet
+# for this week (that script solves every iteration offline instead of
+# sampling -- see its use below). 50 keeps a cold solve to a few seconds with
+# the exact MILP solver.
+OPTIMAL_LINEUP_SAMPLE_ITERATIONS = 50
 
 # game_id -> sub-dataframe lookups, rebuilt whenever the parquet caches reload.
 # run_simulation()'s cache-hit path used to filter the full ~11M-row players
@@ -132,6 +165,14 @@ PLAYERS_BY_GAME_ID = {}
 
 # In-memory + disk cache for /api/week_sim_results — see that endpoint for details.
 WEEK_SIM_RESULTS_CACHE = {}
+# Per-(week,year) lock so concurrent /api/week_sim_results callers wait for the
+# first computation instead of each kicking off their own full 16-game re-sim.
+# This is a genuinely expensive endpoint (minutes when starters don't match the
+# season parquet) and the frontend + its retries hammer it on every page load;
+# without this, a handful of concurrent cold hits saturate every CPU and none
+# ever finish. See WORKLOG 2026-09-09.
+_WEEK_SIM_LOCKS: Dict[tuple, "threading.Lock"] = {}
+_week_sim_locks_guard = threading.Lock()
 
 # DFS-specific per-week simulation cache (2026-09-04) — separate from
 # ALL_GAMES_CACHED/ALL_PLAYERS_CACHED, which hold the SEASON-LONG sim (every
@@ -144,6 +185,13 @@ WEEK_SIM_RESULTS_CACHE = {}
 # prefers that file when it exists, so DFS projections reflect the week's
 # actual injury news instead of a slice of the season-long average.
 DFS_WEEK_PLAYERS_CACHE: Dict[int, Any] = {}     # week -> (mtime, DataFrame)
+# week -> (players_mtime, games_mtime, {game_id: (games_df_slice, players_df_slice)})
+# Lets run_simulation() serve a whole week straight from the DFS-week parquet
+# (which was simulated from data/current_rosters/dfs/, so its starters match
+# the week's real availability by construction) instead of live-re-simming
+# every game whose starters differ from the season-long "everyone healthy"
+# parquet. See _compute_week_sim_results / SimulationRequest.use_dfs_week.
+DFS_WEEK_BY_GAME_ID: Dict[int, Tuple[float, float, Dict[str, Tuple[Any, Any]]]] = {}
 
 
 def _get_dfs_week_players(week: int):
@@ -161,6 +209,28 @@ def _get_dfs_week_players(week: int):
     DFS_WEEK_PLAYERS_CACHE[week] = (mtime, df)
     return df
 
+
+def _get_dfs_week_by_game_id(week: int) -> Optional[Dict[str, Tuple[Any, Any]]]:
+    """{game_id: (games_df_slice, players_df_slice)} for a week's DFS-specific
+    sim, or None if either parquet is missing. mtime-reloaded like the others.
+    Same column schema as GAMES_BY_GAME_ID / PLAYERS_BY_GAME_ID, so a slice
+    drops straight into run_simulation()'s cache-hit path."""
+    p_path = os.path.join(BASE_DIR, "data", "interim", f"dfs_week_{week}_players.parquet")
+    g_path = os.path.join(BASE_DIR, "data", "interim", f"dfs_week_{week}_games.parquet")
+    if not (os.path.exists(p_path) and os.path.exists(g_path)):
+        return None
+    p_mtime, g_mtime = os.path.getmtime(p_path), os.path.getmtime(g_path)
+    cached = DFS_WEEK_BY_GAME_ID.get(week)
+    if cached is not None and cached[0] == p_mtime and cached[1] == g_mtime:
+        return cached[2]
+    players = pd.read_parquet(p_path)
+    games = pd.read_parquet(g_path)
+    g_by_id = {gid: df for gid, df in games.groupby("game_id")}
+    p_by_id = {gid: df for gid, df in players.groupby("game_id")}
+    by_game = {gid: (g_by_id[gid], p_by_id.get(gid, pd.DataFrame())) for gid in g_by_id}
+    DFS_WEEK_BY_GAME_ID[week] = (p_mtime, g_mtime, by_game)
+    return by_game
+
 # In-memory cache of built field samples (see src/nfl_sim/field_simulator.py),
 # keyed by (week, draft_group_id). Built once inside get_week_sim_results()
 # (expensive -- K archetype-weighted lineups), then reused by both
@@ -168,6 +238,24 @@ def _get_dfs_week_players(week: int):
 # repeated small optimizer edits don't pay the field-construction cost again
 # -- see the implementation plan's "build/score cache split".
 FIELD_SAMPLE_CACHE: Dict[Tuple[int, Optional[int]], Dict[str, Any]] = {}
+
+# Synthetic field size for both optimizers' EV/ITM/Top% math -- as large as
+# benchmarked-sustainable, then percentiles against it get extrapolated to
+# the real `total_entries` (Cam: "up the sample... until it is unsustainable,
+# then base off of percentile" -- comparing against an actual 50k+-entry
+# field isn't tractable per-request, but the ranking math only needs the
+# field's *distribution* to be well-estimated, not its literal size).
+# Benchmarked on this machine: field CONSTRUCTION (one-time per week, then
+# cached in FIELD_SAMPLE_CACHE) scales ~2.6ms/lineup for the archetype
+# builder (K=5,000 -> ~13s once); RANKING (via
+# _compute_lineup_field_stats_batch's double-argsort, repeats every
+# optimize call across all generated lineups at once) took ~6s for 150
+# lineups at K=5,000, ~12.5s at K=10,000, and catastrophically degraded
+# (~6.5 MIN) at K=20,000 -- almost certainly a memory-pressure cliff from
+# the combined (n_field + n_lineups, n_sims) sort buffer, not a clean
+# asymptotic curve. 5,000 is chosen as comfortably on the sustainable side
+# of that cliff while still being 5x the old K=1,000's tail resolution.
+FIELD_SAMPLE_K = 5000
 
 # Full-response cache for /api/simulate, keyed on the exact request parameters
 # (see build_simulate_cache_key). The expensive part of this endpoint isn't the
@@ -201,6 +289,7 @@ def build_simulate_cache_key(req: "SimulationRequest") -> str:
         "apply_weighting": req.apply_weighting,
         "team_overrides": team_overrides_sorted,
         "player_overrides": player_overrides_sorted,
+        "use_dfs_week": req.use_dfs_week,
     }
     return json.dumps(payload, sort_keys=True, default=str)
 
@@ -385,6 +474,12 @@ class SimulationRequest(BaseModel):
     # this solve is by far the dominant per-request cost (pure-Python
     # branch-and-bound, ~80ms/iteration regardless of iteration count).
     optimizer_sample_cap: Optional[int] = 50
+    # When set, serve this game straight from data/interim/dfs_week_{N}_*.parquet
+    # (simulated from data/current_rosters/dfs/, so its starters already reflect
+    # the week's real availability) instead of the season-long parquet + a
+    # starter-mismatch bypass that would otherwise live-re-sim. Set by
+    # _compute_week_sim_results; ignored if the DFS-week parquet is absent.
+    use_dfs_week: Optional[int] = None
 
 class OptimizerPlayer(BaseModel):
     name: str
@@ -404,6 +499,21 @@ class PayoutTier(BaseModel):
     rank_end: int
     payout: float
 
+class ManualLineup(BaseModel):
+    """A hand-built classic lineup to score instead of solving for one --
+    the classic-optimizer analogue of ManualShowdownLineup. Names are matched
+    against the pool case/punctuation-insensitively; append '|TEAM' to
+    disambiguate a shared name. Slots are the player's own declared role
+    (not re-derived), so a RB you put at FLEX is scored/labelled as FLEX."""
+    qb: str
+    rb: List[str]    # exactly 2
+    wr: List[str]    # exactly 3
+    te: str
+    flex: str        # RB, WR, or TE
+    dst: str
+    label: Optional[str] = None
+
+
 class OptimizeRequest(BaseModel):
     players: List[OptimizerPlayer]
     n_lineups: int = 20
@@ -418,6 +528,18 @@ class OptimizeRequest(BaseModel):
     total_entries: int = 11000
     paying_positions: int = 2200
     week: Optional[int] = None  # looks up the cached archetype field sample (FIELD_SAMPLE_CACHE) built by get_week_sim_results(); falls back to a uniform-random field if omitted or not yet built
+    # When set, skip lineup generation entirely and just run these hand-built
+    # lineups through the same field sim + EV/ITM/Top%/portfolio scoring --
+    # the classic-optimizer "Lineup Lab" (see ManualShowdownLineup for the
+    # showdown version, added first).
+    manual_lineups: Optional[List[ManualLineup]] = None
+    # Conditional re-scoring: the raw 0-999 iteration ids a GameDistribution
+    # box-select on ONE game resolved to (see game_distribution.raw.iteration
+    # from GET /api/game_distribution). Every game on the slate shares one
+    # full-slate iteration index, so this conditions the WHOLE field + our
+    # lineups on that one game landing in the selected range. Same mechanism
+    # as ShowdownOptimizeRequest.iteration_filter.
+    iteration_filter: Optional[List[int]] = None
 
 # -------------------------------------------------------------------------
 # ENDPOINTS
@@ -454,21 +576,68 @@ def health_check():
 
 @app.get("/api/weeks")
 def get_weeks():
-    """Returns available weeks -- hardcoded to Week 1 only. The DFS dev site is
-    scoped to 2026 Week 1 (see SCHEDULE_CSV_PATH above): it's the only week with
-    real DraftKings salaries live right now, and the only one currently relevant
-    this far ahead of the season. Revisit once later weeks have real salaries."""
-    return {"weeks": [1]}
+    """Returns available weeks -- hardcoded to Weeks 1-2. The DFS dev site is
+    scoped to 2026 Weeks 1-2 (see SCHEDULE_CSV_PATH above): those are the only
+    weeks with real DraftKings salaries live right now. Revisit/extend once
+    later weeks have real salaries."""
+    return {"weeks": [1, 2]}
 
 @app.get("/api/dk/slates")
-def get_dk_slates_endpoint(force_refresh: bool = False):
+def get_dk_slates_endpoint(week: Optional[int] = None, year: int = 2026, force_refresh: bool = False):
     """Every DraftKings slate currently live (Main Slate always first when
     present; Showdown/Snake/split-Sunday slates appear alongside it as DK
     adds them) -- see dk_scraper.get_dk_slates(). Powers a slate picker so
     the user can choose which draft group's salaries/contests to work with
     instead of being locked to whichever slate the auto-detect heuristic
-    picks."""
-    return get_dk_slates(force_refresh=force_refresh)
+    picks.
+
+    When `week` is given, `default_draft_group_id` (and the matching entry's
+    `is_default`/label in `slates`) is overridden with the sticky per-week
+    main-slate pin (see dk_scraper.resolve_main_slate_draft_group_id)
+    instead of DK's raw live "most open contests" pick, which flips to a
+    small leftover slate once the real main slate's contests lock. Omit
+    `week` to get the unpinned live view (e.g. a slate picker not yet tied
+    to a specific week)."""
+    result = get_dk_slates(force_refresh=force_refresh)
+    if week is None:
+        return result
+    pinned_dg = resolve_main_slate_draft_group_id(year, week, force_refresh=force_refresh)
+    if pinned_dg is None:
+        return result
+
+    result = dict(result)
+    result["default_draft_group_id"] = pinned_dg
+    slates = result.get("slates", [])
+    found_pinned = any(s["draft_group_id"] == pinned_dg for s in slates)
+    new_slates = []
+    for s in slates:
+        is_pinned = s["draft_group_id"] == pinned_dg
+        if s.get("is_default") and not is_pinned:
+            # This slate lost the pin (its contests locked and dropped out of
+            # the live lobby's count, or a bigger classic slate now exists) --
+            # it's still real and pickable, just no longer "the" main slate,
+            # so it needs a label that isn't also "Main Slate (Classic)".
+            s = {**s, "label": f"{s.get('game_type') or 'Classic'} (locked/secondary)"}
+        new_slates.append({**s, "is_default": is_pinned})
+    if not found_pinned:
+        # The pinned draft group has no currently-open contests at all, so it
+        # dropped out of the live lobby fetch entirely -- synthesize an entry
+        # from the pin record so it still shows up as selectable/default.
+        pin_record = get_main_slate_pin(year, week) or {}
+        # A manual/backfilled pin (see dk_scraper.pin_main_slate_draft_group_id)
+        # stores an effectively-infinite contest_count so it can't be outvoted
+        # -- real, but meaningless to a human, so don't surface it verbatim.
+        raw_count = pin_record.get("contest_count", 0)
+        new_slates.insert(0, {
+            "draft_group_id": pinned_dg,
+            "game_type": "Classic",
+            "label": "Main Slate (Classic)",
+            "contest_count": raw_count if raw_count < 10**6 else None,
+            "total_entries": None,
+            "is_default": True,
+        })
+    result["slates"] = new_slates
+    return result
 
 @app.get("/api/dk/salaries")
 def get_dk_salaries_endpoint(draft_group_id: Optional[int] = None, force_refresh: bool = False):
@@ -484,6 +653,32 @@ def get_dk_salaries_endpoint(draft_group_id: Optional[int] = None, force_refresh
         "defense_count": len(dk["defense"]),
         "main_slate_teams": sorted(dk["main_slate_teams"]),
     }
+
+@app.get("/api/dk/showdown_slates")
+def get_dk_showdown_slates_endpoint(force_refresh: bool = False):
+    """Every live DK Showdown Captain Mode slate with its two teams resolved
+    to internal abbreviations (see dk_scraper.get_dk_showdown_slates()).
+    Powers the Showdown optimizer's "which DK slate is this game" lookup."""
+    return get_dk_showdown_slates(force_refresh=force_refresh)
+
+
+@app.get("/api/dk/showdown_salaries")
+def get_dk_showdown_salaries_endpoint(
+    draft_group_id: Optional[int] = None,
+    away: Optional[str] = None,
+    home: Optional[str] = None,
+    force_refresh: bool = False,
+):
+    """DK Showdown salary pool for one game -- by explicit draft_group_id, or
+    found by matching the away/home team pair against every live showdown
+    slate. Each player carries the base (FLEX) salary, the captain salary,
+    and both DK draftableIds (for a real upload CSV). Includes kickers;
+    defenses are in a separate `defense` list. See
+    dk_scraper.get_dk_showdown_salaries()."""
+    return get_dk_showdown_salaries(
+        draft_group_id=draft_group_id, away_team=away, home_team=home, force_refresh=force_refresh
+    )
+
 
 @app.get("/api/dk/contests")
 def get_dk_contests_endpoint(draft_group_id: Optional[int] = None, force_refresh: bool = False):
@@ -504,6 +699,42 @@ def get_dk_contest_payout_endpoint(contest_id: int):
     count."""
     return get_dk_contest_payout(contest_id)
 
+def _resolve_main_slate_dg_for(week_games_df, year: int, draft_group_id: Optional[int]) -> Optional[int]:
+    """draft_group_id if the caller picked one explicitly; otherwise the
+    sticky per-(year, week) main-slate pin (see
+    dk_scraper.resolve_main_slate_draft_group_id) rather than leaving it None
+    and letting get_dk_salaries() fall back to DK's live "default," which
+    silently flips to a small leftover slate once the real main slate's
+    contests lock and drop out of the lobby."""
+    if draft_group_id is not None:
+        return draft_group_id
+    if week_games_df.empty:
+        return None
+    week = int(week_games_df["week"].iloc[0])
+    return resolve_main_slate_draft_group_id(year, week)
+
+
+def _resolve_dk_pool(week_games_df, year: int, draft_group_id: Optional[int]) -> Dict[str, Any]:
+    """Which salary source to trust for this week: a pre-lock snapshot
+    (dk_scraper.load_prelock_salary_snapshot) when one exists, a live
+    draftables fetch (get_dk_salaries) otherwise. The snapshot wins whenever
+    present -- not just as a fallback -- because a live fetch by
+    draft_group_id can't be trusted for a week whose slate has already
+    closed: DK reuses/repoints old ids, so the fetch can return 200 OK with
+    an entirely wrong, unrelated player pool instead of failing (see
+    load_prelock_salary_snapshot's docstring for the confirmed 2026-09-16
+    case on week 1's own pin). A live fetch is only actually correct for the
+    current, still-open week, which is exactly the case with no snapshot
+    written yet."""
+    if week_games_df.empty:
+        return get_dk_salaries(draft_group_id=draft_group_id)
+    week = int(week_games_df["week"].iloc[0])
+    snapshot = load_prelock_salary_snapshot(year, week)
+    if snapshot is not None:
+        return snapshot
+    return get_dk_salaries(draft_group_id=_resolve_main_slate_dg_for(week_games_df, year, draft_group_id))
+
+
 def get_week_salaries(week_games_df, year=2026, draft_group_id: Optional[int] = None) -> Dict[Tuple[str, str], Optional[int]]:
     """Real DraftKings salaries only -- None (not a fabricated placeholder)
     for a defense or player DK's live board doesn't currently price, e.g. a
@@ -511,7 +742,7 @@ def get_week_salaries(week_games_df, year=2026, draft_group_id: Optional[int] = 
     None as "can't be priced," not "missing data to estimate.\""""
     salaries: Dict[Tuple[str, str], Optional[int]] = {}
     teams = set(week_games_df["away_team"].unique()).union(set(week_games_df["home_team"].unique()))
-    dk = get_dk_salaries(draft_group_id=draft_group_id)
+    dk = _resolve_dk_pool(week_games_df, year, draft_group_id)
 
     for team in teams:
         salaries[("Defense", team)] = dk["defense"].get(team)
@@ -534,7 +765,7 @@ def get_week_dk_ids(week_games_df, year=2026, draft_group_id: Optional[int] = No
     docstring for what draftableId is used for."""
     ids: Dict[Tuple[str, str], Optional[int]] = {}
     teams = set(week_games_df["away_team"].unique()).union(set(week_games_df["home_team"].unique()))
-    dk = get_dk_salaries(draft_group_id=draft_group_id)
+    dk = _resolve_dk_pool(week_games_df, year, draft_group_id)
 
     for team in teams:
         ids[("Defense", team)] = dk["defense_ids"].get(team)
@@ -556,12 +787,27 @@ def _overlay_live_salaries(players_list: List[Dict[str, Any]], week: int, year: 
     recompute (dict lookups only, no percentile/rank math), so
     it's refreshed in place on every read regardless of which of the three
     response sources (memory cache, disk snapshot, fresh live solve) served
-    the rest of the payload."""
+    the rest of the payload.
+
+    Skipped entirely when DK has never successfully served this slate this
+    process lifetime AND no pre-lock snapshot exists for the week (see
+    _resolve_dk_pool -- a snapshot, when present, is always trusted over a
+    live fetch, so this guard only needs to protect the no-snapshot case).
+    Without this guard, a backend restart wipes the in-memory salary cache
+    and every later read of a JSON-snapshotted past week with no snapshot
+    file either gets its real, baked-in salaries silently overwritten with
+    None across the whole player pool (surfaces as "half my roster
+    disappears" in the optimizer -- the response snapshot itself is
+    untouched, only the served response was clobbered)."""
     if not os.path.exists(SCHEDULE_CSV_PATH):
         return
     sched_df = pd.read_csv(SCHEDULE_CSV_PATH)
     week_games_df = sched_df[(sched_df["week"] == week) & (sched_df["game_type"] == "REG")]
     if week_games_df.empty:
+        return
+    has_snapshot = not week_games_df.empty and load_prelock_salary_snapshot(year, int(week_games_df["week"].iloc[0])) is not None
+    dg = _resolve_main_slate_dg_for(week_games_df, year, draft_group_id)
+    if not has_snapshot and not get_dk_salaries(draft_group_id=dg)["is_live"]:
         return
     salaries = get_week_salaries(week_games_df, year, draft_group_id)
     dk_ids = get_week_dk_ids(week_games_df, year, draft_group_id)
@@ -590,6 +836,21 @@ def get_week_projections(week: int = 1, year: int = 2026, draft_group_id: Option
         _overlay_live_salaries(cached.get("players", []), week, year, draft_group_id)
         return cached
 
+    # Serialise the expensive path: one caller computes (JSON-disk-cache load or
+    # a full live optimal-lineup solve), the rest wait and then read the cache
+    # it populated, instead of each independently kicking off the same brute-
+    # force search (see the lock declaration above for why that's dangerous).
+    with _week_projections_locks_guard:
+        compute_lock = _WEEK_PROJECTIONS_LOCKS.setdefault(cache_key, threading.Lock())
+    with compute_lock:
+        if cache_key in WEEK_PROJECTIONS_CACHE:
+            cached = WEEK_PROJECTIONS_CACHE[cache_key]
+            _overlay_live_salaries(cached.get("players", []), week, year, draft_group_id)
+            return cached
+        return _compute_week_projections(week, year, draft_group_id, cache_key)
+
+
+def _compute_week_projections(week: int, year: int, draft_group_id: Optional[int], cache_key: tuple):
     # Check if a precomputed JSON cache exists on disk -- only safe to use
     # when the requested slate is the Main Slate this snapshot was baked
     # against (no slate specified, or explicitly the current default -- the
@@ -723,8 +984,12 @@ def get_week_projections(week: int = 1, year: int = 2026, draft_group_id: Option
     # not posted), and a synthetic-formula salary silently standing in for
     # that team's players is exactly the "fake DK price" this endpoint must
     # not produce. Falls back to the weekday/time heuristic only when the
-    # live feed itself isn't available.
-    dk_for_slate = get_dk_salaries(draft_group_id=draft_group_id)
+    # live feed itself isn't available. Routed through _resolve_dk_pool (not
+    # a direct get_dk_salaries(draft_group_id=...) call) for the same reason
+    # as run_simulation()'s salary lookup -- even a caller-supplied, once-
+    # correct draft_group_id can't be trusted for a past week's own pin once
+    # DK repoints it (see load_prelock_salary_snapshot's docstring).
+    dk_for_slate = _resolve_dk_pool(week_games_df, year, draft_group_id)
     dk_live_slate = dk_for_slate["is_live"] and dk_for_slate["main_slate_teams"]
     team_info_lookup = {}
     for _, row in week_games_df.iterrows():
@@ -762,13 +1027,12 @@ def get_week_projections(week: int = 1, year: int = 2026, draft_group_id: Option
     player_keys = priced_keys
     player_salaries = np.array([salaries[pk] for pk in player_keys])
     
-    # Get clean positions and teams mapping
+    # Get clean positions mapping
     player_positions = {}
     for (p, t, pos), _ in wp.groupby(["Player", "Team", "Pos"]):
         player_positions[(p, t)] = pos
-        
+
     player_positions_list = [player_positions.get(pk, "WR") for pk in player_keys]
-    player_teams_list = [pk[1] for pk in player_keys]
     clean_positions = [pos.replace("1", "").replace("2", "").replace("3", "").replace("4", "").replace("5", "").replace("6", "") for pos in player_positions_list]
     
     # High-performance arrays extract to map score iterations
@@ -794,20 +1058,42 @@ def get_week_projections(week: int = 1, year: int = 2026, draft_group_id: Option
         if sal is not None and score >= 3.0 * (sal / 1000.0):
             value_counts[(p, t)] = value_counts.get((p, t), 0) + 1
             
-    from src.nfl_sim.optimizer import solve_traditional_iteration
-    # Sub-sample iterations if they exceed 50 to reduce CPU stress and latency
-    solve_iterations = unique_iterations
-    if len(unique_iterations) > 50:
-        step = len(unique_iterations) // 50
-        solve_iterations = unique_iterations[::step][:50]
-        
-    num_solve_iterations = len(solve_iterations) if len(solve_iterations) > 0 else 1
-    
-    for it in solve_iterations:
-        scores_arr = np.array([iter_scores[it].get(pk, 0.0) for pk in player_keys])
-        opt_lineup = solve_traditional_iteration(player_keys, player_salaries, clean_positions, player_teams_list, scores_arr)
-        for pk in opt_lineup:
-            optimal_counts[pk] = optimal_counts.get(pk, 0) + 1
+    # optimal_pct wants "how often is this player in the TRUE optimal lineup,
+    # across every one of the week's sim iterations" -- prefer a batch-
+    # precomputed file (scripts/simulation_runners/compute_optimal_pct_2026.py),
+    # which solves genuinely every iteration via the exact MILP solver
+    # (solve_optimal_lineup_milp) offline, over doing a small live sample here.
+    # See WORKLOG 2026-09-15 -- the former live-only approach sampled just
+    # OPTIMAL_LINEUP_SAMPLE_ITERATIONS iterations (still true today for a week
+    # the batch script hasn't been run for yet), which is what produced the
+    # lumpy "only ever 50% or 100%" percentages Cam flagged.
+    precomputed_path = os.path.join(BASE_DIR, "data", "interim", f"week_{week}_optimal_pct.json")
+    if os.path.exists(precomputed_path):
+        with open(precomputed_path, "r") as f:
+            precomputed = json.load(f)
+        num_solve_iterations = precomputed.get("iterations") or 1
+        for row in precomputed.get("counts", []):
+            optimal_counts[(row["name"], row["team"])] = row["count"]
+    else:
+        from src.nfl_sim.optimizer import solve_optimal_lineup_milp
+        # Sub-sample iterations to bound worst-case cost for a week that
+        # hasn't had the batch pass run yet. solve_optimal_lineup_milp is a
+        # real, exact MILP solve (~0.05-0.2s here vs. the old branch-and-
+        # bound's ~1.5s/call) but still too slow to run across all ~10,000
+        # iterations synchronously on a request; the lock above ensures that
+        # cost is only ever paid once per (week,year,slate).
+        solve_iterations = unique_iterations
+        if len(unique_iterations) > OPTIMAL_LINEUP_SAMPLE_ITERATIONS:
+            step = len(unique_iterations) // OPTIMAL_LINEUP_SAMPLE_ITERATIONS
+            solve_iterations = unique_iterations[::step][:OPTIMAL_LINEUP_SAMPLE_ITERATIONS]
+
+        num_solve_iterations = len(solve_iterations) if len(solve_iterations) > 0 else 1
+
+        for it in solve_iterations:
+            scores_arr = np.array([iter_scores[it].get(pk, 0.0) for pk in player_keys])
+            opt_lineup = solve_optimal_lineup_milp(player_keys, player_salaries, clean_positions, scores_arr)
+            for pk in opt_lineup:
+                optimal_counts[pk] = optimal_counts.get(pk, 0) + 1
 
     players_list = []
     for _, row in merged.iterrows():
@@ -909,6 +1195,17 @@ def get_week_sim_results(week: int = 1, year: int = 2026):
     if cache_key in WEEK_SIM_RESULTS_CACHE:
         return WEEK_SIM_RESULTS_CACHE[cache_key]
 
+    # Serialise the expensive path: one caller computes, the rest wait and then
+    # read the cache it populated.
+    with _week_sim_locks_guard:
+        compute_lock = _WEEK_SIM_LOCKS.setdefault(cache_key, threading.Lock())
+    with compute_lock:
+        if cache_key in WEEK_SIM_RESULTS_CACHE:
+            return WEEK_SIM_RESULTS_CACHE[cache_key]
+        return _compute_week_sim_results(week, year, cache_key)
+
+
+def _compute_week_sim_results(week: int, year: int, cache_key: tuple):
     json_cache_path = os.path.join(BASE_DIR, "data", "interim", f"week_{week}_sim_results.json")
     if os.path.exists(json_cache_path):
         # Stale-cache guard: this file used to be trusted unconditionally
@@ -921,11 +1218,20 @@ def get_week_sim_results(week: int = 1, year: int = 2026):
         # (the games/players parquet, or that year's roster files) is
         # newer than the cache file itself.
         json_mtime = os.path.getmtime(json_cache_path)
-        roster_glob = os.path.join(BASE_DIR, "data", "current_rosters", f"*_traits_{year}.json")
+        roster_glob = os.path.join(BASE_DIR, "data", "current_rosters", "**", f"*_traits_{year}.json")
         newest_roster_mtime = max(
-            (os.path.getmtime(p) for p in glob.glob(roster_glob)), default=0.0
+            (os.path.getmtime(p) for p in glob.glob(roster_glob, recursive=True)), default=0.0
         )
-        newest_input_mtime = max(LAST_LOADED_TIME_GAMES, LAST_LOADED_TIME_PLAYERS, newest_roster_mtime)
+        # The DFS-week parquet (data/interim/dfs_week_{N}_*.parquet) is now this
+        # endpoint's real data source (see _compute_one_game's use_dfs_week) --
+        # a re-run of run_week_sim_2026.py must invalidate this cache.
+        dfs_week_mtime = max(
+            (os.path.getmtime(os.path.join(BASE_DIR, "data", "interim", f"dfs_week_{week}_{kind}.parquet"))
+             for kind in ("players", "games")
+             if os.path.exists(os.path.join(BASE_DIR, "data", "interim", f"dfs_week_{week}_{kind}.parquet"))),
+            default=0.0,
+        )
+        newest_input_mtime = max(LAST_LOADED_TIME_GAMES, LAST_LOADED_TIME_PLAYERS, newest_roster_mtime, dfs_week_mtime)
         if json_mtime >= newest_input_mtime:
             try:
                 with open(json_cache_path, "r") as f:
@@ -977,7 +1283,9 @@ def get_week_sim_results(week: int = 1, year: int = 2026):
                 ))
 
         # Baseline values match each team's cached defaults exactly, so
-        # run_simulation() takes its existing fast cache-hit path.
+        # run_simulation() takes its existing fast cache-hit path. use_dfs_week
+        # steers it to this week's DFS parquet (real availability baked in) so
+        # it doesn't live-re-sim every game with an injury/depth-chart move.
         req = SimulationRequest(
             away_team=away,
             home_team=home,
@@ -987,7 +1295,12 @@ def get_week_sim_results(week: int = 1, year: int = 2026):
             team_overrides=team_overrides,
             player_overrides=player_overrides,
             use_cached_defaults=True,
-            optimizer_sample_cap=8,
+            # Bulk prepopulation across a whole week -- the per-game showdown
+            # optimal-lineup solve (pure-Python branch-and-bound) is the
+            # dominant cost here and its output (optimal_cpt/flex_pct) is only
+            # a secondary ownership-model signal, so sample it lightly.
+            optimizer_sample_cap=2,
+            use_dfs_week=week,
         )
         sim_res = run_simulation(req)
         return {
@@ -996,6 +1309,10 @@ def get_week_sim_results(week: int = 1, year: int = 2026):
             "home_team": home,
             "summary": sim_res["summary"],
             "projections": sim_res["projections"],
+            # binned distribution only -- drop the per-iteration `raw` arrays
+            # (16 games x 1000 iters would bloat this cached payload)
+            "game_distribution": ({k: v for k, v in sim_res["game_distribution"].items() if k != "raw"}
+                                  if sim_res.get("game_distribution") else None),
         }
 
     # Each game's cache-hit computation is CPU-bound, GIL-bound pure-Python
@@ -1064,12 +1381,18 @@ def get_week_sim_results(week: int = 1, year: int = 2026):
         }
         for p in all_players_flat
     ]
-    # Bootstrap ownership PRIOR (salary/Vegas/cash-consensus-blended
-    # softmax) -- this now only seeds field construction below (leverage
-    # fading, additive-ownership steering), it is no longer the displayed
-    # number. See field_simulator.py's module docstring for the full
-    # chicken-and-egg rationale.
-    _compute_ownership(ownership_input, seed=week)
+    # Ownership PRIOR (salary/Vegas/cash-consensus-blended) -- seeds field
+    # construction below (leverage fading, additive-ownership steering; see
+    # field_simulator.py's module docstring for the chicken-and-egg
+    # rationale) AND, via field_sample['ownership_pct'] a few lines down,
+    # ends up as the actual displayed/exported ownership_proj for every
+    # player on the week_projections response -- despite what the "no
+    # longer the displayed number" phrasing above used to say, tracing
+    # p['ownership_proj'] = field_sample['ownership_pct'].get(...) shows the
+    # field's own realized rates come directly off whichever prior seeded
+    # its archetype composition. So this IS worth the trained model, not
+    # just the heuristic.
+    predict_classic_ownership(ownership_input, week=week, seed=week)
     prior_own = {
         (p['name'], p['team']): own_p['ownership_pct']
         for p, own_p in zip(all_players_flat, ownership_input)
@@ -1085,7 +1408,7 @@ def get_week_sim_results(week: int = 1, year: int = 2026):
     # repeating it on every request -- the "build/score cache split" the
     # plan calls out as the actual fix for optimizer-edit latency.
     field_sample = build_field_sample(
-        priced_shaped, prior_own, salary_cap=50000, K=1000, seed=week,
+        priced_shaped, prior_own, salary_cap=50000, K=FIELD_SAMPLE_K, seed=week,
     )
     FIELD_SAMPLE_CACHE[(week, None)] = {**field_sample, 'built_at': time.time(), 'week': week}
 
@@ -1167,7 +1490,11 @@ def get_games(week: int = 1, draft_group_id: Optional[int] = None):
         raise HTTPException(status_code=404, detail="Schedule CSV file not found.")
 
     df = pd.read_csv(SCHEDULE_CSV_PATH)
-    dk = get_dk_salaries(draft_group_id=draft_group_id)
+    # Routed through _resolve_dk_pool (prelock snapshot first) rather than a
+    # direct get_dk_salaries(draft_group_id=...) call -- see run_simulation's
+    # salary lookup fix for why even a caller-supplied, once-correct
+    # draft_group_id can't be trusted for a past week once DK repoints it.
+    dk = _resolve_dk_pool(df[(df["week"] == week) & (df["game_type"] == "REG")], 2026, draft_group_id)
 
     # Calculate records for all teams prior to the selected week
     records = {} # Team name -> [wins, losses, ties]
@@ -1296,6 +1623,53 @@ def create_optimizer_build(
     return optimizer_store.write_build(season, week, build)
 
 
+def _bulk_register_paper_entries(build: Dict[str, Any], account_id: str) -> int:
+    """When a Build gets tagged to a bankroll account, register each of its
+    lineups as a paper_entries.json row (see paper_store.py) so
+    scripts/dfs_ownership/score_paper_entries.py can settle them exactly like
+    any individually-flagged paper entry -- no changes needed to that script.
+    Carries prize_pool/paying_positions/contest_type through on each entry so
+    a later payout estimate (get_default_payout_structure) has what it needs
+    without re-reading the build file. Classic-only for now (Builds are a
+    classic-optimizer concept; Showdown has its own per-lineup 📝 flag flow
+    straight into paper_store, which this doesn't touch)."""
+    settings = build.get("settings") or {}
+    contest = settings.get("contest") or {}
+    contest_name = contest.get("name") or build.get("label") or build.get("build_id")
+    entry_fee = contest.get("entry_fee", settings.get("entryFee")) or 0
+    max_entries = contest.get("field_size") or settings.get("contestSize") or 1
+    week = build.get("week")
+    season = build.get("season", 2026)
+
+    n = 0
+    for lineup in build.get("lineups") or []:
+        entry = {
+            "slate_format": "classic",
+            "source": "optimize",
+            "label": build.get("label"),
+            "contest_name": contest_name,
+            "entry_fee": entry_fee,
+            "max_entries": max_entries,
+            "players": lineup.get("players", []),
+            "model": lineup,
+            "build_id": build.get("build_id"),
+            "account_id": account_id,
+            "prize_pool": contest.get("prize_pool"),
+            "paying_positions": contest.get("paying_positions"),
+            "contest_type": settings.get("contestType"),
+            # DK's own real rank-by-rank payout table, when the attached
+            # contest carries one (dk_scraper.get_dk_contest_payout) -- lets
+            # score_paper_entries.py's _estimated_payout skip the generic
+            # curve approximation entirely. None on a contest attached only
+            # via prize_pool/paying_positions (the /api/dk/contests summary
+            # shape, not the per-contest payout endpoint).
+            "payout_tiers": contest.get("payout_tiers"),
+        }
+        paper_store.add_entry(season, week, "main_slate", entry)
+        n += 1
+    return n
+
+
 @app.patch("/api/optimizer/builds/{build_id}")
 def patch_optimizer_build(
     build_id: str,
@@ -1303,10 +1677,21 @@ def patch_optimizer_build(
     week: int = Query(..., ge=1, le=22),
     season: int = 2026,
 ):
-    """Update a build's label / pinned / submitted / submission fields only."""
+    """Update a build's label / pinned / submitted / submission / account_id
+    fields. Setting account_id to a NEW value (first tag, or a change from
+    whatever it was) bulk-registers every one of the build's lineups as a
+    paper entry under that account -- see _bulk_register_paper_entries."""
+    prior = optimizer_store.read_build(season, week, build_id)
+    prior_account_id = prior.get("account_id") if prior else None
+
     b = optimizer_store.patch_build(season, week, build_id, patch)
     if b is None:
         raise HTTPException(status_code=404, detail="build not found")
+
+    new_account_id = patch.get("account_id")
+    if new_account_id and new_account_id != prior_account_id:
+        _bulk_register_paper_entries(b, new_account_id)
+
     return b
 
 
@@ -1321,6 +1706,399 @@ def prune_optimizer_builds(week: int = Query(..., ge=1, le=22), season: int = 20
     return {"removed": optimizer_store.prune_builds(season, week)}
 
 
+# -------------------------------------------------------------------------
+# BANKROLL ACCOUNTS -- named paper/real buckets a Build (or, for Showdown,
+# a directly-flagged paper entry) tags itself into via account_id, so
+# /api/bankroll can roll up cost/winnings per account. See account_store.py.
+# -------------------------------------------------------------------------
+@app.get("/api/accounts")
+def list_accounts():
+    return {"accounts": account_store.list_accounts()}
+
+
+@app.post("/api/accounts")
+def create_account(payload: Dict[str, Any] = Body(...)):
+    try:
+        return account_store.create_account(
+            payload.get("label", ""), payload.get("kind", ""),
+            payload.get("starting_bankroll", 0.0))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.patch("/api/accounts/{account_id}")
+def patch_account(account_id: str, patch: Dict[str, Any] = Body(...)):
+    a = account_store.patch_account(account_id, patch)
+    if a is None:
+        raise HTTPException(status_code=404, detail="account not found")
+    return a
+
+
+@app.delete("/api/accounts/{account_id}")
+def delete_account(account_id: str):
+    return {"deleted": account_store.delete_account(account_id)}
+
+
+@app.get("/api/bankroll")
+def get_bankroll():
+    """Per-account roll-up across every week: cost (entry_fee x lineups,
+    charged the moment a build is tagged to an account -- see
+    _bulk_register_paper_entries) vs. settled real winnings (from
+    scripts/dfs_ownership/score_paper_entries.py's estimated_payout, joined
+    by build_id/account_id -- see that script's _estimated_payout for what
+    "estimated" means: a real backtested score against a generic payout
+    curve, not DK's own curve, which isn't observable). An entry with no
+    settled row yet counts toward `pending`, not `net_pnl` -- money
+    committed but not yet won or lost. Classic-only for now, same scope as
+    the Builds system this reads (see _bulk_register_paper_entries)."""
+    accounts = account_store.list_accounts()
+    by_id = {a["account_id"]: {
+        **a,
+        "n_builds": 0, "n_lineups_total": 0,
+        "cost_total": 0.0, "cost_settled": 0.0, "cost_pending": 0.0,
+        "winnings_settled": 0.0, "n_lineups_settled": 0, "n_lineups_pending": 0,
+        "weeks": {},
+    } for a in accounts}
+
+    build_paths = sorted(glob.glob(os.path.join(BASE_DIR, "data", "optimizer", "*", "week_*", "builds", "*.json")))
+    build_by_id: Dict[str, Dict[str, Any]] = {}
+    for path in build_paths:
+        try:
+            with open(path, "r") as f:
+                b = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+        acc = by_id.get(b.get("account_id"))
+        if acc is None:
+            continue
+        n_lineups = len(b.get("lineups") or [])
+        entry_fee = ((b.get("settings") or {}).get("contest") or {}).get("entry_fee")
+        if entry_fee is None:
+            entry_fee = (b.get("settings") or {}).get("entryFee") or 0
+        cost = n_lineups * entry_fee
+        week = b.get("week")
+        acc["n_builds"] += 1
+        acc["n_lineups_total"] += n_lineups
+        acc["cost_total"] += cost
+        wk = acc["weeks"].setdefault(week, {"week": week, "n_lineups": 0, "cost": 0.0,
+                                            "winnings_settled": 0.0, "n_settled": 0})
+        wk["n_lineups"] += n_lineups
+        wk["cost"] += cost
+        build_by_id[b.get("build_id")] = {"account_id": b.get("account_id"), "week": week, "entry_fee": entry_fee}
+
+    paper_results_path = os.path.join(BASE_DIR, "data", "dfs_ownership", "_processed", "paper_results.parquet")
+    if os.path.exists(paper_results_path):
+        results_df = pd.read_parquet(paper_results_path)
+        for _, row in results_df.iterrows():
+            build_id = row.get("build_id")
+            info = build_by_id.get(build_id)
+            if info is None:
+                continue  # not a Bankroll-tracked entry (older/individually-flagged, or unknown account)
+            acc = by_id.get(info["account_id"])
+            if acc is None:
+                continue
+            payout = row.get("estimated_payout")
+            settled = payout is not None and not pd.isna(payout)
+            if not settled:
+                continue
+            payout = float(payout)
+            acc["winnings_settled"] += payout
+            acc["cost_settled"] += info["entry_fee"]
+            acc["n_lineups_settled"] += 1
+            wk = acc["weeks"].get(info["week"])
+            if wk is not None:
+                wk["winnings_settled"] += payout
+                wk["n_settled"] += 1
+
+    out = []
+    for acc in by_id.values():
+        acc["cost_pending"] = round(acc["cost_total"] - acc["cost_settled"], 2)
+        acc["n_lineups_pending"] = acc["n_lineups_total"] - acc["n_lineups_settled"]
+        net_pnl = acc["winnings_settled"] - acc["cost_settled"]
+        acc["net_pnl_settled"] = round(net_pnl, 2)
+        acc["roi_settled_pct"] = round(100.0 * net_pnl / acc["cost_settled"], 1) if acc["cost_settled"] else None
+        acc["current_bankroll"] = round(acc["starting_bankroll"] + net_pnl, 2)
+        acc["cost_total"] = round(acc["cost_total"], 2)
+        acc["cost_settled"] = round(acc["cost_settled"], 2)
+        acc["winnings_settled"] = round(acc["winnings_settled"], 2)
+        acc["weeks"] = sorted(
+            [{**w, "cost": round(w["cost"], 2), "winnings_settled": round(w["winnings_settled"], 2)}
+             for w in acc["weeks"].values()],
+            key=lambda w: w["week"])
+        out.append(acc)
+    return {"accounts": out}
+
+
+@app.get("/api/bankroll/{account_id}/entries")
+def get_bankroll_account_entries(account_id: str):
+    """Drill-down for one account: every paper entry tagged to it (across
+    every week/slate), grouped by the Build that produced it -- contest,
+    lineup composition, predicted vs. settled-real result, and the notes/
+    late_swap annotation (see paper_store.update_entry). Reads every
+    paper_entries.json in the archive rather than joining through the Build
+    files (unlike /api/bankroll's roll-up) since an entry already carries
+    everything needed (players/model/contest_name) and this is a per-entry,
+    not per-build-cost, view."""
+    entries_paths = sorted(glob.glob(os.path.join(BASE_DIR, "data", "dfs_ownership", "*", "week_*", "*", "paper_entries.json")))
+
+    results_by_entry: Dict[str, Dict[str, Any]] = {}
+    paper_results_path = os.path.join(BASE_DIR, "data", "dfs_ownership", "_processed", "paper_results.parquet")
+    if os.path.exists(paper_results_path):
+        results_df = pd.read_parquet(paper_results_path).replace({np.nan: None})
+        for _, row in results_df.iterrows():
+            eid = row.get("entry_id")
+            if eid:
+                results_by_entry[eid] = row.to_dict()
+
+    builds: Dict[str, Dict[str, Any]] = {}
+    for path in entries_paths:
+        try:
+            with open(path, "r") as f:
+                doc = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+        for e in doc.get("entries", []):
+            if e.get("account_id") != account_id:
+                continue
+            build_id = e.get("build_id") or "untagged"
+            b = builds.setdefault(build_id, {
+                "build_id": build_id, "label": e.get("label"), "week": e.get("week"),
+                "contest_name": e.get("contest_name"), "entry_fee": e.get("entry_fee"),
+                "slate_id": e.get("slate_id"), "entries": [],
+            })
+            result = results_by_entry.get(e.get("entry_id"))
+            model = e.get("model") or {}
+            b["entries"].append({
+                "entry_id": e.get("entry_id"),
+                "created_at": e.get("created_at"),
+                "players": e.get("players", []),
+                "predicted_score": model.get("projected_score"),
+                "actual_score": result.get("actual_score") if result else None,
+                "actual_rank": result.get("actual_rank") if result else None,
+                "field_size": result.get("field_size") if result else None,
+                "beat_field_pct": result.get("beat_field_pct") if result else None,
+                "finish_percentile": result.get("finish_percentile") if result else None,
+                "estimated_payout": result.get("estimated_payout") if result else None,
+                "settled": result is not None,
+                "notes": e.get("notes"),
+                "late_swap": bool(e.get("late_swap")),
+            })
+
+    out = sorted(builds.values(), key=lambda b: (b["week"] or 0, b["label"] or ""))
+    return {"account_id": account_id, "builds": out}
+
+
+@app.post("/api/bankroll/{account_id}/clear")
+def clear_bankroll_account(account_id: str):
+    """Resets one account to empty, across every week: un-tags every Build
+    currently pointed at it (account_id -> None -- the lineups themselves
+    are NOT deleted, still visible/manageable from the Optimizer's own
+    Builds panel, just no longer counted on the Bankroll page) and deletes
+    every paper_entries.json row tagged to it (those exist only as a
+    bankroll-tracking artifact of the tagging -- see
+    _bulk_register_paper_entries -- so once untagged they serve no purpose).
+    For rebuilding a contaminated account from scratch (e.g. lineups run
+    against a since-fixed bad salary feed) without losing the old lineups
+    entirely or hand-clicking through every row."""
+    n_builds = 0
+    build_paths = glob.glob(os.path.join(BASE_DIR, "data", "optimizer", "*", "week_*", "builds", "*.json"))
+    for path in build_paths:
+        try:
+            with open(path, "r") as f:
+                b = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+        if b.get("account_id") != account_id:
+            continue
+        season_str = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(path))))
+        week_str = os.path.basename(os.path.dirname(os.path.dirname(path)))
+        try:
+            season, week = int(season_str), int(week_str.replace("week_", ""))
+        except ValueError:
+            continue
+        optimizer_store.patch_build(season, week, b.get("build_id"), {"account_id": None})
+        n_builds += 1
+
+    n_entries = paper_store.clear_account_entries(account_id)
+    return {"account_id": account_id, "builds_untagged": n_builds, "entries_removed": n_entries}
+
+
+@app.patch("/api/paper/entries/{entry_id}")
+def patch_paper_entry(entry_id: str, slate_id: str, patch: Dict[str, Any] = Body(...),
+                       week: int = Query(..., ge=1, le=22), year: int = 2026):
+    """Annotate one paper entry -- notes / late_swap only, see
+    paper_store.update_entry. Used by the Bankroll account-detail view."""
+    e = paper_store.update_entry(year, week, slate_id, entry_id, patch)
+    if e is None:
+        raise HTTPException(status_code=404, detail="entry not found")
+    return e
+
+
+# -------------------------------------------------------------------------
+# WORKSPACE SAVE SLOTS (3 switchable, autosaved workspace snapshots per
+# slate -- see src/api/workspace_store.py). Shared by the classic and
+# showdown optimizer pages so a pool build / lineup set / Game-Read scenario
+# survives a page or tab switch, and up to 3 different takes on the same
+# slate can be kept side by side (like save files). Additive to -- not a
+# replacement for -- optimizer_store's per-week state/builds above.
+# -------------------------------------------------------------------------
+@app.get("/api/workspace/slots")
+def get_workspace_slots(slate_key: str, week: int = Query(..., ge=1, le=22), season: int = 2026):
+    """Lightweight metadata for all 3 slots + which one is active -- labels
+    and timestamps only, no lineup payloads, so a slot-switcher UI can render
+    without fetching all three full blobs."""
+    return workspace_store.list_slots(season, week, slate_key)
+
+
+@app.get("/api/workspace/slot")
+def get_workspace_slot(slate_key: str, slot: int = Query(..., ge=1, le=3),
+                        week: int = Query(..., ge=1, le=22), season: int = 2026):
+    """The full saved blob for one slot (or an empty shell if never saved)."""
+    return workspace_store.read_slot(season, week, slate_key, slot)
+
+
+@app.put("/api/workspace/slot")
+def put_workspace_slot(slate_key: str, slot: int = Query(..., ge=1, le=3),
+                        week: int = Query(..., ge=1, le=22), season: int = 2026,
+                        body: Dict[str, Any] = Body(...)):
+    """Autosave target: persists ``body.data`` into one slot. ``body.label``
+    is optional -- omit it on a routine autosave tick so a name Cam typed
+    doesn't get clobbered back to "Slot N"."""
+    return workspace_store.write_slot(season, week, slate_key, slot, body.get("data"), body.get("label"))
+
+
+@app.post("/api/workspace/active")
+def set_workspace_active(payload: Dict[str, Any] = Body(...)):
+    """Switch which slot is "current" for a slate -- the slot the page loads
+    from and autosaves into until switched again."""
+    try:
+        return workspace_store.set_active(int(payload["season"]), int(payload["week"]),
+                                          str(payload["slate_key"]), int(payload["slot"]))
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.patch("/api/workspace/slot")
+def rename_workspace_slot(slate_key: str, slot: int = Query(..., ge=1, le=3),
+                           week: int = Query(..., ge=1, le=22), season: int = 2026,
+                           payload: Dict[str, Any] = Body(...)):
+    """Rename a slot (e.g. "Slot 1" -> "Chalk build") without touching its data."""
+    return workspace_store.rename_slot(season, week, slate_key, slot, payload.get("label", ""))
+
+
+@app.delete("/api/workspace/slot")
+def clear_workspace_slot(slate_key: str, slot: int = Query(..., ge=1, le=3),
+                          week: int = Query(..., ge=1, le=22), season: int = 2026):
+    """"Start fresh": wipe a slot's saved data (keeps its label)."""
+    return workspace_store.clear_slot(season, week, slate_key, slot)
+
+
+# -------------------------------------------------------------------------
+# PAPER TRADING (Phase 3) -- flag a lineup as "I'm actually entering this";
+# scripts/dfs_ownership/score_paper_entries.py settles it later against a
+# dropped-in standings CSV. See src/api/paper_store.py. `slate_id` here is
+# the ownership-archive folder name (`showdown_<AWAY>_<HOME>` / `main_slate`),
+# NOT the workspace-slot `slate_key` above (game_id-based) -- paper entries
+# live alongside that slate's salaries/standings, not the UI session state.
+# -------------------------------------------------------------------------
+@app.get("/api/paper/entries")
+def list_paper_entries(slate_id: str, week: int = Query(..., ge=1, le=22), year: int = 2026):
+    return {"entries": paper_store.list_entries(year, week, slate_id)}
+
+
+@app.post("/api/paper/entries")
+def create_paper_entry(slate_id: str, entry: Dict[str, Any] = Body(...),
+                        week: int = Query(..., ge=1, le=22), year: int = 2026):
+    return paper_store.add_entry(year, week, slate_id, entry)
+
+
+@app.delete("/api/paper/entries/{entry_id}")
+def remove_paper_entry(entry_id: str, slate_id: str,
+                        week: int = Query(..., ge=1, le=22), year: int = 2026):
+    return {"deleted": paper_store.delete_entry(year, week, slate_id, entry_id)}
+
+
+def _read_parquet_rows(rel_path: str, slate_id: Optional[str] = None) -> list:
+    """One parquet -> JSON-safe list of row dicts, optionally filtered to one
+    slate. NaN (common in these evaluation tables -- e.g. a paper entry with
+    no settled contest yet) is replaced with None first: Python's json module
+    happily emits a bare `NaN` token, which is not valid JSON and several
+    strict parsers (including some browsers' fetch().json()) reject."""
+    path = os.path.join(BASE_DIR, "data", "dfs_ownership", "_processed", rel_path)
+    if not os.path.exists(path):
+        return []
+    df = pd.read_parquet(path)
+    if slate_id and "slate_id" in df.columns:
+        df = df[df["slate_id"] == slate_id]
+    return df.replace({np.nan: None}).to_dict("records")
+
+
+@app.get("/api/eval/field")
+def get_field_eval(slate_id: Optional[str] = None):
+    """Field analysis for settled contests -- see scripts/dfs_ownership/eval_field.py
+    (winner, percentile score cutoffs, hindsight-optimal lineup, top-finisher
+    ownership profile). Offline-built; empty until that script has run."""
+    return {"rows": _read_parquet_rows("field_eval.parquet", slate_id)}
+
+
+@app.get("/api/eval/paper")
+def get_paper_eval(slate_id: Optional[str] = None):
+    """Settled paper-trade results -- see scripts/dfs_ownership/score_paper_entries.py
+    (predicted vs actual score/ownership/rank for lineups you flagged as
+    "actually entering"). Offline-built; empty until that script has run."""
+    return {"rows": _read_parquet_rows("paper_results.parquet", slate_id)}
+
+
+@app.get("/api/eval/sim_replay")
+def get_sim_replay_eval(slate_id: Optional[str] = None):
+    """Post-lock sim replay -- see scripts/dfs_ownership/sim_replay_field.py
+    (real field lineups from a settled contest, rescored under OUR own
+    week's simulations instead of the real result, for every entry flagged
+    "actually entering"). Answers "how would this lineup have done against
+    the real field if our model were reality", not "how did it actually do"
+    (that's /api/eval/paper). Offline-built; empty until that script has run."""
+    return {"rows": _read_parquet_rows("sim_replay.parquet", slate_id)}
+
+
+# -------------------------------------------------------------------------
+# SIM REPLAYS (2026-09-15) -- "how did MY submitted lineups do against what
+# our sim projected for them." NOT the same thing as /api/eval/sim_replay
+# above (that one rescores an entire real field with our sim, and needs a
+# paper_entries.json flag beforehand). This is simpler and needs neither:
+# it reads your own rows straight out of the archived standings CSVs
+# (matched by EntryName, see src/api/sim_replay_store.py), which already
+# carry both your real lineup and its real scored Points, then compares
+# each entry against our sim's own projected distribution for that exact
+# lineup. Configure your DK username(s) in data/dfs_ownership/config.json.
+# -------------------------------------------------------------------------
+@app.get("/api/sim_replay/contests")
+def list_sim_replay_contests(year: Optional[int] = None, week: Optional[int] = None):
+    """Every contest with at least one of your entries. See
+    sim_replay_store.list_my_contests -- cached by file mtime."""
+    return {"contests": sim_replay_store.list_my_contests(year, week)}
+
+
+@app.get("/api/sim_replay/entries")
+def get_sim_replay_entries(year: int, week: int, slate_id: str, contest_name: str):
+    """Your entries in one contest: real lineup + actual points/rank plus
+    our sim's projected score distribution for that exact lineup."""
+    return sim_replay_store.get_contest_entries(year, week, slate_id, contest_name)
+
+
+@app.get("/api/sim_replay/field_stats")
+def get_sim_replay_field_stats(
+    year: int, week: int, slate_id: str, contest_name: str,
+    contest_type: str = "top_heavy", paying_positions: Optional[int] = None, top_pct: float = 1.0,
+):
+    """Solver-style Sim ROI/Cash Rate/Ceiling/Floor/Top1%/histogram for your
+    entries plus the real top `top_pct`% of the field -- rescores every real
+    entrant's real roster with our sim and ranks them against each other (the
+    field this contest actually had, not a synthetic one). Capped at
+    sim_replay_store.MAX_FIELD_SIZE_FOR_RESCORE entries for now."""
+    return sim_replay_store.get_contest_field_stats(
+        year, week, slate_id, contest_name, contest_type, paying_positions, top_pct)
+
+
 @app.get("/api/rosters")
 def get_rosters(away: str, home: str, year: int = 2026, draft_group_id: Optional[int] = None):
     """Serves team rosters, base DNA, and live DraftKings (or synthetic
@@ -1330,10 +2108,11 @@ def get_rosters(away: str, home: str, year: int = 2026, draft_group_id: Optional
     reload_cache_if_changed()
     team_coaches = load_json(TEAM_COACHES_PATH)
     coach_dna_atlas = load_json(COACH_DNA_PATH)
-    dk = get_dk_salaries(draft_group_id=draft_group_id)
-    
-    # Find game_id for this matchup from schedule to query cached sims
+
+    # Find game_id (and this matchup's week, for salary resolution below)
+    # from schedule to query cached sims
     game_id = None
+    match = None
     if os.path.exists(SCHEDULE_CSV_PATH):
         try:
             sched_df = pd.read_csv(SCHEDULE_CSV_PATH)
@@ -1343,6 +2122,12 @@ def get_rosters(away: str, home: str, year: int = 2026, draft_group_id: Optional
                 game_id = match.iloc[0]["game_id"]
         except Exception as e:
             print(f"Error finding game_id for rosters: {e}")
+
+    # Routed through _resolve_dk_pool (prelock snapshot first) rather than a
+    # direct get_dk_salaries(draft_group_id=...) call -- see run_simulation's
+    # salary lookup fix for why even a caller-supplied, once-correct
+    # draft_group_id can't be trusted for a past week once DK repoints it.
+    dk = _resolve_dk_pool(match if match is not None else pd.DataFrame(), year, draft_group_id)
 
     result = {}
     for team in [away, home]:
@@ -2236,6 +3021,125 @@ def _salary_sort_key(po: "PlayerOverride") -> int:
     crash starter detection."""
     return po.salary if po.salary is not None else -1
 
+
+def _build_game_distribution(game_df: pd.DataFrame, away_team: str, home_team: str,
+                              ref_total: Optional[float], ref_spread: Optional[float]) -> dict:
+    """Per-iteration game-outcome distribution for the Simulator's "Score
+    Distribution" panel (total-points histogram, score-differential histogram,
+    a sparse joint grid for the heatmap) AND for conditional lineup re-scoring
+    (GameDistribution.jsx's box-select -> ShowdownOptimizeRequest /
+    OptimizeRequest `iteration_filter`, which maps a selected total/margin box
+    back to the `raw.iteration` ids here). `margin` = away - home (positive =
+    away ahead); the UI flips it for display.
+
+    Self-contained off `game_df` (needs away_score/home_score/total, iteration,
+    optional weight columns -- the same per-iteration game-level frame
+    GAMES_BY_GAME_ID / _get_dfs_week_by_game_id slices carry) so it can run
+    WITHOUT the full player-projection simulation pipeline -- shared by
+    run_simulation() (which already has game_df in hand) and the lightweight
+    GET /api/game_distribution (just this, for a UI that only needs the read
+    on the game, not projections).
+    """
+    away_scores = game_df["away_score"].values
+    home_scores = game_df["home_score"].values
+    totals = game_df["total"].values
+    away_diff = away_scores - home_scores
+    weights = game_df["weight"].values if "weight" in game_df.columns else np.ones(len(game_df))
+
+    def _nice_step(span, target):
+        raw = span / max(target, 1)
+        for s in (1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20):
+            if s >= raw:
+                return s
+        return 25
+
+    _iters = game_df["iteration"].values if "iteration" in game_df.columns else np.arange(len(game_df))
+    _weighted = bool("weight" in game_df.columns and not np.allclose(weights, 1.0))
+    _w = weights if _weighted else np.ones(len(totals))
+    _wsum = _w.sum() or 1.0
+
+    _t_step = _nice_step(float(totals.max() - totals.min()), 15)
+    _t_lo = float(np.floor(totals.min() / _t_step) * _t_step)
+    _t_nb = max(1, int(np.ceil((totals.max() + 1e-6 - _t_lo) / _t_step)))
+    _t_idx = np.clip(((totals - _t_lo) / _t_step).astype(int), 0, _t_nb - 1)
+    _t_p = np.bincount(_t_idx, weights=_w, minlength=_t_nb) / _wsum
+
+    _m_abs = float(max(abs(away_diff.min()), abs(away_diff.max()), 1))
+    _m_step = _nice_step(2 * _m_abs, 15)
+    _m_lo = -float(np.ceil(_m_abs / _m_step) * _m_step)
+    _m_nb = max(1, int(np.ceil((2 * abs(_m_lo) + 1e-6) / _m_step)))
+    _m_idx = np.clip(((away_diff - _m_lo) / _m_step).astype(int), 0, _m_nb - 1)
+    _m_p = np.bincount(_m_idx, weights=_w, minlength=_m_nb) / _wsum
+
+    _joint = np.zeros((_m_nb, _t_nb))
+    np.add.at(_joint, (_m_idx, _t_idx), _w)
+    _joint /= _wsum
+    _cells = [[int(mi), int(ti), round(float(_joint[mi, ti]), 5)]
+              for mi, ti in zip(*np.nonzero(_joint))]
+
+    return {
+        "n": int(len(game_df)),
+        "away_team": away_team,
+        "home_team": home_team,
+        "ref_total": round(float(ref_total), 1) if ref_total is not None else None,
+        "ref_spread_home": round(float(ref_spread), 1) if ref_spread is not None else None,
+        "mean_total": round(float(np.average(totals, weights=_w)), 1),
+        "mean_margin_away": round(float(np.average(away_diff, weights=_w)), 1),
+        "total": {"lo": _t_lo, "step": _t_step, "nb": _t_nb, "p": [round(float(x), 5) for x in _t_p]},
+        "margin": {"lo": _m_lo, "step": _m_step, "nb": _m_nb, "p": [round(float(x), 5) for x in _m_p]},
+        "joint": {"t_lo": _t_lo, "t_step": _t_step, "t_nb": _t_nb,
+                  "m_lo": _m_lo, "m_step": _m_step, "m_nb": _m_nb, "cells": _cells},
+        "raw": {
+            "iteration": [int(x) for x in _iters],
+            "total": [int(round(x)) for x in totals],
+            "margin": [int(round(x)) for x in away_diff],
+            "weight": [round(float(x), 4) for x in _w] if _weighted else None,
+        },
+    }
+
+
+@app.get("/api/game_distribution")
+def get_game_distribution(away_team: str, home_team: str, week: Optional[int] = None, year: int = 2026):
+    """Lightweight standalone game-outcome read: just _build_game_distribution
+    off the cached per-iteration game data, no player-projection simulation.
+    For embedding the Score Distribution panel somewhere that only has a
+    game_id in hand (e.g. the showdown optimizer) without paying for a full
+    /api/simulate call -- always returns the exact `raw` iteration arrays
+    (unlike week_sim_results' binned-only game_distribution), so a box-select
+    there gets real iteration ids for conditional lineup re-scoring immediately,
+    no separate "run a fresh sim" step needed.
+
+    Prefers the DFS-week parquet (data/interim/dfs_week_{N}_games.parquet) --
+    reflects this week's real availability -- falling back to the season-long
+    "everyone healthy" parquet (GAMES_BY_GAME_ID) when week is omitted or not
+    yet DFS-simmed.
+    """
+    away_team, home_team = away_team.strip().upper(), home_team.strip().upper()
+    game_id, ref_spread, ref_total = None, None, None
+    if os.path.exists(SCHEDULE_CSV_PATH):
+        sched_df = pd.read_csv(SCHEDULE_CSV_PATH)
+        match = sched_df[(sched_df["away_team"] == away_team) & (sched_df["home_team"] == home_team)
+                          & (sched_df["season"] == year)]
+        if not match.empty:
+            game_id = match.iloc[0]["game_id"]
+            ref_spread = float(match.iloc[0]["spread_line"])
+            ref_total = float(match.iloc[0]["total_line"])
+    if game_id is None:
+        raise HTTPException(status_code=404, detail=f'No {year} schedule entry for {away_team} @ {home_team}.')
+
+    game_df = None
+    if week is not None:
+        dfs_by_game = _get_dfs_week_by_game_id(week)
+        if dfs_by_game and game_id in dfs_by_game:
+            game_df = dfs_by_game[game_id][0]  # (games_df_slice, players_df_slice)
+    if game_df is None:
+        game_df = GAMES_BY_GAME_ID.get(game_id)
+    if game_df is None or game_df.empty:
+        raise HTTPException(status_code=404, detail=f'No simulated game data for {away_team} @ {home_team} yet.')
+
+    return _build_game_distribution(game_df, away_team, home_team, ref_total, ref_spread)
+
+
 @app.post("/api/simulate")
 def run_simulation(req: SimulationRequest):
     """Executes parallelized game simulations applying dynamic overlays."""
@@ -2329,7 +3233,21 @@ def run_simulation(req: SimulationRequest):
     # or a genuine workload/team-setting override — see has_workload_overrides above)
     bypass_cache = has_custom_lines or has_workload_overrides
 
-    if not bypass_cache and game_id and ALL_PLAYERS_CACHED is not None:
+    # DFS-week fast path: serve straight from data/interim/dfs_week_{N}_*.parquet.
+    # That sim already used this week's real availability (data/current_rosters/dfs/),
+    # so it's authoritative by construction — skip the season-parquet
+    # starter-mismatch check entirely (it would flag every injury/depth-chart
+    # move and force a live re-sim, which is the whole cost we're avoiding).
+    if req.use_dfs_week is not None and game_id and not has_custom_lines:
+        dfs_by_game = _get_dfs_week_by_game_id(req.use_dfs_week)
+        if dfs_by_game and game_id in dfs_by_game:
+            g_slice, p_slice = dfs_by_game[game_id]
+            game_df = g_slice.copy()
+            player_df = p_slice.copy()
+            bypass_cache = False
+            print(f"Serving {game_id} from DFS-week {req.use_dfs_week} parquet (no live sim).")
+
+    if game_df is None and not bypass_cache and game_id and ALL_PLAYERS_CACHED is not None:
         try:
             # O(1) lookup instead of scanning the full ~11M-row players cache
             cache_game_players = PLAYERS_BY_GAME_ID.get(game_id)
@@ -2362,8 +3280,9 @@ def run_simulation(req: SimulationRequest):
         except Exception as e:
             print(f"Error validating cache starters: {e}")
 
-    # Try loading from cache
-    if not bypass_cache and game_id and ALL_GAMES_CACHED is not None and ALL_PLAYERS_CACHED is not None:
+    # Try loading from cache (skipped when the DFS-week fast path above already
+    # populated game_df/player_df)
+    if game_df is None and not bypass_cache and game_id and ALL_GAMES_CACHED is not None and ALL_PLAYERS_CACHED is not None:
         try:
             print(f"Attempting to load simulation data for {game_id} from memory cache...")
             if game_id in GAMES_BY_GAME_ID:
@@ -2631,15 +3550,31 @@ def run_simulation(req: SimulationRequest):
     weight_map = dict(zip(game_df["iteration"], game_df["weight"]))
     player_df["weight"] = player_df["iteration"].map(weight_map).fillna(1.0)
     updated_player_df = player_df
-    
+
     # 6. Aggregate player results
     agg_player_df = StatAggregator.aggregate_player_stats(updated_player_df)
-    
+
     # Build a lookup for salaries to include in the final response -- real DK
     # salary only (None when the player isn't live on the Main Slate), same
     # resolution as get_week_salaries()/get_rosters(), which this endpoint's
     # response is merged with client-side.
-    dk = get_dk_salaries()
+    #
+    # Bug fixed 2026-09-16: this used to call get_dk_salaries() with no
+    # draft_group_id, i.e. always DK's current live default slate -- correct
+    # for a direct ad-hoc /api/simulate call (no week context at all), but
+    # wrong for the /api/week_sim_results prepopulation path (req.use_dfs_week
+    # set), which was resolving EVERY week's salaries against whatever slate
+    # happens to be live right now. That's how Week 2's real prices (Chase
+    # Brown, D.J. Moore, etc.) ended up in the Week 1 Optimizer's player pool
+    # (allSimResults, which wins the salary merge over the correctly-resolved
+    # /api/week_projections) even after _resolve_dk_pool was fixed elsewhere --
+    # this call site never went through it. Now routes through the same
+    # _resolve_dk_pool (prelock snapshot first, live fetch only as a fallback)
+    # whenever a week is known.
+    if req.use_dfs_week is not None:
+        dk = _resolve_dk_pool(pd.DataFrame({"week": [req.use_dfs_week]}), req.year, None)
+    else:
+        dk = get_dk_salaries()
     salaries = {}
     for team in [req.away_team, req.home_team]:
         for name in sim.rosters[team]:
@@ -2730,10 +3665,11 @@ def run_simulation(req: SimulationRequest):
             
     from src.nfl_sim.optimizer import solve_showdown_iteration
     # Sub-sample iterations if they exceed the cap to reduce CPU stress and
-    # latency (same pattern as get_week_projections' solve_traditional_iteration
-    # loop — this per-iteration branch-and-bound solve, not the Monte Carlo sim
-    # itself, is what made the first /api/simulate hit for a game take up to
-    # minutes). req.optimizer_sample_cap defaults to 50 for direct user
+    # latency (same pattern as get_week_projections' optimal-lineup sampling,
+    # now solve_optimal_lineup_milp there) -- this per-iteration branch-and-
+    # bound solve, not the Monte Carlo sim itself, is what made the first
+    # /api/simulate hit for a game take up to minutes). req.optimizer_sample_cap
+    # defaults to 50 for direct user
     # requests; /api/week_sim_results sets it much lower for bulk prepopulation.
     sample_cap = max(1, req.optimizer_sample_cap or 50)
     solve_iterations = unique_iterations
@@ -2879,6 +3815,10 @@ def run_simulation(req: SimulationRequest):
             "probability": round((counts[i] / sum_w) * 100, 1) if sum_w > 0 else 0.0
         })
 
+    # 8b. Game-outcome distribution for the Simulator panel + conditional
+    #     lineup re-scoring (see _build_game_distribution).
+    game_distribution = _build_game_distribution(game_df, req.away_team, req.home_team, ref_total, ref_spread)
+
     # Aggregate team summary stats from player projections
     away_players = [p for p in final_projections if p["team"] == req.away_team]
     home_players = [p for p in final_projections if p["team"] == req.home_team]
@@ -2928,7 +3868,8 @@ def run_simulation(req: SimulationRequest):
             "home_turnovers": round(home_turnovers, 1)
         },
         "projections": sorted(final_projections, key=lambda x: x["dk_points"], reverse=True),
-        "score_density": density_chart
+        "score_density": density_chart,
+        "game_distribution": game_distribution,
     }
     SIMULATE_RESPONSE_CACHE[cache_key] = response
     return response
@@ -3000,31 +3941,6 @@ def _build_correlation_matrix(players: list) -> np.ndarray:
     return rho
 
 
-def _ownership_soft_cap(raw: Optional[float], value: float, v_med: float, v_p90: float) -> Optional[float]:
-    """Squash one ownership estimate toward a realistic large-field ceiling.
-
-    The archetype field builder (and, less so, the softmax prior) over-roster the
-    top value plays -- observed ownership for the chalkiest WR/RB comes out
-    60-80%, but in a real large-field NFL contest even the single most-owned
-    player rarely clears ~40%. Anything above 35% is compressed so a would-be
-    100% play lands at `ceiling` while the ordering among chalk is preserved.
-
-    `ceiling` only rises above the 42% base for a genuinely mispriced player --
-    points-per-$1k well past the pool's 90th percentile, which in practice means
-    a post-salary injury vaulted them into a much bigger role.
-
-    Inputs: raw ownership %, the player's pts-per-$1k `value`, and the pool's
-    median / 90th-pctile value. Output: the capped ownership % (unchanged at or
-    below 35%, None passed through).
-    """
-    if raw is None or raw <= 35.0:
-        return raw
-    excess = max(0.0, (value - v_p90) / (v_p90 - v_med)) if v_p90 > v_med else 0.0
-    ceiling = min(62.0, 42.0 + 12.0 * excess)
-    squash = (ceiling - 35.0) / 65.0
-    return round(35.0 + (raw - 35.0) * squash, 1)
-
-
 def _apply_ownership_cap(players: list, own_key: str, proj_key: str) -> None:
     """In-place soft-cap of `own_key` on every priced player (see _ownership_soft_cap)."""
     priced = [p for p in players
@@ -3035,134 +3951,6 @@ def _apply_ownership_cap(players: list, own_key: str, proj_key: str) -> None:
     v_med, v_p90 = float(np.median(vals)), float(np.percentile(vals, 90))
     for p, val in zip(priced, vals):
         p[own_key] = _ownership_soft_cap(p[own_key], val, v_med, v_p90)
-
-
-def _compute_ownership(players: list, seed: Optional[int] = None) -> list:
-    """Compute synthetic V1 ownership using two-factor softmax + log-normal
-    noise. Mutates and returns `players`.
-
-    Deterministic when `seed` is given -- the same seed (and same pool)
-    always reproduces the same numbers. This matters because ownership
-    feeds contest-EV/portfolio metrics (see handle_optimize's EV math) that
-    need to be comparable run-to-run, not a fresh random draw every time
-    someone reloads the page or re-optimizes. Omit `seed` for a fresh draw.
-
-    A player who already carries a non-None ownership_pct (a manual
-    override, e.g. typed into the Optimizer's editable Own% column) is left
-    untouched -- only players missing one get a computed value, though
-    everyone with a real salary still participates in the softmax's
-    relative scoring so one override doesn't skew the rest of the pool.
-
-    A player with no real DK salary (None -- off the Main Slate, or DK
-    hasn't priced them) can't be scored against priced players on a
-    $/point basis, so their ownership_pct is left as whatever it already
-    was (None, unless manually overridden) rather than guessed.
-
-    Three bounded multiplicative nudges sit on top of the original
-    value/salary core, each addressing a specific known way our own
-    projections diverge from the public consensus that actually drives
-    real ownership (our sim isn't the field's sim):
-      - salary-rank (within position): DK's own pricing team already
-        encodes an industry-consensus view of a player's role/talent into
-        salary -- independent of whatever our particular median says. A
-        player priced high at their position tends to get public chalk
-        almost regardless of our own view of them.
-      - Vegas implied team total: the public chases shootout/favorite
-        narratives directly off the same lines everyone sees -- this is
-        public information our own model doesn't otherwise get credit for
-        just by having a good/bad median projection.
-      - cash-lineup consensus (`cash_consensus_frac`, 0-1, from
-        _generate_cash_consensus_lineups): players who recur across this
-        slate's own top cash-optimal builds are usually exactly who's
-        "solved" industry-wide by Thursday and therefore heavily owned in
-        tournaments too, on top of pure salary/value.
-    Both `implied_total` and `cash_consensus_frac` are optional per player;
-    missing values fall back to neutral (no nudge).
-    """
-    POS_WEIGHTS = {'QB': 0.85, 'RB': 1.30, 'WR': 1.00, 'TE': 0.90, 'DST': 0.65}
-
-    priced = [p for p in players if p.get('salary') is not None]
-    if not priced:
-        return players
-
-    # Salary percentile within position -- a $6,500 RB and a $6,500 WR
-    # aren't equally "expensive" relative to their peers, so this has to
-    # be ranked within each position group, not across the whole pool.
-    salary_pctile: Dict[int, float] = {}
-    by_pos: Dict[str, list] = {}
-    for i, p in enumerate(priced):
-        by_pos.setdefault(p['pos'], []).append(i)
-    for idx_list in by_pos.values():
-        sals = np.array([priced[i]['salary'] for i in idx_list], dtype=float)
-        order = sals.argsort()
-        ranks = np.empty(len(sals))
-        ranks[order] = np.arange(len(sals))
-        pct = ranks / max(1, len(sals) - 1) if len(sals) > 1 else np.array([0.5])
-        for i, p_val in zip(idx_list, pct):
-            salary_pctile[i] = float(p_val)
-
-    # Vegas implied-team-total percentile across the whole priced pool
-    # (this is a team-level, not position-level, stat).
-    totals = [p['implied_total'] for p in priced if p.get('implied_total') is not None]
-    if len(totals) >= 2:
-        totals_arr = np.array(sorted(totals))
-        vegas_pctile = {
-            i: float(np.searchsorted(totals_arr, p['implied_total']) / (len(totals_arr) - 1))
-            for i, p in enumerate(priced) if p.get('implied_total') is not None
-        }
-    else:
-        vegas_pctile = {}
-
-    for i, p in enumerate(priced):
-        pw = POS_WEIGHTS.get(p['pos'], 1.0)
-        sal_k = max(p['salary'], 1) / 1000.0
-        score = (p['projection'] / sal_k) * pw
-        score *= 0.85 + 0.30 * salary_pctile.get(i, 0.5)          # +/-15% salary-rank nudge
-        score *= 0.90 + 0.20 * vegas_pctile.get(i, 0.5)           # +/-10% Vegas-environment nudge
-        score *= 1.0 + 0.6 * min(1.0, max(0.0, p.get('cash_consensus_frac') or 0.0))  # up to +60% cash-consensus boost
-        p['_value_score'] = score
-
-    # Chalk boost: top 10% by value score get 1.4x
-    scores = [p['_value_score'] for p in priced]
-    threshold = np.percentile(scores, 90) if len(scores) >= 10 else max(scores)
-    for p in priced:
-        if p['_value_score'] >= threshold:
-            p['_value_score'] *= 1.4
-
-    # Softmax with temperature T=1.5, scaled to sum=900
-    T = 1.5
-    vals = np.array([p['_value_score'] for p in priced], dtype=float)
-    vals = vals - vals.max()  # numerical stability
-    exp_vals = np.exp(vals / T)
-    softmax = exp_vals / (exp_vals.sum() + 1e-9)
-    raw_ownership = softmax * 900.0
-
-    # Pool value stats for the soft cap below.
-    _vals = [p['projection'] / (max(p['salary'], 1) / 1000.0) for p in priced]
-    _v_med, _v_p90 = float(np.median(_vals)), float(np.percentile(_vals, 90))
-
-    # Log-normal noise
-    rng = np.random.default_rng(seed)
-    for i, p in enumerate(priced):
-        del p['_value_score']
-        if p.get('ownership_pct') is not None:
-            continue  # manual override -- leave it alone
-        base = raw_ownership[i]
-        if base > 25:
-            sigma = 0.25
-        elif base > 8:
-            sigma = 0.35
-        else:
-            sigma = 0.45
-        noise = float(np.exp(rng.normal(0, sigma)))
-        # The 900 scale is a pool-wide budget (9 roster slots x 100%), not a
-        # per-player one. Floor at 0.5%, then soft-cap the top toward a realistic
-        # large-field ceiling (~42%, higher only for genuine value outliers) --
-        # see _ownership_soft_cap.
-        raw = max(0.5, round(base * noise, 1))
-        p['ownership_pct'] = max(0.5, _ownership_soft_cap(raw, _vals[i], _v_med, _v_p90))
-
-    return players
 
 
 def _solve_lineup_ilp(
@@ -3384,58 +4172,6 @@ def _assign_slots(selected_indices: list, players: list) -> list:
     return slots
 
 
-def _get_default_payout_structure(contest_type: str, prize_pool: float, paying_positions: int, total_entries: int) -> list:
-    """Generate a default payout structure based on contest type."""
-    if contest_type == 'extreme_top_heavy':
-        # Bat Flip style: top 3 = ~42% of pool
-        tiers = [
-            (1, 1, 0.286), (2, 2, 0.086), (3, 3, 0.057), (4, 4, 0.029),
-            (5, 5, 0.014), (6, 7, 0.0075), (8, 10, 0.0045), (11, 25, 0.003),
-            (26, 50, 0.0015), (51, 100, 0.001)
-        ]
-    elif contest_type == 'top_heavy':
-        # Rally Cap style
-        tiers = [
-            (1, 1, 0.200), (2, 2, 0.093), (3, 3, 0.047), (4, 4, 0.027),
-            (5, 5, 0.013), (6, 6, 0.0093), (7, 7, 0.0067), (8, 8, 0.0053),
-            (9, 10, 0.004), (11, 15, 0.0027), (16, 20, 0.002), (21, 50, 0.0013),
-            (51, 100, 0.001)
-        ]
-    elif contest_type == 'flat':
-        # Home Plate style
-        tiers = [
-            (1, 1, 0.107), (2, 2, 0.071), (3, 3, 0.057), (4, 4, 0.043),
-            (5, 5, 0.029), (6, 6, 0.021), (7, 8, 0.017), (9, 11, 0.014),
-            (12, 15, 0.011), (16, 20, 0.010), (21, 30, 0.0086), (31, 55, 0.0071),
-            (56, 96, 0.005)
-        ]
-    elif contest_type == 'cash':
-        # 50/50 style: top 50% wins 1.9x
-        cutoff = max(1, int(total_entries * 0.50))
-        return [{'rank_start': 1, 'rank_end': cutoff, 'payout': prize_pool * 1.9 / cutoff}]
-    else:
-        tiers = [(1, 1, 0.200), (2, 10, 0.050), (11, 50, 0.010), (51, paying_positions, 0.002)]
-
-    structure = []
-    for r_start, r_end, pct in tiers:
-        if r_start > paying_positions:
-            break
-        r_end = min(r_end, paying_positions)
-        count = r_end - r_start + 1
-        total_pct = pct * count
-        per_entry = (prize_pool * pct) if count == 1 else (prize_pool * total_pct / count)
-        structure.append({'rank_start': r_start, 'rank_end': r_end, 'payout': round(per_entry, 2)})
-
-    # Fill remaining paying positions with min payout (entry fee recovery)
-    if structure:
-        last_covered = structure[-1]['rank_end']
-        if last_covered < paying_positions:
-            min_payout = prize_pool * 0.0008
-            structure.append({'rank_start': last_covered + 1, 'rank_end': paying_positions, 'payout': round(min_payout, 2)})
-
-    return structure
-
-
 def _compute_lineup_stats(
     lineup_slots: list,
     field_scores: np.ndarray,
@@ -3523,71 +4259,16 @@ def _compute_lineup_stats(
     }
 
 
-def _compute_lineup_stats_direct(
-    lineup_score_draws: np.ndarray,
-    field_scores: np.ndarray,
-    payout_structure: list,
-    entry_fee: float,
-    total_entries: int,
-    paying_positions: int,
-) -> dict:
-    """Compute ITM%, Top1%, Top0.1%, EV%, and lineup percentile/volatility stats using already computed lineup draws."""
-    paying_pct = paying_positions / max(total_entries, 1)
-    cutoff_itm  = float(np.percentile(field_scores, (1 - paying_pct) * 100))
-    cutoff_top1  = float(np.percentile(field_scores, 99))
-    cutoff_top01 = float(np.percentile(field_scores, 99.9))
-
-    itm_pct  = float(np.mean(lineup_score_draws > cutoff_itm)  * 100)
-    top1_pct  = float(np.mean(lineup_score_draws > cutoff_top1)  * 100)
-    top01_pct = float(np.mean(lineup_score_draws > cutoff_top01) * 100)
-
-    # ── EV calculation ────────────────────────────────────────────────────────
-    prize_pool = entry_fee * total_entries * 0.85  # ~15% rake
-    ev = 0.0
-    if payout_structure:
-        for tier in payout_structure:
-            r_start = tier['rank_start'] if isinstance(tier, dict) else tier.rank_start
-            r_end   = tier['rank_end']   if isinstance(tier, dict) else tier.rank_end
-            payout  = tier['payout']     if isinstance(tier, dict) else tier.payout
-            p_rank  = (r_end - r_start + 1) / max(total_entries, 1)
-            top001_thresh = max(1, int(total_entries * 0.001))
-            top1_thresh   = max(1, int(total_entries * 0.01))
-            if r_end <= top001_thresh:
-                p_in_tier = top01_pct / 100.0 * (r_end - r_start + 1) / top001_thresh
-            elif r_end <= top1_thresh:
-                p_in_tier = top1_pct / 100.0 * (r_end - r_start + 1) / top1_thresh
-            else:
-                p_in_tier = itm_pct / 100.0 * p_rank / max(paying_pct, 1e-9)
-            ev += p_in_tier * payout
-    else:
-        ev = itm_pct / 100.0 * (prize_pool / max(paying_positions, 1))
-
-    ev_pct = ((ev / max(entry_fee, 1)) - 1) * 100
-
-    # ── Lineup percentile and volatility metrics ──────────────────────────────
-    lineup_p50 = float(np.percentile(lineup_score_draws, 50))
-    lineup_p75 = float(np.percentile(lineup_score_draws, 75))
-    lineup_p95 = float(np.percentile(lineup_score_draws, 95))
-    lineup_std = float(np.std(lineup_score_draws))
-
-    return {
-        'itm_pct':    round(itm_pct, 2),
-        'top1_pct':   round(top1_pct, 2),
-        'top01_pct':  round(top01_pct, 2),
-        'ev_pct':     round(ev_pct, 2),
-        'lineup_p50': round(lineup_p50, 2),
-        'lineup_p75': round(lineup_p75, 2),
-        'lineup_p95': round(lineup_p95, 2),
-        'lineup_std': round(lineup_std, 2),
-    }
-
-
 @app.post('/api/optimize')
 async def optimize_lineups(req: OptimizeRequest):
     """Generate N optimal DFS lineups using ILP + stochastic correlated draws."""
 
-    # Filter excluded players
-    active_players = [p.dict() for p in req.players if not p.excluded]
+    # Filter excluded players. For the Lineup Lab, keep everyone -- an
+    # excluded flag is a generation constraint, not "this player can't
+    # score" -- so a hand lineup can reference anyone (same rationale as
+    # showdown's optimize_showdown).
+    manual = req.manual_lineups or None
+    active_players = [p.dict() for p in req.players] if manual else [p.dict() for p in req.players if not p.excluded]
     all_players_dict = [p.dict() for p in req.players]  # keep all for field sims
 
     if len(active_players) < 9:
@@ -3606,20 +4287,30 @@ async def optimize_lineups(req: OptimizeRequest):
                 detail=f'Not enough {pos} players (need at least {min_count}, have {pos_counts.get(pos, 0)})'
             )
 
-    # Fill in ownership for any player missing one (_compute_ownership()
-    # itself skips players that already have a value, whether that's the
-    # Player Pool's computed per-week number or a manual override typed
-    # into its Own% column). Seeded from the pool's own content -- name,
-    # team, salary, projection -- so the exact same optimize request always
-    # reproduces the exact same ownership, and therefore the exact same
-    # EV/portfolio metrics below; a genuinely different pool (edited
-    # projections, a new week) naturally gets a different seed.
+    # Fill in ownership for any player missing one (predict_classic_ownership
+    # -- and the heuristic it falls back to -- both skip players that already
+    # have a value, whether that's the Player Pool's computed per-week number
+    # or a manual override typed into its Own% column). Seeded from the
+    # pool's own content -- name, team, salary, projection -- so the exact
+    # same optimize request always reproduces the exact same ownership, and
+    # therefore the exact same EV/portfolio metrics below; a genuinely
+    # different pool (edited projections, a new week) naturally gets a
+    # different seed.
     ownership_seed_str = "|".join(
         f"{p['name']}:{p['team']}:{p['salary']}:{p['projection']}"
         for p in sorted(active_players, key=lambda p: (p['name'], p['team']))
     )
     ownership_seed = int(hashlib.md5(ownership_seed_str.encode()).hexdigest(), 16) % (2**32)
-    active_players = _compute_ownership(active_players, seed=ownership_seed)
+    # Cash-consensus signal for the trained model (same technique as
+    # get_week_sim_results' bulk prepopulation, see _generate_cash_consensus_lineups) --
+    # computed fresh off THIS request's pool so it reflects any live
+    # projection edits, not a stale weekly precompute.
+    cash_counts, n_cash_generated, _ = _generate_cash_consensus_lineups(
+        active_players, salary_cap=req.salary_cap, pos_max_exposure={'DST': 0.5},
+    )
+    cash_consensus = {k: v / n_cash_generated for k, v in cash_counts.items()} if n_cash_generated else {}
+    active_players = predict_classic_ownership(
+        active_players, week=req.week, cash_consensus=cash_consensus, seed=ownership_seed)
 
     # Build correlation matrix and covariance
     n = len(active_players)
@@ -3682,44 +4373,100 @@ async def optimize_lineups(req: OptimizeRequest):
     generated_lineups = []
     prior_lineups = []  # track indices for uniqueness/exposure
 
-    max_attempts = req_n * 5  # allow extra attempts for failed ILP solves
-    attempts = 0
+    if manual:
+        # ── Lineup Lab: score hand-built lineups, no ILP generation ──────
+        def _key(s):
+            return re.sub(r'[^a-z0-9]', '', str(s).lower())
+        by_name: Dict[str, int] = {}
+        for i, p in enumerate(active_players):
+            by_name.setdefault(_key(p['name']), i)
+            by_name[f"{_key(p['name'])}|{str(p['team']).upper()}"] = i
 
-    while len(generated_lineups) < req_n and attempts < max_attempts:
-        attempts += 1
+        def _resolve(tok: str) -> int:
+            tok = str(tok).strip()
+            if '|' in tok:
+                nm, tm = tok.split('|', 1)
+                hit = by_name.get(f"{_key(nm)}|{tm.strip().upper()}")
+                if hit is not None:
+                    return hit
+                tok = nm
+            return by_name.get(_key(tok), -1)
 
-        # Draw correlated scores for ILP — uses ilp_scores (gpp-blended ceiling)
-        # NOT projections (P50), so the ILP picks players with real ceiling.
-        if width_mult > 0:
-            z = rng.standard_normal(n)
-            perturbation = L @ z
-            draw_scores = np.maximum(0, ilp_scores + width_mult * perturbation)
-        else:
-            draw_scores = ilp_scores.copy()
+        for li, ml in enumerate(manual):
+            rb, wr = list(ml.rb or []), list(ml.wr or [])
+            if len(rb) != 2 or len(wr) != 3:
+                raise HTTPException(status_code=400,
+                                    detail=f'Lineup {li + 1} needs exactly 2 RB and 3 WR (got {len(rb)} RB, {len(wr)} WR).')
+            picks = [('QB', ml.qb), ('RB', rb[0]), ('RB', rb[1]), ('WR', wr[0]), ('WR', wr[1]),
+                     ('WR', wr[2]), ('TE', ml.te), ('FLEX', ml.flex), ('DST', ml.dst)]
+            resolved = [(slot, _resolve(tok), tok) for slot, tok in picks]
+            missing = [tok for _, idx, tok in resolved if idx < 0]
+            if missing:
+                raise HTTPException(status_code=400,
+                                    detail=f'Lineup {li + 1}: player(s) not in pool: {", ".join(missing)}')
+            idxs = [idx for _, idx, _ in resolved]
+            if len(set(idxs)) != 9:
+                raise HTTPException(status_code=400,
+                                    detail=f'Lineup {li + 1}: a player is used twice.')
+            # Each fixed slot must actually hold that position; FLEX just
+            # needs to be flex-eligible (a mis-slotted player is a silent
+            # scoring bug otherwise -- classic scoring has no CPT-style
+            # multiplier to catch it visually like showdown does).
+            for slot, idx, tok in resolved:
+                actual = active_players[idx]['pos']
+                ok = actual in ('RB', 'WR', 'TE') if slot == 'FLEX' else actual == slot
+                if not ok:
+                    raise HTTPException(status_code=400,
+                                        detail=f"Lineup {li + 1}: {tok} is {actual}, not eligible for {slot}.")
+            slots = [{**active_players[idx], 'slot': slot, 'player_idx': idx} for slot, idx, _ in resolved]
+            total_salary = sum(s['salary'] for s in slots)
+            median_score = sum(s['projection'] for s in slots)
+            prior_lineups.append({'indices': idxs})
+            generated_lineups.append({
+                'slots': slots, 'indices': idxs, 'total_salary': total_salary,
+                'projected_score': round(median_score, 2),
+                'label': ml.label or f'Lineup {li + 1}',
+                'over_salary_cap': total_salary > req.salary_cap,
+            })
+    else:
+        max_attempts = req_n * 5  # allow extra attempts for failed ILP solves
+        attempts = 0
 
-        selected_indices = _solve_lineup_ilp(
-            active_players, draw_scores,
-            req.salary_cap, prior_lineups,
-            req.min_unique_players, req.include_dst_in_unique,
-            req.max_exposure, req_n,
-            locked_indices, excluded_indices
-        )
+        while len(generated_lineups) < req_n and attempts < max_attempts:
+            attempts += 1
 
-        if selected_indices is None:
-            continue
+            # Draw correlated scores for ILP — uses ilp_scores (gpp-blended ceiling)
+            # NOT projections (P50), so the ILP picks players with real ceiling.
+            if width_mult > 0:
+                z = rng.standard_normal(n)
+                perturbation = L @ z
+                draw_scores = np.maximum(0, ilp_scores + width_mult * perturbation)
+            else:
+                draw_scores = ilp_scores.copy()
 
-        slots = _assign_slots(selected_indices, active_players)
+            selected_indices = _solve_lineup_ilp(
+                active_players, draw_scores,
+                req.salary_cap, prior_lineups,
+                req.min_unique_players, req.include_dst_in_unique,
+                req.max_exposure, req_n,
+                locked_indices, excluded_indices
+            )
 
-        total_salary = sum(p['salary'] for p in slots)
-        median_score = sum(p['projection'] for p in slots)
+            if selected_indices is None:
+                continue
 
-        prior_lineups.append({'indices': selected_indices})
-        generated_lineups.append({
-            'slots': slots,
-            'indices': selected_indices,
-            'total_salary': total_salary,
-            'projected_score': round(median_score, 2)
-        })
+            slots = _assign_slots(selected_indices, active_players)
+
+            total_salary = sum(p['salary'] for p in slots)
+            median_score = sum(p['projection'] for p in slots)
+
+            prior_lineups.append({'indices': selected_indices})
+            generated_lineups.append({
+                'slots': slots,
+                'indices': selected_indices,
+                'total_salary': total_salary,
+                'projected_score': round(median_score, 2)
+            })
 
     if not generated_lineups:
         raise HTTPException(
@@ -3763,75 +4510,124 @@ async def optimize_lineups(req: OptimizeRequest):
         print(f"Error loading trial aligned scores: {e}")
 
     rng = np.random.default_rng()
-    # Sample aligned iteration index (10000 times from 0-999)
+    # Sample aligned iteration index (10000 times from 0-999). Every game on
+    # the slate was simulated together per iteration (one full-slate scenario
+    # per index), so restricting which indices get drawn from -- see
+    # OptimizeRequest.iteration_filter, fed by GameDistribution.jsx's
+    # box-select on ONE game -- conditions the whole slate's field AND our
+    # lineups on that game landing in the selected total/margin range, same
+    # "cheap" mechanism as the showdown optimizer's iteration_filter.
     # For players who are missing or custom-added, we can simulate their values
     # but still use the same iteration index as a seed to allow correlation or simulate
     # based on projection.
-    aligned_indices = rng.integers(0, 1000, size=n_stat_sims)
+    valid_filter = sorted({int(i) for i in req.iteration_filter if 0 <= int(i) < 1000}) if req.iteration_filter else None
+    if valid_filter:
+        aligned_indices = rng.choice(np.array(valid_filter), size=n_stat_sims, replace=True)
+        iteration_filter_frac = round(len(valid_filter) / 1000.0, 4)
+    else:
+        aligned_indices = rng.integers(0, 1000, size=n_stat_sims)
+        iteration_filter_frac = None
+
+    # Both branches below get called once per (field-lineup, slot) pair --
+    # with FIELD_SAMPLE_K in the thousands and ~9 slots per lineup, that's
+    # tens of thousands of calls per request, many for the SAME player. Cache
+    # each player's median (cheap but was being recomputed every call) and,
+    # for the no-real-data fallback, the whole synthetic 1000-length trial
+    # array (was instead constructing a brand-new np.random.default_rng
+    # PER ITERATION PER CALL -- 10,000 RNG constructions each time a player
+    # with no parquet trials got scored, which is what actually made a
+    # large field sample unaffordable, not the field size itself).
+    _median_cache: Dict[tuple, float] = {}
+    _fallback_cache: Dict[tuple, np.ndarray] = {}
 
     def get_player_trial_scores(p: dict, indices: np.ndarray) -> np.ndarray:
         key = (p['name'], p['team'], p['pos'])
         if key in trial_scores_map and len(trial_scores_map[key]) >= 1000:
             arr = trial_scores_map[key]
-            # Clip indices just in case
             safe_idxs = np.clip(indices, 0, len(arr) - 1)
             # If the user edited the projection, scale the trials proportionally
-            original_median = np.percentile(arr, 50)
+            original_median = _median_cache.get(key)
+            if original_median is None:
+                original_median = float(np.percentile(arr, 50))
+                _median_cache[key] = original_median
             proj = p.get('projection', 10.0)
             if original_median > 1.0 and abs(proj - original_median) > 0.1:
                 scale = proj / original_median
                 return arr[safe_idxs] * scale
             return arr[safe_idxs]
         else:
-            # Fallback normal draw using a deterministic function of the iteration index to stay aligned
-            proj = p.get('projection', 10.0)
-            std = max(0.5, proj * 0.35)
-            # Generate pseudo-random normal based on index + hash seed
-            scores = np.zeros(len(indices))
-            for i, idx in enumerate(indices):
-                gen = np.random.default_rng(idx + hash(p['name']) % 10000)
-                scores[i] = max(0.0, gen.normal(proj, std))
-            return scores
+            # Fallback: no real parquet trials for this player -- synthesize
+            # a deterministic 1000-length trial array once (same convention
+            # as trial_scores_map, indexed 0-999) instead of a fresh RNG per
+            # iteration per call.
+            synth = _fallback_cache.get(key)
+            if synth is None:
+                proj = p.get('projection', 10.0)
+                std = max(0.5, proj * 0.35)
+                base_seed = hash(p['name']) % 10000
+                synth = np.array([
+                    max(0.0, np.random.default_rng(base_seed + idx).normal(proj, std))
+                    for idx in range(1000)
+                ])
+                _fallback_cache[key] = synth
+            safe_idxs = np.clip(indices, 0, len(synth) - 1)
+            return synth[safe_idxs]
 
-    field_scores = np.zeros(n_stat_sims)
-
-    # Prefer the cached archetype-composed field sample (sharp / fake_sharp
-    # / casual / toilet -- see field_simulator.py and
-    # docs/implementation_plans/field_simulation_implementation_plan.md)
-    # built by get_week_sim_results() for this week, over a uniform-random
-    # field. One random field-sample lineup per trial (composition already
-    # reflects the archetype mix), scored at that trial's aligned iteration
-    # so a shared game environment lifts our lineup and the field lineup
-    # together, same correlation-preserving pattern as before.
+    # ── Field: score EVERY field-sample lineup across ALL aligned iterations ──
+    # (not one randomly-picked opponent per iteration, and not a cutoff blended
+    # across every environment) so our lineup can be ranked against the actual
+    # simulated field -- archetype-composed (sharp / fake_sharp / casual /
+    # toilet, see field_simulator.py and
+    # docs/implementation_plans/field_simulation_implementation_plan.md) --
+    # in the SAME game-environment draw, iteration by iteration. See
+    # _compute_lineup_field_stats for how this gets turned into ITM/Top1%/EV%.
     field_lineups_cached = None
     if req.week is not None:
         cached_field = FIELD_SAMPLE_CACHE.get((req.week, None))
         if cached_field and cached_field.get('lineups'):
             field_lineups_cached = cached_field['lineups']
+        else:
+            # Self-heal: FIELD_SAMPLE_CACHE is normally built as a side effect
+            # of GET /api/week_sim_results -> get_week_sim_results(), but that
+            # endpoint has its own disk-backed cache (data/interim/week_N_sim_
+            # results.json) which, when fresh, returns early WITHOUT ever
+            # reaching the code that builds the field sample -- so on a plain
+            # backend restart, FIELD_SAMPLE_CACHE can stay empty indefinitely
+            # even though that endpoint keeps responding instantly. Previously
+            # this silently degraded /api/optimize to the crude uniform-random
+            # fallback field below (no value/ownership weighting at all),
+            # which is what was producing wildly inflated EV%/ITM% -- verified
+            # live: that fallback field's mean score was roughly HALF of a
+            # normal generated lineup's. Build the real field directly from
+            # this request's own pool instead of depending on that other
+            # endpoint's cache having taken its slow path.
+            try:
+                prior_own = {
+                    (p['name'], p['team']): p['ownership_pct']
+                    for p in active_players if p.get('ownership_pct') is not None
+                }
+                field_sample = build_field_sample(
+                    active_players, prior_own, salary_cap=req.salary_cap, K=FIELD_SAMPLE_K, seed=req.week,
+                )
+                if field_sample.get('lineups'):
+                    FIELD_SAMPLE_CACHE[(req.week, None)] = {
+                        **field_sample, 'built_at': time.time(), 'week': req.week,
+                    }
+                    field_lineups_cached = field_sample['lineups']
+            except Exception as e:
+                print(f"Error self-building field sample for week {req.week}: {e}")
 
     if field_lineups_cached:
         n_field = len(field_lineups_cached)
-        field_choice_idx = rng.integers(0, n_field, size=n_stat_sims)
-        for sim_idx in range(n_stat_sims):
-            lu = field_lineups_cached[field_choice_idx[sim_idx]]
-            iter_idx = aligned_indices[sim_idx]
-            score_sum = 0.0
+        field_matrix = np.zeros((n_field, n_stat_sims))
+        for fi, lu in enumerate(field_lineups_cached):
             for p in lu:
-                key = (p['name'], p['team'], p['pos'])
-                arr = trial_scores_map.get(key)
-                if arr is not None and len(arr) > iter_idx:
-                    score_sum += arr[iter_idx]
-                else:
-                    proj = p.get('projection', 10.0)
-                    std = max(0.5, proj * 0.35)
-                    gen = np.random.default_rng(iter_idx + hash(p['name']) % 10000)
-                    score_sum += max(0.0, gen.normal(proj, std))
-            field_scores[sim_idx] = score_sum
+                field_matrix[fi] += get_player_trial_scores(p, aligned_indices)
     else:
         # Fallback: no week given, or that week's field sample hasn't been
-        # built yet this process lifetime -- old uniform-random single-
-        # lineup-per-iteration field, kept as a safety net so this endpoint
-        # never hard-fails just because week was omitted.
+        # built yet this process lifetime -- build a modest uniform-random
+        # field ourselves so this endpoint never hard-fails just because
+        # week was omitted.
         by_pos: dict = {'QB': [], 'RB': [], 'WR': [], 'TE': [], 'DST': []}
         for p in active_players:
             pos = p.get('pos', '')
@@ -3885,42 +4681,35 @@ async def optimize_lineups(req: OptimizeRequest):
             lineup.append(flex)
             return lineup
 
-        for sim_idx in range(n_stat_sims):
-            lu = build_field_lineup_fallback()
-            iter_idx = aligned_indices[sim_idx]
-            if lu is not None:
-                score_sum = 0.0
+        N_FIELD_FALLBACK = 300
+        fallback_lineups = [lu for lu in (build_field_lineup_fallback() for _ in range(N_FIELD_FALLBACK)) if lu is not None]
+        if fallback_lineups:
+            field_matrix = np.zeros((len(fallback_lineups), n_stat_sims))
+            for fi, lu in enumerate(fallback_lineups):
                 for p in lu:
-                    key = (p['name'], p['team'], p['pos'])
-                    if key in trial_scores_map and len(trial_scores_map[key]) > iter_idx:
-                        score_sum += trial_scores_map[key][iter_idx]
-                    else:
-                        proj = p.get('projection', 10.0)
-                        std = max(0.5, proj * 0.35)
-                        gen = np.random.default_rng(iter_idx + hash(p['name']) % 10000)
-                        score_sum += max(0.0, gen.normal(proj, std))
-                field_scores[sim_idx] = score_sum
-            else:
-                avg_proj = float(np.mean([p.get('projection', 10.0) for p in active_players]))
-                gen = np.random.default_rng(iter_idx)
-                field_scores[sim_idx] = max(0.0, float(gen.normal(avg_proj * 9, avg_proj * 9 * 0.15)))
+                    field_matrix[fi] += get_player_trial_scores(p, aligned_indices)
+        else:
+            avg_proj = float(np.mean([p.get('projection', 10.0) for p in active_players]))
+            field_matrix = np.full((1, n_stat_sims), avg_proj * 9)
 
-    # Evaluate each lineup using aligned simulations
-    lineup_results = []
-
+    # Evaluate each lineup using aligned simulations. All lineups' draws are
+    # ranked against the field in ONE batched pass (see
+    # _compute_lineup_field_stats_batch) rather than one comparison per
+    # lineup -- required to make a field this large (FIELD_SAMPLE_K) affordable.
+    all_lineup_draws = []
     for lu in generated_lineups:
-        # Calculate lineup score draws aligned with the simulated trials
         lineup_score_draws = np.zeros(n_stat_sims)
         for p in lu['slots']:
             lineup_score_draws += get_player_trial_scores(p, aligned_indices)
+        all_lineup_draws.append(lineup_score_draws)
 
-        # Pass precomputed aligned draws into _compute_lineup_stats or run inline
-        # Let's adapt _compute_lineup_stats signature to accept lineup_score_draws directly
-        # to ensure perfect correlation alignment!
-        stats = _compute_lineup_stats_direct(
-            lineup_score_draws, field_scores, payout_structure,
-            req.entry_fee, req.total_entries, req.paying_positions
-        )
+    all_stats = _compute_lineup_field_stats_batch(
+        all_lineup_draws, field_matrix, payout_structure,
+        req.entry_fee, req.total_entries, req.paying_positions
+    )
+
+    lineup_results = []
+    for lu, stats in zip(generated_lineups, all_stats):
         lineup_results.append({
             **stats,
             'players': [{
@@ -3931,11 +4720,14 @@ async def optimize_lineups(req: OptimizeRequest):
                 'projection': p['projection'],
                 'slot': p['slot'],
                 'ownership_pct': p.get('ownership_pct', 0.0),
+                'ownership_source': p.get('ownership_source'),  # "model" | "heuristic" -- which one produced this number
                 'dk_pcts_all': p.get('dk_pcts_all'),
                 'dk_id': p.get('dk_id')
             } for p in lu['slots']],
             'total_salary': lu['total_salary'],
-            'projected_score': lu['projected_score']
+            'projected_score': lu['projected_score'],
+            'label': lu.get('label'),
+            'over_salary_cap': lu.get('over_salary_cap', lu['total_salary'] > req.salary_cap),
         })
 
     # Compute portfolio metrics
@@ -3981,6 +4773,7 @@ async def optimize_lineups(req: OptimizeRequest):
         lu_result['portfolio_score'] = portfolio_score
 
     return {
+        'mode': 'manual' if manual else 'optimize',
         'lineups': lineup_results,
         'portfolio': {
             'total_ev_pct': round(portfolio_ev, 2),
@@ -3988,8 +4781,926 @@ async def optimize_lineups(req: OptimizeRequest):
             'avg_correlation': round(avg_correlation, 3),
             'coverage_score': coverage_score,
             'n_generated': n_gen,
-            'n_requested': req_n
+            'n_requested': req_n,
+            'iteration_filter_frac': iteration_filter_frac,
+            'iteration_filter_n': len(valid_filter) if valid_filter else None,
         }
+    }
+
+
+# -------------------------------------------------------------------------
+# SHOWDOWN (SINGLE-GAME) OPTIMIZER ENDPOINT
+# -------------------------------------------------------------------------
+#
+# Structure mirrors /api/optimize as closely as possible so the two tools
+# stay legible side-by-side, with three deliberate differences driven by
+# the showdown format and by what this tool is *for*:
+#
+#   1. Roster: 1 CPT (1.5x points AND 1.5x salary) + 5 FLEX, any position
+#      (DK lets a DST captain; kickers would belong here too but the sim
+#      engine doesn't produce them yet -- known gap, noted in the response).
+#
+#   2. Ownership is a first-class objective term, not just a post-hoc stat.
+#      Showdown fields are small and top-heavy, and the single biggest edge
+#      is captaining someone the field isn't. The ILP objective subtracts
+#      `leverage_lambda * projected_ownership` from each player's drawn
+#      score, so raising lambda trades raw ceiling for a lower total-owned
+#      lineup continuously (penalty-only knob -- see the Sept 2026 build
+#      decision; a hard cap can come later).
+#
+#   3. Ownership model is showdown-specific: CPT ownership concentrates on
+#      ceiling/name plays far more than FLEX ownership does, so the two are
+#      modelled separately (_compute_showdown_ownership) rather than reusing
+#      the 9-slot classic softmax.
+#
+# The field-sim EV/ITM/Top% machinery is shared with the classic path
+# (_compute_lineup_field_stats_batch) -- the only new field-side code is a
+# showdown lineup constructor (_build_showdown_field) and iteration-aligned
+# scoring off this game's slice of the season parquet so a shared game
+# environment lifts our lineup and the field together (same
+# correlation-preserving trick /api/optimize uses).
+
+class ShowdownOptimizerPlayer(BaseModel):
+    name: str
+    team: str
+    pos: str                                    # QB, RB, WR, TE, DST
+    salary: int                                 # base FLEX salary; CPT costs 1.5x
+    projection: float                           # P50/median at FLEX scoring; CPT scores 1.5x
+    gpp_projection: Optional[float] = None       # blended ceiling -- ILP objective only
+    locked: bool = False                        # force into every lineup (CPT or FLEX)
+    locked_cpt: bool = False                    # force in specifically as the captain
+    cpt_eligible: bool = True                   # False -> never considered as captain (still FLEX-eligible)
+    excluded: bool = False
+    ownership_pct: Optional[float] = None        # FLEX ownership % override (None -> modelled)
+    cpt_ownership_pct: Optional[float] = None    # CPT ownership % override (None -> modelled)
+    optimal_cpt_pct: Optional[float] = None      # sim's optimal-captain rate (0-100), feeds the ownership model
+    optimal_flex_pct: Optional[float] = None     # sim's optimal-flex rate (0-100), feeds the ownership model
+    implied_total: Optional[float] = None        # team's Vegas/sim implied points, feeds the ownership model
+    dk_pcts_all: Optional[List[float]] = None    # 101-element [p0..p100] FLEX-scoring dist
+    dk_id: Optional[int] = None                 # DK draftableId for the FLEX slot (CSV export)
+    dk_cpt_id: Optional[int] = None             # DK draftableId for the CPT slot (CSV export)
+
+
+class ShowdownPrepPlayer(BaseModel):
+    name: str
+    team: str
+    pos: str
+    salary: Optional[int] = None
+    projection: Optional[float] = None
+    optimal_cpt_pct: Optional[float] = None
+    optimal_flex_pct: Optional[float] = None
+    ownership_pct: Optional[float] = None        # a hand override, left untouched
+    cpt_ownership_pct: Optional[float] = None
+
+
+class ShowdownPrepRequest(BaseModel):
+    players: List[ShowdownPrepPlayer]
+    game_id: Optional[str] = None
+    away_team: Optional[str] = None
+    home_team: Optional[str] = None
+
+
+class ManualShowdownLineup(BaseModel):
+    """A hand-built showdown lineup to score instead of solving for one.
+    `cpt` / `flex` are player names (matched against the pool, case- and
+    punctuation-insensitive; append '|TEAM' to disambiguate a shared name)."""
+    cpt: str
+    flex: List[str]
+    label: Optional[str] = None
+
+
+class ShowdownOptimizeRequest(BaseModel):
+    players: List[ShowdownOptimizerPlayer]
+    game_id: Optional[str] = None               # locates this game's parquet slice for aligned field scoring
+    week: Optional[int] = None
+    n_lineups: int = 20
+    # When set, skip lineup generation entirely and just run these hand-built
+    # lineups through the same field sim + EV/ITM/Top%/1st% scoring. The
+    # "Lineup Lab" -- paste a lineup, see how it does.
+    manual_lineups: Optional[List[ManualShowdownLineup]] = None
+    salary_cap: int = 50000
+    contest_type: str = 'top_heavy'             # cash, flat, top_heavy, extreme_top_heavy
+    min_unique_players: int = 2                 # min differing players between any two of our lineups (of 6)
+    max_exposure: float = 0.5                   # cap on any player's total appearance rate
+    cpt_max_exposure: float = 0.4              # tighter cap on any player's *captain* rate
+    leverage_lambda: float = 0.0               # ownership penalty weight in the ILP objective
+    entry_fee: float = 5.0
+    total_entries: int = 50000
+    paying_positions: int = 12000
+    payout_structure: Optional[List[PayoutTier]] = None
+    # Conditional lineup re-scoring ("cheap" mode of the game-distribution
+    # box-select): the raw 0-999 iteration ids GameDistribution.jsx's
+    # drag-selection resolved to (see game_distribution.raw.iteration). When
+    # set, both our lineup(s) AND the synthetic field are scored ONLY on
+    # iterations from this set -- i.e. "given the game lands in this total /
+    # margin box, how does this lineup do" -- by restricting where the aligned
+    # trial draws come from, not by re-solving anything. Works with both
+    # generated and manual_lineups.
+    iteration_filter: Optional[List[int]] = None
+
+
+def _solve_showdown_fast(
+    players: list,
+    draw_scores: np.ndarray,
+    own_flex: np.ndarray,
+    own_cpt: np.ndarray,
+    leverage_lambda: float,
+    salary_cap: int,
+    prior_lineups: list,
+    min_unique: int,
+    max_exposure: float,
+    cpt_max_exposure: float,
+    n_total: int,
+    locked_indices: set,
+    locked_cpt_indices: set,
+    excluded_indices: set,
+    cpt_ineligible_indices: set = frozenset(),
+) -> Optional[dict]:
+    """Pure-Python showdown solve (1 CPT + 5 FLEX). Replaces the per-draw CBC
+    ILP: for a 12-26 player single-game pool the ILP's subprocess spawn +
+    solve was 50ms-5s each and occasionally hung, dominating the endpoint.
+    Per captain, an exact branch-and-bound over the 5 FLEX slots with a
+    suffix-sum upper-bound prune (the same shape as
+    solve_showdown_iteration) -- sub-millisecond for a pool this size, and
+    it's the true optimum for the drawn objective, not an approximation.
+
+    Objective per player: FLEX = draw - lambda*own_flex ; CPT = 1.5*draw -
+    lambda*own_cpt (values may be negative when the leverage penalty bites).
+    Honours lock / lock-as-captain / exclude, per-player and per-captain
+    exposure caps vs `prior_lineups`, and min-unique (a player counts once
+    whether CPT or FLEX). Returns {'cpt': idx, 'flex': [idx x5]} or None.
+    """
+    n = len(players)
+    sal = np.array([p['salary'] for p in players], dtype=float)
+    # A tiny salary term in the objective so that, all else near-equal, the
+    # solver spends the cap (real showdown lineups do) -- ~0.5 value per $1k,
+    # far below a real projection gap, just a tie-breaker toward studs. Keeps
+    # the branch-and-bound's value-based pruning strong (a hard min-salary
+    # leaf reject would gut the prune and blow up to full enumeration).
+    flex_val = draw_scores - leverage_lambda * own_flex + 0.0005 * sal
+    cpt_val = 1.5 * draw_scores - leverage_lambda * own_cpt + 0.00075 * sal
+
+    over_total, over_cpt = set(), set()
+    if n_total > 1:
+        max_apps = max(1, int(np.ceil(max_exposure * n_total)))
+        max_cpt_apps = max(1, int(np.ceil(cpt_max_exposure * n_total)))
+        for i in range(n):
+            if i in locked_indices or i in locked_cpt_indices:
+                continue
+            t = sum(1 for lu in prior_lineups if i == lu['cpt'] or i in lu['flex'])
+            c = sum(1 for lu in prior_lineups if i == lu['cpt'])
+            if t >= max_apps:
+                over_total.add(i)
+            if c >= max_cpt_apps:
+                over_cpt.add(i)
+
+    prior_members = [{lu['cpt'], *lu['flex']} for lu in prior_lineups]
+    max_shared = 6 - min_unique
+    forced_flex = locked_indices - locked_cpt_indices
+
+    if locked_cpt_indices:
+        cpt_choices = [next(iter(locked_cpt_indices))]
+    else:
+        cpt_choices = [i for i in range(n)
+                       if i not in excluded_indices and i not in over_total and i not in over_cpt
+                       and i not in cpt_ineligible_indices
+                       and sal[i] * 1.5 <= salary_cap]
+
+    def _search():
+        best = {'cpt': None, 'flex': None, 'val': -1e18}
+        best_any = {'cpt': None, 'flex': None, 'val': -1e18}
+        for cpt in cpt_choices:
+            rem_budget = salary_cap - sal[cpt] * 1.5
+            forced = [i for i in forced_flex if i != cpt]
+            if any(i in excluded_indices for i in forced):
+                continue
+            forced_sal = sum(sal[i] for i in forced)
+            if len(forced) > 5 or forced_sal > rem_budget:
+                continue
+
+            cands = [i for i in range(n)
+                     if i != cpt and i not in excluded_indices and i not in over_total
+                     and i not in forced and sal[i] <= rem_budget]
+            cands.sort(key=lambda i: -flex_val[i])
+            nf = len(cands)
+            need = 5 - len(forced)
+            if nf < need:
+                continue
+
+            suffix = [0.0] * (nf + 1)  # upper-bound prune, valid with negatives
+            for i in range(nf - 1, -1, -1):
+                suffix[i] = suffix[i + 1] + flex_val[cands[i]]
+
+            forced_val = sum(flex_val[i] for i in forced)
+            # Pure value-optimal 5-flex for this captain -- NO min-unique
+            # check in the loop (that would kill the prune and blow up to
+            # full enumeration); checked once, after, on the finished lineup.
+            local = {'val': -1e18, 'set': None}
+
+            def dfs(idx, count, cur_sal, cur_val, chosen):
+                if count == need:
+                    total = cur_val + forced_val
+                    if total > local['val']:
+                        local['val'] = total
+                        local['set'] = list(chosen)
+                    return
+                if idx >= nf or count + (nf - idx) < need:
+                    return
+                if cur_val + suffix[idx] + forced_val <= local['val']:
+                    return
+                ci = cands[idx]
+                if cur_sal + sal[ci] <= rem_budget:
+                    chosen.append(ci)
+                    dfs(idx + 1, count + 1, cur_sal + sal[ci], cur_val + flex_val[ci], chosen)
+                    chosen.pop()
+                dfs(idx + 1, count, cur_sal, cur_val, chosen)
+
+            dfs(0, 0, forced_sal, 0.0, [])
+            if local['set'] is None:
+                continue
+            val = cpt_val[cpt] + local['val']
+            members = {cpt, *forced, *local['set']}
+            distinct = not any(len(members & pm) > max_shared for pm in prior_members)
+            cand = {'cpt': cpt, 'flex': sorted([*forced, *local['set']]), 'val': val}
+            if distinct:
+                if val > best['val']:
+                    best = cand
+            elif best['cpt'] is None and val > best_any['val']:
+                best_any = cand
+        return best if best['cpt'] is not None else best_any
+
+    best = _search()
+    if best is None or best['cpt'] is None:
+        return None
+    return {'cpt': best['cpt'], 'flex': best['flex']}
+
+
+def _solve_showdown_ilp(
+    players: list,
+    draw_scores: np.ndarray,
+    own_flex: np.ndarray,
+    own_cpt: np.ndarray,
+    leverage_lambda: float,
+    salary_cap: int,
+    prior_lineups: list,
+    min_unique: int,
+    max_exposure: float,
+    cpt_max_exposure: float,
+    n_total: int,
+    locked_indices: set,
+    locked_cpt_indices: set,
+    excluded_indices: set,
+) -> Optional[dict]:
+    """Solve one showdown lineup (1 CPT + 5 FLEX) for a given score draw.
+
+    Objective per player:
+        FLEX: draw_i            - leverage_lambda * own_flex_i
+        CPT : 1.5 * draw_i      - leverage_lambda * own_cpt_i
+    Returns {'cpt': idx, 'flex': [idx x5]} or None if infeasible.
+    """
+    n = len(players)
+    prob = pulp.LpProblem('Showdown_Lineup', pulp.LpMaximize)
+    c = [pulp.LpVariable(f'c_{i}', cat='Binary') for i in range(n)]  # captain
+    f = [pulp.LpVariable(f'f_{i}', cat='Binary') for i in range(n)]  # flex
+
+    prob += pulp.lpSum(
+        (1.5 * draw_scores[i] - leverage_lambda * own_cpt[i]) * c[i]
+        + (draw_scores[i] - leverage_lambda * own_flex[i]) * f[i]
+        for i in range(n)
+    )
+
+    prob += pulp.lpSum(c) == 1
+    prob += pulp.lpSum(f) == 5
+    for i in range(n):
+        prob += c[i] + f[i] <= 1                     # a player fills at most one slot
+    prob += pulp.lpSum(1.5 * players[i]['salary'] * c[i] + players[i]['salary'] * f[i]
+                       for i in range(n)) <= salary_cap
+
+    for i in excluded_indices:
+        if i < n:
+            prob += c[i] == 0
+            prob += f[i] == 0
+    for i in locked_indices:
+        if i < n and i not in locked_cpt_indices:
+            prob += c[i] + f[i] == 1
+    for i in locked_cpt_indices:
+        if i < n:
+            prob += c[i] == 1
+
+    # Exposure caps (skip locked players). Appearances counted from prior lineups.
+    if n_total > 1:
+        max_apps = max(1, int(np.ceil(max_exposure * n_total)))
+        max_cpt_apps = max(1, int(np.ceil(cpt_max_exposure * n_total)))
+        for i in range(n):
+            if i in locked_indices or i in locked_cpt_indices:
+                continue
+            total_apps = sum(1 for lu in prior_lineups if i == lu['cpt'] or i in lu['flex'])
+            cpt_apps = sum(1 for lu in prior_lineups if i == lu['cpt'])
+            if total_apps >= max_apps:
+                prob += c[i] + f[i] == 0
+            if cpt_apps >= max_cpt_apps:
+                prob += c[i] == 0
+
+    # Min-unique vs each prior lineup: a player counts once whether CPT or FLEX.
+    max_shared = 6 - min_unique
+    for lu in prior_lineups:
+        members = [lu['cpt']] + list(lu['flex'])
+        prob += pulp.lpSum(c[i] + f[i] for i in members) <= max_shared
+
+    try:
+        prob.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=5))
+    except pulp.PulpSolverError:
+        # CBC can transiently fail to spawn its subprocess under heavy machine
+        # load -- treat as "no solution this draw" so one bad draw drops a
+        # lineup attempt instead of 500ing the whole request.
+        return None
+    if prob.status != 1:
+        return None
+    cpt_sel = [i for i in range(n) if pulp.value(c[i]) and pulp.value(c[i]) > 0.5]
+    flex_sel = [i for i in range(n) if pulp.value(f[i]) and pulp.value(f[i]) > 0.5]
+    if len(cpt_sel) != 1 or len(flex_sel) != 5:
+        return None
+    return {'cpt': cpt_sel[0], 'flex': sorted(flex_sel)}
+
+
+def _assign_showdown_slots(sol: dict, players: list) -> list:
+    """CPT first, then FLEX by projection desc. Each slot dict carries the
+    slot-adjusted salary/projection so downstream math and display don't
+    have to remember the 1.5x rule."""
+    out = []
+    cp = players[sol['cpt']]
+    out.append({**cp, 'slot': 'CPT', 'player_idx': sol['cpt'],
+                'slot_salary': int(round(cp['salary'] * 1.5)),
+                'slot_projection': round(cp['projection'] * 1.5, 2)})
+    for i in sorted(sol['flex'], key=lambda j: -players[j]['projection']):
+        p = players[i]
+        out.append({**p, 'slot': 'FLEX', 'player_idx': i,
+                    'slot_salary': int(p['salary']),
+                    'slot_projection': round(p['projection'], 2)})
+    return out
+
+
+def _synthesize_kicker_scores(game_id: str, team: str) -> Optional[np.ndarray]:
+    """Back out a team kicker's DK fantasy line per sim iteration from the
+    cached game + player parquet, since the engine models no kickers.
+
+    Per iteration i:
+        team_tds  = sum of that team's players' (rTD + recTD + def_td) at i
+        team_pts  = away_score[i] or home_score[i] for `team`
+        xp_made   = team_tds            (assume all PATs kicked & made)
+        fg_made   = max(0, round((team_pts - 7*team_tds) / 3))
+        dk_score  = 3.5*fg_made + 1.0*xp_made      (3.5 ~ blended FG value
+                    incl. the DK 40-49 (+1) / 50+ (+2) distance bonuses)
+
+    Returns a per-iteration np.ndarray aligned to the parquet's iteration
+    order, or None if the game isn't in cache.
+    """
+    game_df = GAMES_BY_GAME_ID.get(game_id)
+    players_df = PLAYERS_BY_GAME_ID.get(game_id)
+    if game_df is None or players_df is None or game_df.empty:
+        return None
+    g = game_df.sort_values('iteration')
+    if str(g.iloc[0]['away_team']) == team:
+        team_pts = g['away_score'].values.astype(float)
+    elif str(g.iloc[0]['home_team']) == team:
+        team_pts = g['home_score'].values.astype(float)
+    else:
+        return None
+
+    tp = players_df[players_df['Team'] == team]
+    td_cols = [c for c in ('rTD', 'recTD', 'def_td') if c in tp.columns]
+    if not td_cols:
+        return None
+    tds_by_iter = tp.groupby('iteration')[td_cols].sum().sum(axis=1)
+    tds = tds_by_iter.reindex(g['iteration'].values, fill_value=0.0).values.astype(float)
+
+    n = min(len(team_pts), len(tds))
+    team_pts, tds = team_pts[:n], tds[:n]
+    fg_made = np.maximum(0.0, np.round((team_pts - 7.0 * tds) / 3.0))
+    return 3.5 * fg_made + 1.0 * tds
+
+
+def _build_showdown_field(
+    players: list, salary_cap: int, n_field: int, seed: Optional[int] = None
+) -> list:
+    """Ownership-weighted synthetic showdown field: `n_field` lineups, each
+    {'cpt': idx, 'flex': [idx x5]}. CPT drawn from cpt_ownership_pct, FLEX
+    from ownership_pct, rejection-sampled against the salary cap (cap check
+    relaxed after a few misses so a tight pool still fills)."""
+    rng = np.random.default_rng(seed)
+    n = len(players)
+    idxs = np.arange(n)
+    cpt_w = np.array([max(0.01, p.get('cpt_ownership_pct') or 0.5) for p in players], dtype=float)
+    cpt_w = cpt_w / cpt_w.sum()
+    flex_w = np.array([max(0.01, p.get('ownership_pct') or 0.5) for p in players], dtype=float)
+    sal = np.array([p['salary'] for p in players], dtype=float)
+
+    field = []
+    attempts = 0
+    while len(field) < n_field and attempts < n_field * 20:
+        attempts += 1
+        cpt = int(rng.choice(idxs, p=cpt_w))
+        remaining = [j for j in idxs if j != cpt]
+        w = flex_w[remaining] / flex_w[remaining].sum()
+        flex = rng.choice(remaining, size=5, replace=False, p=w).tolist()
+        total = sal[cpt] * 1.5 + sal[flex].sum()
+        if total > salary_cap and attempts % 4 != 0:  # mostly enforce, occasionally allow
+            continue
+        field.append({'cpt': cpt, 'flex': sorted(flex)})
+    return field
+
+
+@app.post('/api/showdown_prep')
+def showdown_prep(req: ShowdownPrepRequest):
+    """Pre-compute the two things the showdown pool needs that the raw sim
+    doesn't give it, so the Player Pool table can show them before any
+    optimize run (same idea as the classic optimizer pre-populating
+    `ownership_proj` from the weekly sim):
+
+      1. Modelled FLEX + CPT ownership for every player
+         (_compute_showdown_ownership -- value core + the sim's own
+         optimal-CPT/FLEX rates as a chalk proxy + a Vegas nudge). Players
+         that already carry a hand override keep it.
+      2. A synthetic per-iteration line for each kicker (pos 'K') off the
+         game's team score + TD count (_synthesize_kicker_scores), returned
+         as projection / ceiling / a 101-pt dk_pcts_all so the kicker slots
+         into the pool and the optimizer's field sim like any other player.
+
+    Response: {"players": [{name, team, pos, ownership_pct, cpt_ownership_pct,
+               projection?, ceiling?, dk_pcts_all?}], "kicker_source": str}
+    """
+    game_id = req.game_id
+    if not game_id and req.away_team and req.home_team:
+        for gid, gdf in GAMES_BY_GAME_ID.items():
+            if gdf.empty:
+                continue
+            r0 = gdf.iloc[0]
+            if {str(r0['away_team']), str(r0['home_team'])} == {req.away_team, req.home_team}:
+                game_id = gid
+                break
+
+    # ShowdownPrepRequest carries no week field -- game_id is
+    # "{year}_{week:02d}_{away}_{home}" (e.g. "2026_01_DEN_KC"), so pull it
+    # from there for the trained ownership model's Vegas/slate-size lookups.
+    week = None
+    if game_id:
+        try:
+            week = int(game_id.split('_')[1])
+        except (IndexError, ValueError):
+            pass
+
+    # Per-team implied points from the sim's own mean score (Vegas proxy).
+    implied_by_team: Dict[str, float] = {}
+    gdf = GAMES_BY_GAME_ID.get(game_id) if game_id else None
+    if gdf is not None and not gdf.empty:
+        r0 = gdf.iloc[0]
+        implied_by_team[str(r0['away_team'])] = float(gdf['away_score'].mean())
+        implied_by_team[str(r0['home_team'])] = float(gdf['home_score'].mean())
+
+    pool = []
+    kicker_source = 'none'
+    for p in req.players:
+        d = p.dict()
+        d['implied_total'] = implied_by_team.get(p.team)
+        if p.pos == 'K':
+            karr = _synthesize_kicker_scores(game_id, p.team) if game_id else None
+            if karr is not None and len(karr) >= 100:
+                kicker_source = 'game_script'
+                pcts = np.percentile(karr, np.linspace(0, 100, 101)).round(2).tolist()
+                d['projection'] = round(float(np.percentile(karr, 50)), 1)
+                d['_ceiling'] = round(float(np.percentile(karr, 95)), 1)
+                d['_dk_pcts_all'] = pcts
+            elif not d.get('projection'):
+                d['projection'] = 8.0  # last-resort flat default
+        pool.append(d)
+
+    # zlib.crc32, not Python's builtin hash() -- hash() is randomized per
+    # process (PYTHONHASHSEED), so the "deterministic" seed used to only
+    # hold within one server run, not across restarts.
+    predict_showdown_ownership(pool, week=week, seed=(zlib.crc32((game_id or 'sd').encode()) & 0xffffffff))
+
+    out = []
+    for d in pool:
+        row = {
+            'name': d['name'], 'team': d['team'], 'pos': d['pos'],
+            'ownership_pct': d.get('ownership_pct'),
+            'cpt_ownership_pct': d.get('cpt_ownership_pct'),
+            'ownership_source': d.get('ownership_source'),  # "model" | "heuristic"
+        }
+        if d['pos'] == 'K':
+            row['projection'] = d.get('projection')
+            row['ceiling'] = d.get('_ceiling')
+            row['dk_pcts_all'] = d.get('_dk_pcts_all')
+        out.append(row)
+    return {'players': out, 'game_id': game_id, 'kicker_source': kicker_source}
+
+
+_SHOWDOWN_OPT_LOCK = threading.Lock()
+
+
+@app.post('/api/optimize_showdown')
+def _optimize_showdown_endpoint(req: ShowdownOptimizeRequest):
+    """Serialise showdown-optimize requests. The body is CPU-bound pure
+    Python (~1s); without this, a burst of duplicate/retry requests (e.g.
+    a page reload while one is in flight) all run at once in the anyio
+    threadpool, GIL-thrash each other to a near-standstill, and pile up.
+    One at a time: the loser waits a beat, then computes its own (fast)."""
+    with _SHOWDOWN_OPT_LOCK:
+        return optimize_showdown(req)
+
+
+def optimize_showdown(req: ShowdownOptimizeRequest):
+    """Generate N showdown lineups: pure-Python showdown solve + correlated
+    stochastic draws + leverage-lambda ownership penalty, then full field-sim
+    EV/ITM/Top%/portfolio metrics (shared with /api/optimize)."""
+
+    manual = req.manual_lineups or None
+    # For the Lineup Lab, keep every player in the pool (an excluded flag is a
+    # generation constraint, not a "this player can't score" statement) so a
+    # hand lineup can reference anyone.
+    active = [p.dict() for p in req.players] if manual else [p.dict() for p in req.players if not p.excluded]
+    if len(active) < 6:
+        raise HTTPException(status_code=400, detail='Need at least 6 players in the pool for a showdown lineup.')
+
+    # Deterministic ownership seed from pool content (same pool -> same
+    # numbers -> comparable EV), same rationale as /api/optimize.
+    seed_str = "|".join(
+        f"{p['name']}:{p['team']}:{p['salary']}:{p['projection']}"
+        for p in sorted(active, key=lambda p: (p['name'], p['team']))
+    )
+    own_seed = int(hashlib.md5(seed_str.encode()).hexdigest(), 16) % (2**32)
+    active = predict_showdown_ownership(active, week=req.week, seed=own_seed)
+
+    n = len(active)
+    projections = np.array([p['projection'] for p in active], dtype=float)
+    ilp_scores = np.array([
+        p['gpp_projection'] if p.get('gpp_projection') is not None else p['projection']
+        for p in active
+    ], dtype=float)
+    own_flex = np.array([p.get('ownership_pct') or 0.5 for p in active], dtype=float)
+    own_cpt = np.array([p.get('cpt_ownership_pct') or 0.5 for p in active], dtype=float)
+
+    # σ from percentile spread when available, else 35% of projection.
+    std_devs = []
+    for p in active:
+        pcts = p.get('dk_pcts_all')
+        if pcts and len(pcts) == 101:
+            std_devs.append(max(0.5, (pcts[75] - pcts[25]) / 1.35))
+        else:
+            std_devs.append(max(0.5, p['projection'] * 0.35))
+    std_devs = np.array(std_devs)
+
+    rho = _build_correlation_matrix(active)
+    D = np.diag(std_devs)
+    cov = _nearest_positive_definite(D @ rho @ D)
+    try:
+        L = np.linalg.cholesky(cov)
+    except np.linalg.LinAlgError:
+        L = np.diag(std_devs)
+
+    WIDTH = {'cash': 0.0, 'flat': 0.6, 'top_heavy': 1.0, 'extreme_top_heavy': 1.4}
+    width_mult = WIDTH.get(req.contest_type, 1.0)
+    req_n = 1 if req.contest_type == 'cash' else min(req.n_lineups, 1000)
+
+    locked_indices = {i for i, p in enumerate(active) if p.get('locked') or p.get('locked_cpt')}
+    locked_cpt_indices = {i for i, p in enumerate(active) if p.get('locked_cpt')}
+    if len(locked_cpt_indices) > 1:
+        raise HTTPException(status_code=400, detail='Only one player can be locked as captain.')
+    # cpt_eligible defaults True; locking a player as captain overrides an
+    # accidental cpt_eligible=False on that same player rather than fighting it.
+    cpt_ineligible_indices = {i for i, p in enumerate(active)
+                               if p.get('cpt_eligible') is False and i not in locked_cpt_indices}
+    if not manual and len(cpt_ineligible_indices) >= n:
+        raise HTTPException(status_code=400, detail='At least one player must be eligible for the captain pool.')
+
+    # Normalise the leverage penalty so `leverage_lambda` is scale-free and
+    # intuitive regardless of the slate's point/ownership magnitudes. `own_scale`
+    # = pool-average points per 1% of ownership, so with lambda=1 a
+    # league-average-owned player is docked roughly a league-average player's
+    # worth of projection (very strong); lambda ~0.15-0.4 is a lean, ~1+ is
+    # a hard fade. The frontend slider defaults to 0.25 and tops out ~1.5.
+    mean_flex_own = float(np.mean([o for o in own_flex if o > 0])) if np.any(own_flex > 0) else 1.0
+    own_scale = float(np.mean(ilp_scores)) / max(mean_flex_own, 1e-6)
+    eff_lambda = req.leverage_lambda * own_scale
+
+    def _pack(sol):
+        slots = _assign_showdown_slots(sol, active)
+        return {
+            'sol': sol,
+            'slots': slots,
+            'total_salary': sum(s['slot_salary'] for s in slots),
+            'projected_score': round(sum(s['slot_projection'] for s in slots), 2),
+            'total_ownership': round(
+                (active[sol['cpt']].get('cpt_ownership_pct') or 0.0)
+                + sum((active[i].get('ownership_pct') or 0.0) for i in sol['flex']), 1),
+        }
+
+    rng = np.random.default_rng()
+    generated = []
+
+    if manual:
+        # ── Lineup Lab: score hand-built lineups, no generation ──────────
+        def _key(s):
+            return re.sub(r'[^a-z0-9]', '', str(s).lower())
+        by_name: Dict[str, int] = {}
+        for i, p in enumerate(active):
+            by_name.setdefault(_key(p['name']), i)
+            by_name[f"{_key(p['name'])}|{str(p['team']).upper()}"] = i
+
+        def _resolve(tok: str) -> int:
+            tok = str(tok).strip()
+            if '|' in tok:
+                nm, tm = tok.split('|', 1)
+                hit = by_name.get(f"{_key(nm)}|{tm.strip().upper()}")
+                if hit is not None:
+                    return hit
+                tok = nm
+            return by_name.get(_key(tok), -1)
+
+        for li, ml in enumerate(manual):
+            flex_names = list(ml.flex or [])
+            if len(flex_names) != 5:
+                raise HTTPException(status_code=400,
+                                    detail=f'Lineup {li + 1} needs exactly 5 FLEX (got {len(flex_names)}).')
+            ci = _resolve(ml.cpt)
+            fis = [_resolve(x) for x in flex_names]
+            missing = ([ml.cpt] if ci < 0 else []) + [flex_names[k] for k, v in enumerate(fis) if v < 0]
+            if missing:
+                raise HTTPException(status_code=400,
+                                    detail=f'Lineup {li + 1}: player(s) not in pool: {", ".join(missing)}')
+            picks = [ci] + fis
+            if len(set(picks)) != 6:
+                raise HTTPException(status_code=400,
+                                    detail=f'Lineup {li + 1}: a player is used twice (CPT and FLEX must be 6 different players).')
+            g = _pack({'cpt': ci, 'flex': sorted(fis)})
+            g['label'] = ml.label or f'Lineup {li + 1}'
+            generated.append(g)
+    else:
+        prior = []
+        attempts = 0
+        while len(generated) < req_n and attempts < req_n * 4:
+            attempts += 1
+            if width_mult > 0:
+                z = rng.standard_normal(n)
+                draw = np.maximum(0.0, ilp_scores + width_mult * (L @ z))
+            else:
+                draw = ilp_scores.copy()
+            sol = _solve_showdown_fast(
+                active, draw, own_flex, own_cpt, eff_lambda,
+                req.salary_cap, prior, req.min_unique_players,
+                req.max_exposure, req.cpt_max_exposure, req_n,
+                locked_indices, locked_cpt_indices, set(),
+                cpt_ineligible_indices,
+            )
+            if sol is None:
+                continue
+            prior.append(sol)
+            generated.append(_pack(sol))
+
+    if not generated:
+        raise HTTPException(status_code=500, detail='Could not generate any valid showdown lineups. Check the pool and constraints.')
+
+    # ── Iteration-aligned trial scores from this game's parquet slice ─────
+    # Prefer the DFS-week parquet (data/interim/dfs_week_{N}_players.parquet) --
+    # it's simulated from data/current_rosters/dfs/, so its starters and usage
+    # reflect the week's real injury/availability news. Fall back to the
+    # season-long "everyone healthy" parquet (PLAYERS_BY_GAME_ID) only when the
+    # week isn't given or hasn't been DFS-simmed yet. `field_source` is surfaced
+    # in the response so the UI can show which sim the EV/Top%/1st% ran against.
+    n_stat_sims = 10000
+    trial_map: Dict[tuple, np.ndarray] = {}
+    field_source = 'independent_draws'
+    game_df = None
+    if req.game_id:
+        if req.week is not None:
+            dfs_by_game = _get_dfs_week_by_game_id(req.week)
+            if dfs_by_game and req.game_id in dfs_by_game:
+                game_df = dfs_by_game[req.game_id][1]  # (games_slice, players_slice)
+                field_source = f'dfs_week_{req.week}'
+        if game_df is None:
+            game_df = PLAYERS_BY_GAME_ID.get(req.game_id)
+            if game_df is not None:
+                field_source = 'season_parquet'
+    if game_df is not None:
+        try:
+            for (pl, tm, ps), grp in game_df.groupby(['Player', 'Team', 'Pos']):
+                arr = grp.sort_values('iteration')['dk_score'].values
+                trial_map[(pl, tm, ps)] = arr
+                trial_map[(tm, ps)] = arr  # 2-team game -> (team,pos) is unique enough
+        except Exception as e:
+            print(f'showdown: trial map build failed: {e}')
+
+    # Kickers aren't in the sim -- synthesise their per-iteration line from the
+    # game's team score + TD count (see _synthesize_kicker_scores).
+    if req.game_id:
+        for p in active:
+            if p['pos'] == 'K' and (p['name'], p['team'], 'K') not in trial_map:
+                karr = _synthesize_kicker_scores(req.game_id, p['team'])
+                if karr is not None and len(karr) >= 100:
+                    trial_map[(p['name'], p['team'], 'K')] = karr
+                    trial_map[(p['team'], 'K')] = karr
+
+    # Conditional re-scoring: draw ONLY from the box-selected iterations (see
+    # ShowdownOptimizeRequest.iteration_filter) instead of uniformly from all
+    # 1000 -- both our lineup(s) and the field below read off the same
+    # `aligned` indices, so this reweights the joint game-environment draw for
+    # everyone at once rather than needing a separate solve. Sampling uniformly
+    # WITH replacement from the filtered set is the correct conditional
+    # resample: each of the base 1000 iterations was equally likely a priori,
+    # so restricting to a subset and drawing uniformly from it reproduces
+    # exactly the "given the game lands in this box" distribution.
+    valid_filter = sorted({int(i) for i in req.iteration_filter if 0 <= int(i) < 1000}) if req.iteration_filter else None
+    if valid_filter:
+        aligned = rng.choice(np.array(valid_filter), size=n_stat_sims, replace=True)
+        iteration_filter_frac = round(len(valid_filter) / 1000.0, 4)
+    else:
+        aligned = rng.integers(0, 1000, size=n_stat_sims)
+        iteration_filter_frac = None
+
+    def player_draws(p: dict, indices: np.ndarray) -> np.ndarray:
+        # Explicit None checks -- trial_map values are numpy arrays, so
+        # `a.get(...) or a.get(...)` raises "truth value ambiguous".
+        arr = trial_map.get((p['name'], p['team'], p['pos']))
+        if arr is None:
+            arr = trial_map.get((p['team'], p['pos']))
+        if arr is not None and len(arr) >= 100:
+            safe = np.clip(indices, 0, len(arr) - 1)
+            med = float(np.percentile(arr, 50))
+            proj = p.get('projection', 10.0)
+            if med > 1.0 and abs(proj - med) > 0.1:
+                return arr[safe] * (proj / med)
+            return arr[safe]
+        pcts = p.get('dk_pcts_all')
+        if pcts and len(pcts) == 101:
+            return np.array(pcts, dtype=float)[np.clip(indices, 0, 100)]
+        proj = p.get('projection', 10.0)
+        g = np.random.default_rng(int(hashlib.md5(p['name'].encode()).hexdigest(), 16) % (2**32))
+        return np.maximum(0.0, g.normal(proj, max(0.5, proj * 0.35), len(indices)))
+
+    draw_cache = {i: player_draws(active[i], aligned) for i in range(n)}
+
+    # ── Field: build once, score at aligned iterations ───────────────────
+    # `field_vecs`       — EVERY field lineup's score in EVERY aligned iteration
+    #                      (n_field x n_sims), used as `field_matrix` below to
+    #                      rank our lineup against the actual simulated field
+    #                      in that same iteration's game-environment, not a
+    #                      single random opponent or a marginal cutoff blended
+    #                      across every environment (see _compute_lineup_field_stats_batch).
+    # `field_max_scores` — the single best build in the field at each iteration;
+    #                      the bar our lineup must clear to "finish first" (see
+    #                      `first_pct` below). Denominator is the FIELD_SAMPLE_K-lineup
+    #                      synthetic field of distinct builds, not the raw contest
+    #                      entry count — it answers "was this the best possible
+    #                      build given how the game played out".
+    field = _build_showdown_field(active, req.salary_cap, n_field=FIELD_SAMPLE_K, seed=own_seed)
+    field_max_scores = None
+    if field:
+        # Every field lineup's full score vector across the aligned iterations.
+        field_vecs = np.empty((len(field), n_stat_sims), dtype=float)
+        for fi, lu in enumerate(field):
+            field_vecs[fi] = 1.5 * draw_cache[lu['cpt']] + sum(draw_cache[j] for j in lu['flex'])
+        field_max_scores = field_vecs.max(axis=0)
+        field_matrix = field_vecs
+    else:
+        field_matrix = np.full((1, n_stat_sims), float(np.mean(projections)) * 6.0)
+
+    # ── Payout structure ────────────────────────────────────────────────
+    prize_pool = req.entry_fee * req.total_entries * 0.85
+    if req.payout_structure:
+        payout_structure = [t.dict() for t in req.payout_structure]
+    else:
+        payout_structure = _get_default_payout_structure(
+            req.contest_type, prize_pool, req.paying_positions, req.total_entries)
+
+    # ── Per-lineup stats ────────────────────────────────────────────────
+    # All lineups ranked against the field in ONE batched pass (see
+    # _compute_lineup_field_stats_batch) -- required to make a field this
+    # large (FIELD_SAMPLE_K) affordable.
+    all_lineup_draws = [
+        1.5 * draw_cache[lu['sol']['cpt']] + sum(draw_cache[i] for i in lu['sol']['flex'])
+        for lu in generated
+    ]
+    all_stats = _compute_lineup_field_stats_batch(
+        all_lineup_draws, field_matrix, payout_structure,
+        req.entry_fee, req.total_entries, req.paying_positions
+    )
+
+    results = []
+    for lu, lineup_draws, stats in zip(generated, all_lineup_draws, all_stats):
+        sol = lu['sol']
+        cpt_own = active[sol['cpt']].get('cpt_ownership_pct') or 0.0
+        flex_owns = [active[i].get('ownership_pct') or 0.0 for i in sol['flex']]
+        # Rough duplication estimate: field_size * P(field builds this exact lineup).
+        # ownership_pct is already a per-player marginal share of the
+        # UNORDERED 5-FLEX group (pool sums to ~500% = 5 slots x 100%, see
+        # _compute_showdown_ownership's docstring), not a per-labeled-slot
+        # rate -- so multiplying the 5 marginals together already estimates
+        # the unordered combination directly. A prior version of this line
+        # also multiplied by 120 (5!) on the theory that ordering needed
+        # correcting for; there's no ordering here to correct, so that
+        # factor was simply inflating every estimate ~120x.
+        p_exact = (cpt_own / 100.0)
+        for o in flex_owns:
+            p_exact *= (o / 100.0)
+        dupe_est = round(req.total_entries * p_exact, 2)
+        # "Finished first": iterations where this lineup outscored the best build
+        # in the synthetic field (>= so a tie for the top counts). Reported both
+        # as a rate and a raw count out of n_stat_sims.
+        if field_max_scores is not None:
+            first_count = int(np.count_nonzero(lineup_draws >= field_max_scores))
+            first_pct = round(first_count / n_stat_sims * 100, 3)
+        else:
+            first_count, first_pct = 0, 0.0
+        results.append({
+            **stats,
+            'first_pct': first_pct,
+            'first_count': first_count,
+            'n_sims': n_stat_sims,
+            'players': [{
+                'name': s['name'], 'pos': s['pos'], 'team': s['team'],
+                'slot': s['slot'], 'salary': s['slot_salary'], 'base_salary': s['salary'],
+                'projection': s['slot_projection'],
+                'ownership_pct': (s.get('cpt_ownership_pct') if s['slot'] == 'CPT' else s.get('ownership_pct')),
+                'ownership_source': s.get('ownership_source'),  # "model" | "heuristic" -- which one produced this number
+                'dk_id': (s.get('dk_cpt_id') if s['slot'] == 'CPT' else s.get('dk_id')),
+            } for s in lu['slots']],
+            'total_salary': lu['total_salary'],
+            'projected_score': lu['projected_score'],
+            'total_ownership': lu['total_ownership'],
+            'cpt_name': active[sol['cpt']]['name'],
+            'dupe_est': dupe_est,
+            'label': lu.get('label'),
+            'over_salary_cap': lu['total_salary'] > req.salary_cap,
+        })
+
+    # ── Portfolio metrics ───────────────────────────────────────────────
+    ng = len(generated)
+
+    def members(g):
+        return {g['sol']['cpt']} | set(g['sol']['flex'])
+
+    sims = []
+    for i in range(ng):
+        for j in range(i + 1, ng):
+            sims.append(len(members(generated[i]) & members(generated[j])) / 6.0)
+    avg_corr = float(np.mean(sims)) if sims else 0.0
+    elc = round(ng * (1.0 - avg_corr), 1)
+
+    used = set()
+    cpt_used = set()
+    for g in generated:
+        used |= members(g)
+        cpt_used.add(g['sol']['cpt'])
+    coverage = round(len(used) / max(n, 1), 3)
+
+    portfolio_ev = float(np.mean([r['ev_pct'] for r in results]))
+    for i, r in enumerate(results):
+        if ng > 1:
+            others = [len(members(generated[i]) & members(generated[j])) / 6.0
+                      for j in range(ng) if j != i]
+            r['portfolio_score'] = round((r['ev_pct'] - portfolio_ev) * 0.7
+                                         + (1 - float(np.mean(others))) * 3.0, 2)
+        else:
+            r['portfolio_score'] = 0.0
+
+    top1_vals = [r['top1_pct'] for r in results]
+    top01_vals = [r['top01_pct'] for r in results]
+    first_vals = [r['first_pct'] for r in results]
+
+    has_kicker = any(p['pos'] == 'K' for p in active)
+    notes = ([] if has_kicker else
+             ['Kickers are not in the pool (sim engine does not model them yet) — add them manually on DK.'])
+    if field_source == 'season_parquet':
+        notes.append('EV / Top% / 1st% ran against the season-long sim (no DFS-week sim for '
+                     f'week {req.week} yet) — starters may not match this week\'s availability.')
+    elif field_source == 'independent_draws':
+        notes.append('No sim parquet for this game — EV / Top% / 1st% used independent player draws '
+                     '(no game-environment correlation). Treat them as rough.')
+
+    return {
+        'mode': 'manual' if manual else 'optimize',
+        'lineups': results,
+        'portfolio': {
+            'total_ev_pct': round(portfolio_ev, 2),
+            'effective_lineup_count': elc,
+            'avg_correlation': round(avg_corr, 3),
+            'coverage_score': coverage,
+            'avg_total_ownership': round(float(np.mean([g['total_ownership'] for g in generated])), 1),
+            'unique_captains': len(cpt_used),
+            'n_generated': ng,
+            'n_requested': req_n,
+            'avg_top1_pct': round(float(np.mean(top1_vals)), 2) if top1_vals else 0.0,
+            'best_top1_pct': round(float(np.max(top1_vals)), 2) if top1_vals else 0.0,
+            'avg_top01_pct': round(float(np.mean(top01_vals)), 2) if top01_vals else 0.0,
+            'best_top01_pct': round(float(np.max(top01_vals)), 2) if top01_vals else 0.0,
+            'avg_first_pct': round(float(np.mean(first_vals)), 3) if first_vals else 0.0,
+            'best_first_pct': round(float(np.max(first_vals)), 3) if first_vals else 0.0,
+            'field_source': field_source,
+            'n_sims': n_stat_sims,
+            'iteration_filter_frac': iteration_filter_frac,
+            'iteration_filter_n': len(valid_filter) if valid_filter else None,
+        },
+        'notes': notes,
     }
 
 

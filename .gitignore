@@ -114,3 +114,11 @@ data/_snapshots/
 # Week-by-week roster trees for the season sim -- 18x32 files, always
 # regeneratable via build_season_week_rosters_v_0_1_0.py
 data/current_rosters/week_*/
+
+# DFS ownership archive -- ignore every raw DK standings CSV (a 150-max milly
+# export is 40 MB / 240k rows of contest-entrant data, and re-downloadable),
+# whatever it's named (<name>_<price>_<xmax>max.csv). Keep the manifests, the
+# pre-lock salary snapshots, and the processed parquets -- those are the small,
+# curated model inputs. See data/dfs_ownership/README.md.
+data/dfs_ownership/**/*.csv
+!data/dfs_ownership/**/salaries_prelock.csv

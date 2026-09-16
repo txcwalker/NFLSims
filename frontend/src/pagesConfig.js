@@ -40,6 +40,38 @@ export const PAGES = [
     description: 'Build optimal DraftKings and FanDuel lineups using mathematical constraints (knapsack solver) on simulated projections.'
   },
   {
+    id: 'showdown_optimizer',
+    label: 'Showdown Optimizer',
+    showInNavbar: true,
+    category: 'tool',
+    icon: '✧',
+    description: 'Single-game Showdown (CPT + 5 FLEX) lineup builder with a leverage dial that trades ceiling for lower total lineup ownership.'
+  },
+  {
+    id: 'evaluation',
+    label: 'Evaluation',
+    showInNavbar: true,
+    category: 'tool',
+    icon: '🧪',
+    description: 'Field analysis for settled contests (winner, percentile cutoffs, hindsight-optimal, top-finisher ownership) and paper-trade results (predicted vs actual for lineups you flagged as playing).'
+  },
+  {
+    id: 'sim_replays',
+    label: 'Sim Replays',
+    showInNavbar: true,
+    category: 'tool',
+    icon: '🔁',
+    description: 'Pick a contest you actually entered and see your submitted lineup(s) -- real points and rank -- next to our sim\'s own pre-game projected distribution for that exact lineup.'
+  },
+  {
+    id: 'bankroll',
+    label: 'Bankroll',
+    showInNavbar: true,
+    category: 'tool',
+    icon: '🏦',
+    description: 'Bankroll tracking across every paper and real account -- cost, settled winnings, net P&L, and ROI rolled up from the Builds tagged to each.'
+  },
+  {
     id: 'cash_lineups',
     label: 'Cash Lineups',
     showInNavbar: true,

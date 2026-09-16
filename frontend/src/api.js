@@ -405,9 +405,10 @@ export const ApiService = {
     return safeFetch(`${API_BASE}/week_cash_lineups?week=${week}`, {}, fallback);
   },
 
-  async getDkSlates() {
+  async getDkSlates(week, year = 2026) {
     const fallback = { is_live: false, fetched_at: null, default_draft_group_id: null, slates: [] };
-    return safeFetch(`${API_BASE}/dk/slates`, {}, fallback);
+    const q = week ? `?week=${week}&year=${year}` : '';
+    return safeFetch(`${API_BASE}/dk/slates${q}`, {}, fallback);
   },
 
   async getDkContests(draftGroupId) {
@@ -574,6 +575,151 @@ export const ApiService = {
     }, mockResult);
   },
 
+  // Showdown (single-game) optimizer — see /api/optimize_showdown. No mock
+  // fallback: the page requires a real sim run for the game anyway, so if the
+  // backend is unreachable there's nothing sensible to synthesize.
+  async optimizeShowdown(payload) {
+    return safeFetch(`${API_BASE}/optimize_showdown`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }, null);
+  },
+
+  // Live DK Showdown salary pool for one game (base + captain salary + both
+  // draftableIds). Found by away/home team match against DK's live showdown
+  // slates. Returns { found:false, ... } when DK has no showdown slate for
+  // that game yet.
+  async getDkShowdownSalaries(away, home) {
+    const q = new URLSearchParams({ away, home }).toString();
+    return safeFetch(`${API_BASE}/dk/showdown_salaries?${q}`, {}, { found: false, players: [], defense: [] });
+  },
+
+  // Pre-compute modelled FLEX/CPT ownership for the whole showdown pool + a
+  // synthetic line for each kicker (see /api/showdown_prep). Called once the
+  // pool + DK salaries are in place, to fill those columns before optimizing.
+  async showdownPrep(payload) {
+    return safeFetch(`${API_BASE}/showdown_prep`, {
+      method: 'POST', body: JSON.stringify(payload),
+    }, { players: [], kicker_source: 'none' });
+  },
+
+  // Standalone game-outcome distribution (see GET /api/game_distribution) --
+  // just the total/margin histograms + joint grid + raw iteration arrays for
+  // <GameDistribution>'s box-select, no player-projection simulation. Used to
+  // embed the "Game Read" panel on the showdown optimizer without paying for
+  // a full /api/simulate call. No mock fallback (null) -- a scenario panel
+  // with fabricated numbers is worse than none.
+  async getGameDistribution(awayTeam, homeTeam, week) {
+    const q = new URLSearchParams({ away_team: awayTeam, home_team: homeTeam, ...(week != null ? { week } : {}) }).toString();
+    return safeFetch(`${API_BASE}/game_distribution?${q}`, {}, null);
+  },
+
+  // ── Paper trading (see paper_store.py) -- flag a lineup as "I'm actually
+  // entering this"; scripts/dfs_ownership/score_paper_entries.py settles it
+  // later against a dropped-in standings CSV. `slateId` is the ownership-
+  // archive folder name (`showdown_<AWAY>_<HOME>` / `main_slate`), not a
+  // game_id. Light-touch, no retry: a failed save just means try again.
+  async listPaperEntries(slateId, week, year = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/paper/entries?${new URLSearchParams({ slate_id: slateId, week, year })}`);
+      return res.ok ? await res.json() : { entries: [] };
+    } catch {
+      return { entries: [] };
+    }
+  },
+
+  async savePaperEntry(slateId, entry, week, year = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/paper/entries?${new URLSearchParams({ slate_id: slateId, week, year })}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+      });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async deletePaperEntry(entryId, slateId, week, year = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/paper/entries/${entryId}?${new URLSearchParams({ slate_id: slateId, week, year })}`, { method: 'DELETE' });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  // ── Evaluation tab reads (offline-built by score_paper_entries.py /
+  // eval_field.py -- these are just JSON views over their parquet output).
+  async getFieldEval(slateId) {
+    try {
+      const res = await fetch(`${API_BASE}/eval/field?${new URLSearchParams({ slate_id: slateId })}`);
+      return res.ok ? await res.json() : { rows: [] };
+    } catch {
+      return { rows: [] };
+    }
+  },
+
+  async getPaperResults(slateId) {
+    try {
+      const res = await fetch(`${API_BASE}/eval/paper?${new URLSearchParams({ slate_id: slateId })}`);
+      return res.ok ? await res.json() : { rows: [] };
+    } catch {
+      return { rows: [] };
+    }
+  },
+
+  async getSimReplay(slateId) {
+    try {
+      const res = await fetch(`${API_BASE}/eval/sim_replay?${new URLSearchParams({ slate_id: slateId })}`);
+      return res.ok ? await res.json() : { rows: [] };
+    } catch {
+      return { rows: [] };
+    }
+  },
+
+  // ── Contest Replays (see src/api/sim_replay_store.py) -- your own entries,
+  // auto-found by DK username in the archived standings CSVs, vs our sim's
+  // projected distribution for that exact lineup. Distinct from getSimReplay
+  // above (which needs a paper-entry flag + a full field rescore).
+  async listMyContests(year, week) {
+    try {
+      const params = {};
+      if (year != null) params.year = year;
+      if (week != null) params.week = week;
+      const res = await fetch(`${API_BASE}/sim_replay/contests?${new URLSearchParams(params)}`);
+      return res.ok ? await res.json() : { contests: [] };
+    } catch {
+      return { contests: [] };
+    }
+  },
+
+  async getMyContestEntries(year, week, slateId, contestName) {
+    try {
+      const res = await fetch(`${API_BASE}/sim_replay/entries?${new URLSearchParams({ year, week, slate_id: slateId, contest_name: contestName })}`);
+      return res.ok ? await res.json() : { entries: [] };
+    } catch {
+      return { entries: [] };
+    }
+  },
+
+  // Solver-style field-rescore stats (Sim ROI/Cash Rate/Ceiling/etc, see
+  // LineupHistogramModal) for your entries + the real top `topPct`% of the
+  // field, ranked against each other under our own sim.
+  async getContestFieldStats(year, week, slateId, contestName, { contestType, payingPositions, topPct } = {}) {
+    try {
+      const params = { year, week, slate_id: slateId, contest_name: contestName };
+      if (contestType) params.contest_type = contestType;
+      if (payingPositions != null) params.paying_positions = payingPositions;
+      if (topPct != null) params.top_pct = topPct;
+      const res = await fetch(`${API_BASE}/sim_replay/field_stats?${new URLSearchParams(params)}`);
+      return res.ok ? await res.json() : { entries: [] };
+    } catch {
+      return { entries: [] };
+    }
+  },
+
   // ── Optimizer weekly working-state persistence (see optimizer_store.py).
   // Light-touch on purpose: one attempt, no retry loop, no sandbox-mode flip.
   // "backend down" and "nothing saved yet" both resolve to {} so the Optimizer
@@ -657,6 +803,153 @@ export const ApiService = {
       return res.ok ? await res.json() : { removed: [] };
     } catch {
       return { removed: [] };
+    }
+  },
+
+  // ── Bankroll accounts (see account_store.py) -- paper/real buckets a
+  // Build tags itself into via account_id. Same light-touch pattern as the
+  // optimizer-state calls above.
+  async getAccounts() {
+    try {
+      const res = await fetch(`${API_BASE}/accounts`);
+      return res.ok ? (await res.json()).accounts : [];
+    } catch {
+      return [];
+    }
+  },
+  async createAccount(label, kind, startingBankroll = 0) {
+    try {
+      const res = await fetch(`${API_BASE}/accounts`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label, kind, starting_bankroll: startingBankroll }),
+      });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+  async patchAccount(accountId, patch) {
+    try {
+      const res = await fetch(`${API_BASE}/accounts/${accountId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
+      });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+  async deleteAccount(accountId) {
+    try {
+      const res = await fetch(`${API_BASE}/accounts/${accountId}`, { method: 'DELETE' });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+  async getBankroll() {
+    try {
+      const res = await fetch(`${API_BASE}/bankroll`);
+      return res.ok ? (await res.json()).accounts : [];
+    } catch {
+      return [];
+    }
+  },
+  async getBankrollAccountEntries(accountId) {
+    try {
+      const res = await fetch(`${API_BASE}/bankroll/${accountId}/entries`);
+      return res.ok ? (await res.json()).builds : [];
+    } catch {
+      return [];
+    }
+  },
+  async patchPaperEntry(entryId, slateId, week, patch, year = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/paper/entries/${entryId}?${new URLSearchParams({ slate_id: slateId, week, year })}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
+      });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+  async clearBankrollAccount(accountId) {
+    try {
+      const res = await fetch(`${API_BASE}/bankroll/${accountId}/clear`, { method: 'POST' });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+
+  // ── Workspace save slots (see workspace_store.py) -- 3 switchable,
+  // autosaved workspace snapshots per (season, week, slateKey), shared by the
+  // classic and showdown optimizer pages. Same light-touch pattern as the
+  // optimizer-state calls above: one attempt, no retry, safe fallback so a
+  // backend hiccup never blocks the page -- it just means that one autosave
+  // tick or slot-switch silently didn't persist.
+  async getWorkspaceSlots(slateKey, week, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/slots?${new URLSearchParams({ slate_key: slateKey, week, season })}`);
+      return res.ok ? await res.json() : { active: 1, slots: [1, 2, 3].map(slot => ({ slot, label: `Slot ${slot}`, updated_at: null, has_data: false })) };
+    } catch {
+      return { active: 1, slots: [1, 2, 3].map(slot => ({ slot, label: `Slot ${slot}`, updated_at: null, has_data: false })) };
+    }
+  },
+
+  async getWorkspaceSlot(slateKey, slot, week, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/slot?${new URLSearchParams({ slate_key: slateKey, slot, week, season })}`);
+      return res.ok ? await res.json() : { slot, label: `Slot ${slot}`, updated_at: null, data: {} };
+    } catch {
+      return { slot, label: `Slot ${slot}`, updated_at: null, data: {} };
+    }
+  },
+
+  async putWorkspaceSlot(slateKey, slot, data, week, season = 2026, label = undefined) {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/slot?${new URLSearchParams({ slate_key: slateKey, slot, week, season })}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data, ...(label !== undefined ? { label } : {}) }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async setWorkspaceActive(slateKey, slot, week, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/active`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slate_key: slateKey, slot, week, season }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async renameWorkspaceSlot(slateKey, slot, label, week, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/slot?${new URLSearchParams({ slate_key: slateKey, slot, week, season })}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async clearWorkspaceSlot(slateKey, slot, week, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/slot?${new URLSearchParams({ slate_key: slateKey, slot, week, season })}`, { method: 'DELETE' });
+      return res.ok;
+    } catch {
+      return false;
     }
   },
 };

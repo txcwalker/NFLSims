@@ -27,6 +27,12 @@ STARTER_OVERRIDES = {
     "NO": "Tyler Shough",
     "TEN": "Cam Ward",
     "SF": "Brock Purdy",
+    # 2026-09-13, Cam confirmed both Michael Penix Jr. (knee) and Tua
+    # Tagovailoa have been ruled out for ATL's Week 1 opener -- Cooper Rush
+    # (617 career attempts) is the real starter despite having far fewer
+    # career attempts than Tua (2,296), which is exactly the heuristic
+    # failure mode this file exists to patch.
+    "ATL": "Cooper Rush",
 }
 
 

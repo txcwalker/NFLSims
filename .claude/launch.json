@@ -27,14 +27,14 @@
     {
       "name": "backend-api-dfs",
       "runtimeExecutable": "venv\\Scripts\\python.exe",
-      "runtimeArgs": ["-m", "uvicorn", "src.api.app:app", "--reload", "--port", "8002"],
+      "runtimeArgs": ["-m", "uvicorn", "src.api.app:app", "--port", "8002"],
       "port": 8002,
       "autoPort": false
     },
     {
       "name": "backend-api-analytics",
       "runtimeExecutable": "venv\\Scripts\\python.exe",
-      "runtimeArgs": ["-m", "uvicorn", "src.api.app:app", "--reload", "--port", "8000"],
+      "runtimeArgs": ["-m", "uvicorn", "src.api.app:app", "--reload", "--reload-dir", "src", "--port", "8000"],
       "port": 8000,
       "autoPort": false
     }

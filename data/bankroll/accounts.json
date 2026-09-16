@@ -1,0 +1,25 @@
+{
+  "accounts": [
+    {
+      "account_id": "paper_baseline",
+      "label": "Baseline (untouched optimizer)",
+      "kind": "paper_baseline",
+      "starting_bankroll": 0.0,
+      "created_at": "2026-09-15T20:24:45Z"
+    },
+    {
+      "account_id": "paper_catered",
+      "label": "Catered pool + adjustments",
+      "kind": "paper_catered",
+      "starting_bankroll": 0.0,
+      "created_at": "2026-09-15T20:24:45Z"
+    },
+    {
+      "account_id": "real",
+      "label": "Real (actually entered)",
+      "kind": "real",
+      "starting_bankroll": 0.0,
+      "created_at": "2026-09-15T20:24:45Z"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
     "team": "CAR",
     "year": 2026,
-    "max_week": 1,
+    "max_week": 2,
     "traits": {
         "Bryce Young": {
             "pos": "QB",
@@ -307,13 +307,13 @@
                 "redzone": {
                     "target_share": 0.078235,
                     "carry_share": 0.383929,
-                    "catch_rate": 0.5882,
+                    "catch_rate": 0.5575,
                     "yac_per_reception": 6.9
                 },
                 "goalline": {
                     "target_share": 0.059091,
                     "carry_share": 0.388736,
-                    "catch_rate": 0.8,
+                    "catch_rate": 0.7693000000000001,
                     "yac_per_reception": 2.75
                 }
             },
@@ -331,17 +331,17 @@
                     "primary": {
                         "target_share": 0.092632,
                         "carry_share": 0.413901,
-                        "catch_rate": 0.8035
+                        "catch_rate": 0.7728
                     },
                     "redzone": {
                         "target_share": 0.078235,
                         "carry_share": 0.383929,
-                        "catch_rate": 0.5882
+                        "catch_rate": 0.5575
                     },
                     "goalline": {
                         "target_share": 0.059091,
                         "carry_share": 0.388736,
-                        "catch_rate": 0.8
+                        "catch_rate": 0.7693000000000001
                     }
                 },
                 "avg_separation_yds": 3.2
@@ -541,13 +541,13 @@
                 "redzone": {
                     "target_share": 0.100588,
                     "carry_share": 0.37369,
-                    "catch_rate": 0.75,
+                    "catch_rate": 0.8123,
                     "yac_per_reception": 6.5
                 },
                 "goalline": {
                     "target_share": 0.059091,
                     "carry_share": 0.347816,
-                    "catch_rate": 0.75,
+                    "catch_rate": 0.8123,
                     "yac_per_reception": 6.5
                 }
             },
@@ -565,17 +565,17 @@
                     "primary": {
                         "target_share": 0.115789,
                         "carry_share": 0.413901,
-                        "catch_rate": 0.75
+                        "catch_rate": 0.8123
                     },
                     "redzone": {
                         "target_share": 0.100588,
                         "carry_share": 0.37369,
-                        "catch_rate": 0.75
+                        "catch_rate": 0.8123
                     },
                     "goalline": {
                         "target_share": 0.059091,
                         "carry_share": 0.347816,
-                        "catch_rate": 0.75
+                        "catch_rate": 0.8123
                     }
                 },
                 "avg_separation_yds": 3.2
@@ -744,7 +744,7 @@
             "ypc": 4.0,
             "avg_separation_yds": 2.5979,
             "avg_cushion_yds": 5.929,
-            "catch_rate": 0.5847,
+            "catch_rate": 0.6047,
             "route_profile": "intermediate",
             "top_speed_mph": 20.7,
             "deep_target_rate": 0.2072,
@@ -753,7 +753,7 @@
                 "primary": {
                     "target_share": 0.26,
                     "carry_share": 0.0,
-                    "catch_rate": 0.5847,
+                    "catch_rate": 0.6047,
                     "yac_per_reception": 4.123,
                     "ypc": 4.0,
                     "yac_per_rec": 4.303,
@@ -766,20 +766,20 @@
                 "redzone": {
                     "target_share": 0.28,
                     "carry_share": 0.0,
-                    "catch_rate": 0.75,
+                    "catch_rate": 0.7845,
                     "yac_per_reception": 2.222
                 },
                 "goalline": {
                     "target_share": 0.3,
                     "carry_share": 0.0,
-                    "catch_rate": 0.3333,
+                    "catch_rate": 0.36779999999999996,
                     "yac_per_reception": 0.0
                 }
             },
             "preseason_projection": {
                 "target_share": 0.26,
                 "carry_share": 0.0,
-                "catch_rate": 0.5847,
+                "catch_rate": 0.6047,
                 "ypc": 4.0,
                 "yac_per_rec": 4.303,
                 "adot": 12.1777,
@@ -790,17 +790,17 @@
                     "primary": {
                         "target_share": 0.26,
                         "carry_share": 0.0,
-                        "catch_rate": 0.5702
+                        "catch_rate": 0.6047
                     },
                     "redzone": {
                         "target_share": 0.28,
                         "carry_share": 0.0,
-                        "catch_rate": 0.75
+                        "catch_rate": 0.7845
                     },
                     "goalline": {
                         "target_share": 0.3,
                         "carry_share": 0.0,
-                        "catch_rate": 0.3333
+                        "catch_rate": 0.36779999999999996
                     }
                 },
                 "avg_separation_yds": 2.5979
@@ -841,13 +841,13 @@
                 "redzone": {
                     "target_share": 0.13,
                     "carry_share": 0.01,
-                    "catch_rate": 0.4286,
+                    "catch_rate": 0.43599999999999994,
                     "yac_per_reception": 0.444
                 },
                 "goalline": {
                     "target_share": 0.12,
                     "carry_share": 0.01,
-                    "catch_rate": 0.4,
+                    "catch_rate": 0.4074,
                     "yac_per_reception": 0.0
                 }
             },
@@ -865,17 +865,17 @@
                     "primary": {
                         "target_share": 0.11,
                         "carry_share": 0.01,
-                        "catch_rate": 0.5827
+                        "catch_rate": 0.5901
                     },
                     "redzone": {
                         "target_share": 0.13,
                         "carry_share": 0.01,
-                        "catch_rate": 0.4286
+                        "catch_rate": 0.43599999999999994
                     },
                     "goalline": {
                         "target_share": 0.12,
                         "carry_share": 0.01,
-                        "catch_rate": 0.4
+                        "catch_rate": 0.4074
                     }
                 },
                 "avg_separation_yds": 2.4816
@@ -969,7 +969,7 @@
             "ypc": 4.0,
             "avg_separation_yds": 2.6483,
             "avg_cushion_yds": 5.998,
-            "catch_rate": 0.6958,
+            "catch_rate": 0.6758,
             "route_profile": "intermediate",
             "top_speed_mph": 20.7,
             "deep_target_rate": 0.1205,
@@ -978,7 +978,7 @@
                 "primary": {
                     "target_share": 0.165,
                     "carry_share": 0.0,
-                    "catch_rate": 0.6958,
+                    "catch_rate": 0.6758,
                     "yac_per_reception": 4.657,
                     "ypc": 4.0,
                     "yac_per_rec": 4.2375,
@@ -991,20 +991,20 @@
                 "redzone": {
                     "target_share": 0.165,
                     "carry_share": 0.0,
-                    "catch_rate": 0.7,
+                    "catch_rate": 0.6229999999999999,
                     "yac_per_reception": 2.429
                 },
                 "goalline": {
                     "target_share": 0.16,
                     "carry_share": 0.0,
-                    "catch_rate": 0.0,
+                    "catch_rate": 0.05,
                     "yac_per_reception": 4.446
                 }
             },
             "preseason_projection": {
                 "target_share": 0.165,
                 "carry_share": 0.0,
-                "catch_rate": 0.6958,
+                "catch_rate": 0.6758,
                 "ypc": 4.0,
                 "yac_per_rec": 4.2375,
                 "adot": 11.1764,
@@ -1015,17 +1015,17 @@
                     "primary": {
                         "target_share": 0.165,
                         "carry_share": 0.0,
-                        "catch_rate": 0.7528
+                        "catch_rate": 0.6758
                     },
                     "redzone": {
                         "target_share": 0.165,
                         "carry_share": 0.0,
-                        "catch_rate": 0.7
+                        "catch_rate": 0.6229999999999999
                     },
                     "goalline": {
                         "target_share": 0.16,
                         "carry_share": 0.0,
-                        "catch_rate": 0.0
+                        "catch_rate": 0.05
                     }
                 },
                 "avg_separation_yds": 2.6483
@@ -1066,13 +1066,13 @@
                 "redzone": {
                     "target_share": 0.05,
                     "carry_share": 0.0,
-                    "catch_rate": 0.4286,
+                    "catch_rate": 0.4717,
                     "yac_per_reception": 2.5
                 },
                 "goalline": {
                     "target_share": 0.05,
                     "carry_share": 0.0,
-                    "catch_rate": 0.0,
+                    "catch_rate": 0.05,
                     "yac_per_reception": 3.878
                 }
             },
@@ -1090,17 +1090,17 @@
                     "primary": {
                         "target_share": 0.05,
                         "carry_share": 0.0,
-                        "catch_rate": 0.6909
+                        "catch_rate": 0.734
                     },
                     "redzone": {
                         "target_share": 0.05,
                         "carry_share": 0.0,
-                        "catch_rate": 0.4286
+                        "catch_rate": 0.4717
                     },
                     "goalline": {
                         "target_share": 0.05,
                         "carry_share": 0.0,
-                        "catch_rate": 0.0
+                        "catch_rate": 0.05
                     }
                 },
                 "avg_separation_yds": 3.1353
@@ -1795,13 +1795,13 @@
                 "redzone": {
                     "target_share": 0.045,
                     "carry_share": 0.0,
-                    "catch_rate": 0.7143,
+                    "catch_rate": 0.6699,
                     "yac_per_reception": 2.4
                 },
                 "goalline": {
                     "target_share": 0.06,
                     "carry_share": 0.0,
-                    "catch_rate": 1.0,
+                    "catch_rate": 0.9556,
                     "yac_per_reception": 0.0
                 }
             },
@@ -1819,17 +1819,17 @@
                     "primary": {
                         "target_share": 0.05,
                         "carry_share": 0.0,
-                        "catch_rate": 0.8197
+                        "catch_rate": 0.7753
                     },
                     "redzone": {
                         "target_share": 0.045,
                         "carry_share": 0.0,
-                        "catch_rate": 0.7143
+                        "catch_rate": 0.6699
                     },
                     "goalline": {
                         "target_share": 0.06,
                         "carry_share": 0.0,
-                        "catch_rate": 1.0
+                        "catch_rate": 0.9556
                     }
                 },
                 "avg_separation_yds": 4.4981
@@ -1870,13 +1870,13 @@
                 "redzone": {
                     "target_share": 0.045,
                     "carry_share": 0.0,
-                    "catch_rate": 0.7857,
+                    "catch_rate": 0.8758999999999999,
                     "yac_per_reception": 2.273
                 },
                 "goalline": {
                     "target_share": 0.06,
                     "carry_share": 0.0,
-                    "catch_rate": 0.7273,
+                    "catch_rate": 0.8174999999999999,
                     "yac_per_reception": 1.0
                 }
             },
@@ -1894,17 +1894,17 @@
                     "primary": {
                         "target_share": 0.05,
                         "carry_share": 0.0,
-                        "catch_rate": 0.6531
+                        "catch_rate": 0.7433
                     },
                     "redzone": {
                         "target_share": 0.045,
                         "carry_share": 0.0,
-                        "catch_rate": 0.7857
+                        "catch_rate": 0.8758999999999999
                     },
                     "goalline": {
                         "target_share": 0.06,
                         "carry_share": 0.0,
-                        "catch_rate": 0.7273
+                        "catch_rate": 0.8174999999999999
                     }
                 },
                 "avg_separation_yds": 2.8189
@@ -2231,13 +2231,13 @@
                 "redzone": {
                     "target_share": 0.06,
                     "carry_share": 0.0,
-                    "catch_rate": 0.5312,
+                    "catch_rate": 0.5033,
                     "yac_per_reception": 1.706
                 },
                 "goalline": {
                     "target_share": 0.085,
                     "carry_share": 0.0,
-                    "catch_rate": 0.4,
+                    "catch_rate": 0.3721,
                     "yac_per_reception": 0.0
                 }
             },
@@ -2256,17 +2256,17 @@
                     "primary": {
                         "target_share": 0.065,
                         "carry_share": 0.0,
-                        "catch_rate": 0.6713
+                        "catch_rate": 0.6434
                     },
                     "redzone": {
                         "target_share": 0.06,
                         "carry_share": 0.0,
-                        "catch_rate": 0.5312
+                        "catch_rate": 0.5033
                     },
                     "goalline": {
                         "target_share": 0.085,
                         "carry_share": 0.0,
-                        "catch_rate": 0.4
+                        "catch_rate": 0.3721
                     }
                 }
             }

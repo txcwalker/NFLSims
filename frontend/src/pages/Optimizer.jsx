@@ -2,6 +2,9 @@ import { useState, useMemo, useEffect, useCallback, useRef, Fragment } from 'rea
 import { ApiService } from '../api';
 import { ALL_ROSTERS } from '../allRosters';
 import { fmtSpreadNum } from '../bettingLines';
+import SlotSwitcher from '../components/SlotSwitcher';
+import LineupHistogramModal from '../components/LineupHistogramModal';
+import { useWorkspaceSlots } from '../hooks/useWorkspaceSlots';
 
 // ─── Team Colors ─────────────────────────────────────────────────────────────
 const TEAM_COLORS = {
@@ -174,6 +177,31 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
     return label || team;
   };
 
+  // DK's per-slate draftableId AND salary, keyed the same way as `seen`
+  // below. Built up front from weekProjections -- the freshest source for
+  // both (see get_week_projections()'s _overlay_live_salaries, which
+  // re-resolves salary/dk_id on every read; allSimResults' projections are
+  // baked once, whenever that game was last simmed, and never refreshed) --
+  // so Tier 1, which wins the name/team dedup for virtually every player,
+  // can still backfill either field when its own copy is missing or stale.
+  // Without this, any player whose allSimResults entry predates a salary
+  // resolution fix (or simply never had one) got stuck with Tier 1's null,
+  // and Tier 2 below -- which has the real value -- never got a chance to
+  // fill it in because `seen` already blocked it. This was the actual cause
+  // of "Export for DK Upload" exporting names-only for nearly the whole pool
+  // (dk_id case) and, identically, of specific players showing a blank
+  // salary in the pool table despite /api/week_projections having a real
+  // price for them (salary case).
+  const dkIdByKey = new Map();
+  const salaryByKey = new Map();
+  (Array.isArray(weekProjections) ? weekProjections : (weekProjections?.players || [])).forEach(p => {
+    if (p.name && p.team) {
+      const key = `${p.name}_${p.team}`;
+      dkIdByKey.set(key, p.dk_id ?? null);
+      salaryByKey.set(key, p.salary ?? null);
+    }
+  });
+
   // ── Tier 1: allSimResults (session simulations, custom user projections & stats)
   Object.values(allSimResults || {}).forEach(res => {
     if (!res?.projections) return;
@@ -190,7 +218,7 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
         name: p.name,
         pos: p.pos,
         team: p.team,
-        salary: p.salary ?? null,
+        salary: p.salary ?? salaryByKey.get(key) ?? null,
         projection: parseFloat((median || 0).toFixed(1)),
         simProjection: parseFloat((median || 0).toFixed(1)),
         p25:  pcts ? parseFloat((pcts[25] ?? 0).toFixed(1)) : null,
@@ -203,8 +231,10 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
         locked: false,
         excluded: false,
         ownershipPct: p.ownership_proj ?? null,
+        optimal_pct: p.optimal_pct ?? null,
         game: gameLabel,
         dk_pcts_all: pcts,
+        dk_id: dkIdByKey.get(key) ?? null,
       });
     });
   });
@@ -250,6 +280,7 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
       locked: false,
       excluded: false,
       ownershipPct: p.ownership_proj ?? null,
+      optimal_pct: p.optimal_pct ?? null,
       game: gameLabel,
       dk_pcts_all: pcts,
       dk_id: p.dk_id ?? null,
@@ -281,6 +312,7 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
           ownershipPct: null,
           game: gameMap[team] || team,
           dk_pcts_all: null,
+          dk_id: dkIdByKey.get(key) ?? null,
         });
       });
     });
@@ -700,6 +732,11 @@ export default function Optimizer({
 }) {
   const [view, setView] = useState('pool');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [resultsMode, setResultsMode] = useState('optimize'); // 'optimize' | 'lab'
+  const [labOpen, setLabOpen] = useState(false);
+  const emptyLabRow = () => ({ label: '', qb: '', rb: ['', ''], wr: ['', '', ''], te: '', flex: '', dst: '' });
+  const [labRows, setLabRows] = useState([emptyLabRow()]);
+  const [labError, setLabError] = useState('');
 
   // ── Live DK contest list (entry fee / prize pool / size) for the selected
   // slate -- lets the Settings panel auto-populate Contest Numbers from a
@@ -812,6 +849,7 @@ export default function Optimizer({
   const [optimizeProgress, setOptimizeProgress] = useState('');
   const [portfolioStats, setPortfolioStats] = useState(null);
   const [expandedLineupIdx, setExpandedLineupIdx] = useState(null);
+  const [histLineup, setHistLineup] = useState(null);
 
   // ── Portfolio Exposure state
   const [exposureSearch, setExposureSearch] = useState('');
@@ -828,6 +866,11 @@ export default function Optimizer({
   // a freshly-loaded state from immediately echoing itself back to disk.
   const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
   const [autosaveBuilds, setAutosaveBuilds] = useState(true);
+  // Gates the (per-slate) workspace-slot system below until this legacy
+  // (per-week, slate-agnostic) hydration has settled -- both would otherwise
+  // race to set `settings`/`overlay` on mount, and the slot system should win
+  // since it's the more specific, newer source of truth.
+  const [weekHydrated, setWeekHydrated] = useState(false);
   const hydratingRef = useRef(false);
   const savedBaselineRef = useRef(null);
   const prevWeekRef = useRef(null);
@@ -844,15 +887,27 @@ export default function Optimizer({
   // ── Saved builds (see Builds panel below)
   const [builds, setBuilds] = useState([]);          // summaries, newest first
   const [buildsOpen, setBuildsOpen] = useState(false);
+  // Bankroll accounts (see account_store.py) -- global, not per-week, so
+  // fetched once on mount rather than in the per-week hydration effect below.
+  const [accounts, setAccounts] = useState([]);
+  useEffect(() => { ApiService.getAccounts().then(setAccounts); }, []);
   const [selectedBuildIds, setSelectedBuildIds] = useState(() => new Set());
   const [buildToast, setBuildToast] = useState('');
   const lastBuildHashRef = useRef(null);
+  // The full build record currently on screen (via "Load lineups" below), kept
+  // around so the results page can offer a separate "restore settings/overlay"
+  // checkpoint action without re-fetching -- loading lineups and reverting your
+  // working settings are two different asks and shouldn't be bundled into one
+  // irreversible click. Cleared whenever the lineups on screen stop being that
+  // build's (a new Optimize/Lab run, or switching save slots).
+  const [restoredBuild, setRestoredBuild] = useState(null);
 
   useEffect(() => {
     if (!Number.isInteger(selectedWeek) || selectedWeek < 1 || selectedWeek > 22) return;
     let cancelled = false;
     hydratingRef.current = true;
     setSaveStatus('idle');
+    setLabRows([emptyLabRow()]); setLabOpen(false); setLabError('');
 
     // End-of-week tidy: silently drop the *previous* week's throwaway autosaves
     // (not pinned / labeled / submitted) when moving on to a new week.
@@ -878,6 +933,7 @@ export default function Optimizer({
         return merged;
       });
       setTimeout(() => { if (!cancelled) hydratingRef.current = false; }, 0);
+      setWeekHydrated(true);
     });
     ApiService.listOptimizerBuilds(selectedWeek, OPTIMIZER_SEASON).then(bs => {
       if (cancelled) return;
@@ -919,6 +975,38 @@ export default function Optimizer({
 
   // ── Salary cap by platform
   const salaryCap = settings.platform === 'FD' ? 60000 : 50000;
+
+  // ── Save slots: 3 switchable, autosaved workspace snapshots for this slate
+  // (see useWorkspaceSlots / ShowdownOptimizer.jsx's identical use of it) --
+  // pool overlay, settings, lineups, and Lab rows survive a page/tab switch,
+  // and up to 3 different takes on the slate can be kept side by side.
+  // Additive to the per-week state.json/builds above (a different concept --
+  // that's an ever-growing autosave history; this is 3 deliberate "save
+  // files"), gated on `weekHydrated` so the two don't race to set
+  // settings/overlay on mount -- the slot system (more specific: per-slate,
+  // not just per-week) intentionally hydrates second and wins.
+  const classicSlateKey = weekHydrated
+    ? `classic_${settings.platform}_${selectedDraftGroupId ?? 'default'}` : null;
+  const classicWorkspaceSnapshot = useMemo(() => ({
+    settings, overlay, lineups: optimizerLineups, portfolio: portfolioStats, labRows, resultsMode, view,
+  }), [settings, overlay, optimizerLineups, portfolioStats, labRows, resultsMode, view]);
+  const onHydrateClassicWorkspace = (data) => {
+    // Reset to defaults (not a same-key merge) when the slot has nothing
+    // saved for that field -- an empty Slot 2 must actually look empty, not
+    // silently keep whatever Slot 1 left in memory. `platform` is pinned to
+    // its current value rather than reset: it's embedded in `classicSlateKey`
+    // itself, so resetting it here would flip the slate key mid-hydration.
+    setSettings(s => ({ ...defaultSettings, ...(data.settings || {}), platform: s.platform }));
+    setOverlay(data.overlay || emptyOverlay());
+    setOptimizerLineups(data.lineups || []);
+    setPortfolioStats(data.portfolio || null);
+    setLabRows(data.labRows?.length ? data.labRows : [emptyLabRow()]);
+    setResultsMode(data.resultsMode || 'optimize');
+    setView((data.lineups || []).length ? (data.view || 'pool') : 'pool');
+    setExpandedLineupIdx(null);
+    setRestoredBuild(null);
+  };
+  const classicWorkspace = useWorkspaceSlots(classicSlateKey, selectedWeek, OPTIMIZER_SEASON, classicWorkspaceSnapshot, onHydrateClassicWorkspace);
 
   // ── Platform-adjusted + GPP-enriched pool
   // When FD is selected, swap DK percentiles for FD percentiles so the ILP
@@ -962,6 +1050,8 @@ export default function Optimizer({
         hasPcts: !!(ap50 != null),
         active_pcts_all: activePcts,
         projAdjust: adj,
+        hasProjOverride: adj !== 0 || ov.projAbsolute != null,
+        optimalPct: p.optimal_pct ?? null,
         ownershipPct,
         locked: !!ov.locked,
         excluded: !!ov.excluded,
@@ -1074,6 +1164,24 @@ export default function Optimizer({
   };
 
   // ── Optimize
+  // Player pool payload shared by ⚡ Optimize and the Lineup Lab. Only
+  // priced players are eligible either way (DK hasn't priced an unpriced
+  // player, so there's no real salary/cap to score them against).
+  const buildOptimizerPlayersPayload = () => {
+    const isCash = settings.contestType === 'cash';
+    return enrichedPool.filter(p => p.salary != null).map(p => ({
+      name: p.name, team: p.team, pos: p.pos,
+      salary: p.salary,
+      projection: p.p50 ?? p.projection ?? p.simProjection,   // shifted P50 for evaluation
+      gpp_projection: isCash ? null : (p.gppProjection ?? null), // blended for ILP only
+      locked: p.locked,
+      excluded: isPlayerExcluded(p),
+      ownership_pct: p.ownershipPct,
+      dk_pcts_all: p.active_pcts_all || p.dk_pcts_all || null,
+      dk_id: p.dk_id ?? null,
+    }));
+  };
+
   const handleOptimize = async () => {
     setIsOptimizing(true);
     setOptimizeProgress('');
@@ -1089,23 +1197,8 @@ export default function Optimizer({
     //   gpp_projection = blended ceiling value — used ONLY by the ILP objective to
     //                    steer the solver toward higher-ceiling players. null for cash.
     //                    Also computed off the shifted percentiles.
-    const isCash = settings.contestType === 'cash';
     const payload = {
-      // A null-salary player (DK hasn't priced their team yet) can't be put
-      // in a real lineup, so they're kept out of the solver's candidate
-      // pool entirely -- still visible in the Player Pool table above, just
-      // not selectable here.
-      players: enrichedPool.filter(p => p.salary != null).map(p => ({
-        name: p.name, team: p.team, pos: p.pos,
-        salary: p.salary,
-        projection: p.p50 ?? p.projection ?? p.simProjection,   // shifted P50 for evaluation
-        gpp_projection: isCash ? null : (p.gppProjection ?? null), // blended for ILP only
-        locked: p.locked,
-        excluded: isPlayerExcluded(p),
-        ownership_pct: p.ownershipPct,
-        dk_pcts_all: p.active_pcts_all || p.dk_pcts_all || null,
-        dk_id: p.dk_id ?? null,
-      })),
+      players: buildOptimizerPlayersPayload(),
       n_lineups: settings.nLineups,
       salary_cap: salaryCap,
       contest_type: settings.contestType,
@@ -1133,8 +1226,10 @@ export default function Optimizer({
       const result = await ApiService.optimizeLineups(payload);
       setOptimizerLineups(result.lineups || []);
       setPortfolioStats(result.portfolio || null);
+      setResultsMode('optimize');
       setView('results');
       setLastResult(result);
+      setRestoredBuild(null);
       // Auto-save this run as a build -- but only when the inputs actually
       // changed since the last saved build (a pure re-run of the same pool
       // just produces a new RNG draw and isn't worth its own record).
@@ -1148,6 +1243,70 @@ export default function Optimizer({
     } finally {
       setIsOptimizing(false);
       setOptimizeProgress('');
+    }
+  };
+
+  // ── Lineup Lab: score hand-built lineups through the same field sim ─────────
+  const labOptions = useMemo(
+    () => enrichedPool.filter(p => p.salary != null).slice().sort((a, b) => (b.salary || 0) - (a.salary || 0)),
+    [enrichedPool],
+  );
+  const optKey = p => `${p.name}|${p.team}`;
+  const optLabel = p => `${p.pos === 'DST' ? `${p.team} DST` : p.name} · ${p.team} · $${(p.salary || 0).toLocaleString()}`;
+  const labByPos = useMemo(() => ({
+    QB: labOptions.filter(p => p.pos === 'QB'),
+    RB: labOptions.filter(p => p.pos === 'RB'),
+    WR: labOptions.filter(p => p.pos === 'WR'),
+    TE: labOptions.filter(p => p.pos === 'TE'),
+    DST: labOptions.filter(p => p.pos === 'DST'),
+    FLEX: labOptions.filter(p => ['RB', 'WR', 'TE'].includes(p.pos)),
+  }), [labOptions]);
+
+  const scoreLab = async () => {
+    setLabError('');
+    const rows = labRows
+      .map((r, i) => ({ ...r, i }))
+      .filter(r => r.qb && r.rb.filter(Boolean).length === 2 && r.wr.filter(Boolean).length === 3 && r.te && r.flex && r.dst);
+    if (!rows.length) { setLabError('Fill in QB, 2 RB, 3 WR, TE, FLEX and DST for at least one Lab lineup.'); return; }
+    for (const r of rows) {
+      const picks = [r.qb, ...r.rb, ...r.wr, r.te, r.flex, r.dst];
+      if (new Set(picks).size !== 9) { setLabError(`Lab lineup ${r.i + 1}: a player is picked twice.`); return; }
+    }
+    setIsOptimizing(true);
+    try {
+      const res = await ApiService.optimizeLineups({
+        players: buildOptimizerPlayersPayload(),
+        salary_cap: salaryCap,
+        contest_type: settings.contestType,
+        entry_fee: settings.entryFee,
+        total_entries: settings.contestSize,
+        paying_positions: settings.payingPositions,
+        payout_structure: settings.payoutStructure || undefined,
+        week: selectedWeek,
+        manual_lineups: rows.map(r => ({
+          qb: r.qb, rb: r.rb, wr: r.wr, te: r.te, flex: r.flex, dst: r.dst,
+          label: r.label?.trim() || `Lab lineup ${r.i + 1}`,
+        })),
+      });
+      // ApiService.optimizeLineups falls back to a random mock lineup set if
+      // the request fails (`!res.ok` after retries) -- mock responses never
+      // carry `mode`, so this also catches "the backend rejected the lab
+      // lineups" (e.g. a bad name) instead of silently showing fake ones.
+      if (!res || !res.lineups || res.mode !== 'manual') {
+        setLabError('Backend rejected the request or is unreachable — check the console / that it\'s running.');
+        return;
+      }
+      setOptimizerLineups(res.lineups);
+      setPortfolioStats(res.portfolio || null);
+      setResultsMode('lab');
+      setExpandedLineupIdx(0);
+      setView('results');
+      setRestoredBuild(null);
+    } catch (e) {
+      console.error(e);
+      setLabError(String(e.message || e));
+    } finally {
+      setIsOptimizing(false);
     }
   };
 
@@ -1166,6 +1325,7 @@ export default function Optimizer({
       players: (lu.players || []).map(pl => ({
         name: pl.name, pos: pl.pos, team: pl.team, slot: pl.slot,
         salary: pl.salary, projection: pl.projection, ownership_pct: pl.ownership_pct,
+        dk_id: pl.dk_id,
       })),
     }));
     lineups.forEach(lu => lu.players.forEach(pl => {
@@ -1216,7 +1376,7 @@ export default function Optimizer({
     const saved = await ApiService.patchOptimizerBuild(selectedWeek, buildId, patch, OPTIMIZER_SEASON);
     if (saved) {
       setBuilds(bs => bs.map(b => b.build_id === buildId
-        ? { ...b, label: saved.label, pinned: !!saved.pinned, submitted: !!saved.submitted }
+        ? { ...b, label: saved.label, pinned: !!saved.pinned, submitted: !!saved.submitted, account_id: saved.account_id ?? null }
         : b));
     }
   };
@@ -1227,16 +1387,36 @@ export default function Optimizer({
     setSelectedBuildIds(new Set());
   };
 
-  const restoreBuild = async (buildId) => {
-    if (!window.confirm("Load this build's settings and adjustments into your working state? Your current changes will be replaced (they're already saved as their own build if you've optimized).")) return;
+  // Load just the lineups a past build produced -- for reviewing/exporting an
+  // old run without touching your current settings/overlay. Player rows were
+  // slimmed for storage (see assembleBuild) but keep dk_id, so DK export still
+  // works off a restored build as long as that ID hasn't gone stale.
+  const restoreBuildLineups = async (buildId) => {
     const b = await ApiService.getOptimizerBuild(selectedWeek, buildId, OPTIMIZER_SEASON);
     if (!b) return;
+    if (!window.confirm(`Load this build's ${b.lineups?.length || 0} lineup(s) into view? This replaces the lineups currently shown here (and will overwrite the active save slot once autosave runs).`)) return;
+    setOptimizerLineups(b.lineups || []);
+    setPortfolioStats(b.portfolio || null);
+    setResultsMode('optimize');
+    setView((b.lineups || []).length ? 'results' : 'pool');
+    setExpandedLineupIdx(null);
+    setRestoredBuild(b);
+    setBuildToast('Lineups loaded — use "Restore settings" on the results page to also load this build\'s checkpoint');
+  };
+
+  // Separate, explicit checkpoint action: load the settings/overlay (and slate)
+  // that produced the currently-viewed build's lineups. Uses the build already
+  // fetched by restoreBuildLineups rather than re-fetching.
+  const restoreBuildSettings = () => {
+    const b = restoredBuild;
+    if (!b) return;
+    if (!window.confirm("Load this build's settings and projection adjustments into your working state? Your current settings/overlay will be replaced.")) return;
     if (b.overlay) setOverlay(b.overlay);
     if (b.settings) setSettings(s => ({ ...s, ...b.settings }));
     if (b.slate && b.slate.draft_group_id && b.slate.draft_group_id !== selectedDraftGroupId) {
       setSelectedDraftGroupId(b.slate.draft_group_id);
     }
-    setBuildToast('Restored — the debounced save will persist it as your working state');
+    setBuildToast('Checkpoint restored — the debounced save will persist it as your working state');
   };
 
   const pruneBuildsNow = async () => {
@@ -1431,7 +1611,9 @@ export default function Optimizer({
             <span style={{fontWeight: 700, color: 'var(--text-white)', marginRight: '10px'}}>Slate Focus:</span>
             <div className="slate-selector">
               <button className="slate-btn active">Traditional Multi-Game</button>
-              <button className="slate-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title="Showdown Single-Game Optimizer coming soon">Showdown Single-Game ✧</button>
+              <button className="slate-btn" style={{ cursor: 'pointer' }}
+                onClick={() => setCurrentPage && setCurrentPage('showdown_optimizer')}
+                title="Open the single-game Showdown optimizer">Showdown Single-Game ✧</button>
             </div>
           </div>
           {weeks.length > 0 && (
@@ -1488,7 +1670,7 @@ export default function Optimizer({
               >
                 {dkSlates.map(s => (
                   <option key={s.draft_group_id} value={s.draft_group_id} disabled={!s.is_default}>
-                    {s.label} ({s.contest_count} contest{s.contest_count === 1 ? '' : 's'}){s.is_default ? '' : ' — not yet supported'}
+                    {s.label}{s.contest_count != null ? ` (${s.contest_count} contest${s.contest_count === 1 ? '' : 's'})` : ''}{s.is_default ? '' : ' — not yet supported'}
                   </option>
                 ))}
               </select>
@@ -1497,6 +1679,12 @@ export default function Optimizer({
                   Only Main Slate is wired up today — other live slates are visible but disabled until player-pool projections support them.
                 </div>
               )}
+            </div>
+          )}
+          {classicSlateKey && (
+            <div style={{ marginTop: '8px' }}>
+              <SlotSwitcher slots={classicWorkspace.slots} active={classicWorkspace.active} saveStatus={classicWorkspace.saveStatus}
+                onSwitch={classicWorkspace.switchSlot} onRename={classicWorkspace.renameSlot} onClear={classicWorkspace.clearSlot} />
             </div>
           )}
         </div>
@@ -1526,6 +1714,19 @@ export default function Optimizer({
             }}
           >
             ⚙️ Settings {settingsOpen ? '▲' : '▼'}
+          </button>
+          <button
+            onClick={() => { setLabOpen(o => !o); if (view !== 'pool') setView('pool'); }}
+            title="Score a hand-built lineup through the same tournament field sim as the optimizer"
+            style={{
+              padding: '8px 14px',
+              background: labOpen ? 'rgba(0,242,254,0.12)' : 'rgba(255,255,255,0.06)',
+              color: labOpen ? 'var(--accent-primary)' : 'var(--text-white)',
+              border: `1px solid ${labOpen ? 'rgba(0,242,254,0.3)' : 'rgba(255,255,255,0.12)'}`,
+              borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
+            }}
+          >
+            ✍️ Lineup Lab
           </button>
           <button
             className="btn-primary"
@@ -1613,6 +1814,7 @@ export default function Optimizer({
                         <th style={{ padding: '4px 6px' }}>When</th>
                         <th style={{ padding: '4px 6px' }}>Label</th>
                         <th style={{ padding: '4px 6px' }}>Contest</th>
+                        <th style={{ padding: '4px 6px' }}>Account</th>
                         <th style={{ padding: '4px 6px', textAlign: 'right' }}>Lineups</th>
                         <th style={{ padding: '4px 6px', textAlign: 'right' }}>Port. EV</th>
                         <th style={{ padding: '4px 6px', textAlign: 'right' }}>Actions</th>
@@ -1644,6 +1846,19 @@ export default function Optimizer({
                           <td style={{ padding: '4px 6px', color: 'var(--text-muted)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b.contest_name || ''}>
                             {b.contest_name || '—'}
                           </td>
+                          <td style={{ padding: '4px 6px' }}>
+                            <select
+                              value={b.account_id || ''}
+                              onChange={e => patchBuildRow(b.build_id, { account_id: e.target.value || null })}
+                              title="Tag this build's lineups to a bankroll account -- every lineup gets registered as a paper entry so the Bankroll page can track it (see /bankroll)"
+                              style={{ ...inputStyle, padding: '2px 4px', fontSize: '0.72rem', width: '110px' }}
+                            >
+                              <option value="">— untagged —</option>
+                              {accounts.map(a => (
+                                <option key={a.account_id} value={a.account_id}>{a.label}</option>
+                              ))}
+                            </select>
+                          </td>
                           <td style={{ padding: '4px 6px', textAlign: 'right' }}>{b.n_lineups}</td>
                           <td style={{ padding: '4px 6px', textAlign: 'right', color: b.portfolio_ev > 0 ? 'var(--accent-green)' : 'var(--text-secondary)' }}>
                             {b.portfolio_ev != null ? `${b.portfolio_ev > 0 ? '+' : ''}${b.portfolio_ev}%` : '—'}
@@ -1653,7 +1868,7 @@ export default function Optimizer({
                               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', opacity: b.pinned ? 1 : 0.35 }}>★</button>
                             <button onClick={() => patchBuildRow(b.build_id, { submitted: !b.submitted })} title={b.submitted ? 'Unmark submitted' : 'Mark as submitted to a contest'}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', opacity: b.submitted ? 1 : 0.35 }}>✓</button>
-                            <button onClick={() => restoreBuild(b.build_id)} title="Load this build's settings + adjustments back into the working state"
+                            <button onClick={() => restoreBuildLineups(b.build_id)} title="Load this build's lineups into view (settings/overlay stay as they are)"
                               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>⟲</button>
                             <button onClick={() => deleteBuildRows([b.build_id])} title="Delete this build"
                               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.5 }}>🗑</button>
@@ -1770,6 +1985,63 @@ export default function Optimizer({
             </div>
           </div>
 
+          {labOpen && (
+            <div style={{ ...cardStyle, padding: '10px', marginBottom: '10px' }}>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                Pick a full lineup and score it through the same <strong>{settings.contestType.replace(/_/g, ' ')}</strong>{' '}
+                field sim the optimizer uses — EV%, ITM%, Top 1% / 0.1%, portfolio score.
+                Uses the pool's current projections &amp; ownership (freeze them first to pin).
+                {labOptions.length < 9 && <span style={{ color: '#f59e0b' }}> Load salaries for this slate first.</span>}
+              </div>
+              {labRows.map((row, ri) => {
+                const setRow = patch => setLabRows(rs => rs.map((r, i) => (i === ri ? { ...r, ...patch } : r)));
+                const setRb = (fi, v) => setRow({ rb: row.rb.map((x, i) => (i === fi ? v : x)) });
+                const setWr = (fi, v) => setRow({ wr: row.wr.map((x, i) => (i === fi ? v : x)) });
+                const chosen = new Set([row.qb, ...row.rb, ...row.wr, row.te, row.flex, row.dst].filter(Boolean));
+                const sel = (val, onCh, placeholder, posKey) => (
+                  <select value={val} onChange={e => onCh(e.target.value)}
+                    style={{ ...inputStyle, minWidth: '128px', flex: '1 1 128px', fontSize: '0.74rem' }}>
+                    <option value="">{placeholder}</option>
+                    {labByPos[posKey].map(p => {
+                      const k = optKey(p);
+                      return <option key={k} value={k} disabled={k !== val && chosen.has(k)}>{optLabel(p)}</option>;
+                    })}
+                  </select>
+                );
+                return (
+                  <div key={ri} style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', alignItems: 'center', marginBottom: '6px' }}>
+                    <input value={row.label} onChange={e => setRow({ label: e.target.value })} placeholder={`Lab ${ri + 1}`}
+                      style={{ ...inputStyle, width: '80px', fontSize: '0.74rem' }} />
+                    {sel(row.qb, v => setRow({ qb: v }), 'QB…', 'QB')}
+                    {sel(row.rb[0], v => setRb(0, v), 'RB…', 'RB')}
+                    {sel(row.rb[1], v => setRb(1, v), 'RB…', 'RB')}
+                    {sel(row.wr[0], v => setWr(0, v), 'WR…', 'WR')}
+                    {sel(row.wr[1], v => setWr(1, v), 'WR…', 'WR')}
+                    {sel(row.wr[2], v => setWr(2, v), 'WR…', 'WR')}
+                    {sel(row.te, v => setRow({ te: v }), 'TE…', 'TE')}
+                    {sel(row.flex, v => setRow({ flex: v }), 'FLEX…', 'FLEX')}
+                    {sel(row.dst, v => setRow({ dst: v }), 'DST…', 'DST')}
+                    {labRows.length > 1 && (
+                      <button onClick={() => setLabRows(rs => rs.filter((_, i) => i !== ri))}
+                        style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#ef4444', cursor: 'pointer', fontSize: '0.78rem' }}>✕</button>
+                    )}
+                  </div>
+                );
+              })}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
+                <button onClick={() => setLabRows(rs => [...rs, emptyLabRow()])}
+                  style={{ padding: '6px 10px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--text-white)', cursor: 'pointer', fontSize: '0.78rem' }}>
+                  + add lineup
+                </button>
+                <button onClick={scoreLab} disabled={isOptimizing}
+                  style={{ padding: '6px 16px', borderRadius: '7px', border: '1px solid rgba(0,242,254,0.3)', background: 'rgba(0,242,254,0.14)', color: 'var(--accent-primary)', fontWeight: 700, cursor: isOptimizing ? 'wait' : 'pointer', fontSize: '0.8rem' }}>
+                  {isOptimizing ? 'Scoring…' : 'Score lineup(s) →'}
+                </button>
+                {labError && <span style={{ color: '#ef4444', fontSize: '0.78rem' }}>{labError}</span>}
+              </div>
+            </div>
+          )}
+
           {/* Table */}
           <div className="table-container" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
             <table style={{ fontSize: '0.8rem', width: '100%' }}>
@@ -1799,11 +2071,15 @@ export default function Optimizer({
                     Mean {sortField === 'mean' ? (sortAsc ? '↑' : '↓') : ''}
                   </th>
                   <th style={{ padding: '7px 8px', minWidth: '68px', whiteSpace: 'nowrap' }}>Own%</th>
+                  <th style={{ padding: '7px 5px', fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}
+                    title="Sim's optimal-lineup rate — how often this player is the optimal play across sim iterations">Opt%</th>
+                  <th style={{ padding: '7px 5px', fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}
+                    title="Opt% minus Own% — positive means the sim likes this player more than the field will roster them (a leverage play)">Field Lev.</th>
                 </tr>
               </thead>
               <tbody>
                 {visiblePool.length === 0 ? (
-                  <tr><td colSpan={showGppCol ? 14 : 13} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>No players match your filters.</td></tr>
+                  <tr><td colSpan={showGppCol ? 16 : 15} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>No players match your filters.</td></tr>
                 ) : visiblePool.map(p => {
                   const excluded = isPlayerExcluded(p);
                   const tint = getProjTint(p);
@@ -1856,7 +2132,7 @@ export default function Optimizer({
                       </td>
                       {/* Proj editable (median / platform projection) */}
                       <td style={{ padding: '3px 5px' }}>
-                        <div title={isAboveP75 ? 'Above p75 — aggressive projection' : undefined}>
+                        <div title={isAboveP75 ? 'Above p75 — aggressive projection' : undefined} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                           <input
                             type="number" step={0.1}
                             value={p.projection}
@@ -1867,6 +2143,15 @@ export default function Optimizer({
                               ...tint,
                             }}
                           />
+                          {p.hasProjOverride && (
+                            <button
+                              onClick={() => _patchPlayer(p.id, { projAdjust: 0, projAbsolute: null })}
+                              title={`Reset to sim projection (${p.simProjection ?? '—'})`}
+                              style={{
+                                border: 'none', cursor: 'pointer', borderRadius: '4px', padding: '2px 4px',
+                                background: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)', fontSize: '0.7rem',
+                              }}>↺</button>
+                          )}
                         </div>
                       </td>
                       {/* GPP Proj — blended ceiling projection (read-only display, click to use as proj) */}
@@ -1919,6 +2204,18 @@ export default function Optimizer({
                           style={{ ...inputStyle, width: '58px', padding: '3px 5px', fontSize: '0.75rem' }}
                         />
                       </td>
+                      {/* Opt% — sim's optimal-lineup rate */}
+                      <td style={{ padding: '5px 5px', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                        {p.optimalPct != null ? `${p.optimalPct.toFixed(1)}%` : '—'}
+                      </td>
+                      {/* Field Leverage — Opt% minus Own% */}
+                      <td style={{ padding: '5px 5px', fontSize: '0.75rem', fontWeight: 600 }}>
+                        {p.optimalPct != null && p.ownershipPct != null ? (
+                          <span style={{ color: (p.optimalPct - p.ownershipPct) > 0 ? 'var(--accent-green)' : '#ef4444' }}>
+                            {(p.optimalPct - p.ownershipPct) > 0 ? '+' : ''}{(p.optimalPct - p.ownershipPct).toFixed(1)}%
+                          </span>
+                        ) : '—'}
+                      </td>
                     </tr>
                   );
                 })}
@@ -1936,14 +2233,28 @@ export default function Optimizer({
             <div style={{ ...cardStyle, borderColor: 'rgba(0,242,254,0.15)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: '1rem' }}>Portfolio Summary</h2>
+                  <h2 style={{ margin: 0, fontSize: '1rem' }}>
+                    {resultsMode === 'lab' ? '✍️ Lineup Lab' : 'Portfolio Summary'}
+                  </h2>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    {portfolioStats.n_generated} lineups generated
-                    {portfolioStats.n_requested && portfolioStats.n_generated < portfolioStats.n_requested
-                      ? ` (${portfolioStats.n_requested} requested)` : ''}
+                    {resultsMode === 'lab'
+                      ? `${portfolioStats.n_generated} hand-built lineup${portfolioStats.n_generated === 1 ? '' : 's'} scored`
+                      : `${portfolioStats.n_generated} lineups generated${portfolioStats.n_requested && portfolioStats.n_generated < portfolioStats.n_requested ? ` (${portfolioStats.n_requested} requested)` : ''}`}
+                    {restoredBuild && (
+                      <span style={{ marginLeft: '8px', color: 'var(--accent-primary)' }}>
+                        · viewing a saved build{restoredBuild.label ? ` "${restoredBuild.label}"` : ''}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {restoredBuild && (
+                    <button onClick={restoreBuildSettings} title="Load this build's settings & projection adjustments as a checkpoint -- your current settings/overlay will be replaced" style={{
+                      padding: '7px 14px', background: 'rgba(245,197,66,0.1)', color: '#f5c542',
+                      border: '1px solid rgba(245,197,66,0.3)', borderRadius: '8px', cursor: 'pointer',
+                      fontWeight: 600, fontSize: '0.82rem',
+                    }}>↺ Restore Settings/Overlay</button>
+                  )}
                   <button onClick={exportSummaryCSV} title="Human-readable summary -- not accepted by DK's upload form" style={{
                     padding: '7px 14px', background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)',
                     border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', cursor: 'pointer',
@@ -2031,7 +2342,10 @@ export default function Optimizer({
                                 transition: 'background-color 0.15s'
                               }}
                               className="lineup-row">
-                            <td style={{ padding: '7px 6px', fontWeight: 'bold', color: 'var(--text-muted)' }}>{idx + 1}</td>
+                            <td style={{ padding: '7px 6px', fontWeight: 'bold', color: 'var(--text-muted)', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                              title={lu.label || undefined}>
+                              {resultsMode === 'lab' && lu.label ? lu.label : idx + 1}
+                            </td>
                             <td style={{ padding: '7px 6px', color: evColor(lu.ev_pct), fontWeight: 700 }}>{lu.ev_pct > 0 ? '+' : ''}{lu.ev_pct}%</td>
                             <td style={{ padding: '7px 6px', fontWeight: 600 }}>{lu.portfolio_score?.toFixed(2)}</td>
                             <td style={{ padding: '7px 6px', color: 'var(--text-main)' }}>{lu.itm_pct}%</td>
@@ -2041,8 +2355,9 @@ export default function Optimizer({
                             <td style={{ padding: '7px 6px', fontWeight: 700, color: 'var(--accent-green)' }}>
                               {lu.lineup_p95 !== undefined ? lu.lineup_p95?.toFixed(1) : lu.projected_score?.toFixed(1)}
                             </td>
-                            <td style={{ padding: '7px 6px', fontWeight: 600, color: remaining < 0 ? 'var(--accent-red)' : 'var(--text-main)' }}>
-                              ${lu.total_salary?.toLocaleString()}
+                            <td style={{ padding: '7px 6px', fontWeight: 600, color: remaining < 0 ? 'var(--accent-red)' : 'var(--text-main)' }}
+                              title={lu.over_salary_cap ? `$${Math.abs(remaining).toLocaleString()} over the $${salaryCap.toLocaleString()} cap — DK would reject this lineup` : undefined}>
+                              ${lu.total_salary?.toLocaleString()}{lu.over_salary_cap ? ' ⚠' : ''}
                             </td>
                           </tr>
                           {isExpanded && (
@@ -2055,6 +2370,13 @@ export default function Optimizer({
                                     <span>P95: <strong style={{ color: 'var(--accent-gold)', fontWeight: 800 }}>{lu.lineup_p95?.toFixed(1) || '—'}</strong></span>
                                     <span>Volatility (Std): <strong style={{ color: 'var(--accent-primary)' }}>{lu.lineup_std?.toFixed(1) || '—'}</strong></span>
                                     <span>Proj Median: <strong style={{ color: 'var(--accent-green)' }}>{lu.projected_score?.toFixed(1) || '—'}</strong></span>
+                                    {lu.histogram && (
+                                      <button onClick={e => { e.stopPropagation(); setHistLineup(lu); }}
+                                        title="Show this lineup's range of outcomes across all sim runs"
+                                        style={{ background: 'rgba(0,242,254,0.1)', border: '1px solid rgba(0,242,254,0.25)', borderRadius: '6px', color: 'var(--accent-primary)', cursor: 'pointer', fontSize: '0.72rem', padding: '2px 8px', fontWeight: 600, marginLeft: 'auto' }}>
+                                        📊 Range of Outcomes
+                                      </button>
+                                    )}
                                   </div>
                                   {hasLocked && <div style={{ fontSize: '0.72rem', color: '#eab308', marginBottom: '8px' }}>🔒 Built with locked player(s)</div>}
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '6px' }}>
@@ -2305,6 +2627,7 @@ export default function Optimizer({
           </div>
         </div>
       )}
+      {histLineup && <LineupHistogramModal lineup={histLineup} onClose={() => setHistLineup(null)} />}
     </div>
   );
 }

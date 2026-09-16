@@ -1,0 +1,38 @@
+{
+  "trained_at": "2026-09-14T21:34:03.966015+00:00",
+  "n_rows": 1506,
+  "n_slates": 1,
+  "slate_ids": [
+    "main_slate"
+  ],
+  "feature_columns": [
+    "salary",
+    "projection_median",
+    "projection_ceiling",
+    "game_total",
+    "team_implied_total",
+    "team_spread",
+    "n_games_on_slate",
+    "cash_consensus_frac",
+    "salary_dispersion_pos",
+    "salary_rank_pctile",
+    "pos_NAN"
+  ],
+  "raw_feature_columns": [
+    "salary",
+    "projection_median",
+    "projection_ceiling",
+    "game_total",
+    "team_implied_total",
+    "team_spread",
+    "n_games_on_slate",
+    "cash_consensus_frac",
+    "salary_dispersion_pos",
+    "salary_rank_pctile"
+  ],
+  "categorical_columns": [
+    "pos"
+  ],
+  "data_maturity_warning": "Trained on very limited data (see README's ~4-6-slates-per-bucket target). Re-train as more slates are archived.",
+  "target": "total_own_pct"
+}

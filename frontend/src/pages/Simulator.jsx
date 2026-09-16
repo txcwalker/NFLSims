@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef, Fragment } from 
 import { DFS_RULES, validateLineup } from '../dfsRules';
 import { ApiService } from '../api';
 import { SandboxBadge } from '../components/SandboxBadge';
+import GameDistribution from '../components/GameDistribution';
 import { fmtSpreadNum, probToAmericanML, fmtML } from '../bettingLines';
 
 const TEAM_COLORS = {
@@ -1868,6 +1869,11 @@ function GameSimulatorWorkspace({
                 </table>
               </div>
             </div>
+
+            {/* Outcome distribution: total, differential, joint heatmap */}
+            {simResults.game_distribution && (
+              <GameDistribution dist={simResults.game_distribution} />
+            )}
 
           </div>
         )}

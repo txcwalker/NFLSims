@@ -33,7 +33,13 @@ import requests
 LOBBY_URL = "https://www.draftkings.com/lobby/getcontests?sport=NFL"
 DRAFTABLES_URL = "https://api.draftkings.com/draftgroups/v1/draftgroups/{draft_group_id}/draftables"
 CONTEST_DETAIL_URL = "https://api.draftkings.com/contests/v1/contests/{contest_id}?format=json"
-HEADERS = {"User-Agent": "Mozilla/5.0"}
+# Empirically (2026-09-15): DK's edge/WAF now 403s any request carrying a
+# custom User-Agent -- "Mozilla/5.0" and a full modern Chrome UA string both
+# got blocked 100% of repeated, interleaved tests against the live API,
+# while an unmodified `requests` call (default `python-requests/x.y` UA, no
+# header override) succeeded 100% of the time. So: send no custom headers at
+# all rather than a value that looks deliberately browser-like.
+HEADERS: Dict[str, str] = {}
 REQUEST_TIMEOUT_SECONDS = 8
 CACHE_TTL_SECONDS = 30 * 60
 
@@ -61,8 +67,31 @@ _lobby_cache: Dict[str, Any] = {
     "default_draft_group_id": None,
 }
 _slate_caches: Dict[int, Dict[str, Any]] = {}  # draft_group_id -> {fetched_at, players, defense, player_ids, defense_ids, teams}
+_showdown_slate_caches: Dict[int, Dict[str, Any]] = {}  # draft_group_id -> showdown pool (see _refresh_showdown_slate)
 
 _alias_cache: Optional[Dict[str, Dict[str, Any]]] = None
+
+# DK Showdown ("Showdown Captain Mode") only -- deliberately excludes Snake
+# Showdown, In-Game Showdown, and Madden Showdown, which are different roster
+# rules / not real NFL player pools.
+SHOWDOWN_GAME_TYPES = {"Showdown Captain Mode"}
+
+# DK's roster-slot ids in a Showdown Captain Mode draftables feed: every player
+# appears twice, once per slot. 511 = Captain (salary already ×1.5, 1.5× points),
+# 512 = FLEX (base salary). Confirmed 2026-09-09 against draft group 153072
+# (SF@LAR): e.g. Puka Nacua 16800 (511) / 11200 (512), ratio exactly 1.5.
+DK_SHOWDOWN_CPT_SLOT = 511
+DK_SHOWDOWN_FLEX_SLOT = 512
+
+# DK city/relocation abbreviations that differ from the internal roster's.
+# Only LAR is live today; the rest are defensive (DK has historically used
+# JAX/LV/WAS the same as us, but a feed flip to JAC/LVR/WSH would silently
+# break the team match otherwise).
+DK_TEAM_ALIASES = {"LAR": "LA", "JAC": "JAX", "LVR": "LV", "WSH": "WAS"}
+
+
+def _normalize_team(abbrev: Optional[str]) -> str:
+    return DK_TEAM_ALIASES.get(abbrev or "", abbrev or "")
 
 
 def normalize_player_name(name: str) -> str:
@@ -179,6 +208,110 @@ def _find_main_slate_draft_group_id(contests: List[Dict[str, Any]]) -> Optional[
     if not counts:
         return None
     return max(counts, key=counts.get)
+
+
+MAIN_SLATE_PIN_PATH = os.path.join(BASE_DIR, "data", "dk_main_slate_pins.json")
+
+
+def _load_main_slate_pins() -> Dict[str, Any]:
+    if not os.path.exists(MAIN_SLATE_PIN_PATH):
+        return {}
+    try:
+        with open(MAIN_SLATE_PIN_PATH, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_main_slate_pins(pins: Dict[str, Any]) -> None:
+    os.makedirs(os.path.dirname(MAIN_SLATE_PIN_PATH), exist_ok=True)
+    tmp = MAIN_SLATE_PIN_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(pins, f, indent=2)
+    os.replace(tmp, MAIN_SLATE_PIN_PATH)
+
+
+def get_main_slate_pin(year: int, week: int) -> Optional[Dict[str, Any]]:
+    """Read-only lookup of the current pin record ({draft_group_id,
+    contest_count, pinned_at}) for one (year, week), or None if never pinned.
+    For callers (e.g. the /api/dk/slates endpoint) that need to display info
+    about a pinned slate without triggering a live refresh themselves."""
+    pins = _load_main_slate_pins()
+    return (pins.get(str(year)) or {}).get(str(week))
+
+
+def pin_main_slate_draft_group_id(year: int, week: int, draft_group_id: int, contest_count: int = 10**9) -> None:
+    """Explicit manual/admin pin, for backfilling a (year, week) whose real
+    main slate already locked and dropped out of the live lobby before this
+    sticky-pin mechanism existed to catch it automatically (e.g. one-time
+    fixup via a shell one-liner). `contest_count` defaults to effectively
+    infinite so this manual pin can't be silently outvoted later by a
+    same-week live "default" candidate with a merely large contest count --
+    pass a real number instead if that matters for a given case."""
+    pins = _load_main_slate_pins()
+    pins.setdefault(str(year), {})[str(week)] = {
+        "draft_group_id": draft_group_id,
+        "contest_count": contest_count,
+        "pinned_at": time.time(),
+        "manual": True,
+    }
+    _save_main_slate_pins(pins)
+
+
+def resolve_main_slate_draft_group_id(year: int, week: int, force_refresh: bool = False) -> Optional[int]:
+    """Sticky per-(year, week) pin for the real NFL 'Main Slate' Classic
+    draft group, so it stays correct for the rest of the week even after DK's
+    live lobby moves on.
+
+    _find_main_slate_draft_group_id()'s "most CURRENTLY OPEN contests"
+    heuristic silently breaks once the real main slate's games lock: DK drops
+    locked contests from the live lobby entirely, so that draft group's open-
+    contest count falls to (near) zero, and whatever small leftover classic
+    contest DK still has open (e.g. a Monday-night-only slate) trivially wins
+    the vote instead -- confirmed live 2026-09-14, where draft group 153109
+    (a 2-team Monday-night leftover) out-"defaulted" 151307 (the real,
+    722-player week-1 main slate) purely because 151307's contests had locked
+    and dropped out of the lobby. DK's draftables endpoint keeps serving a
+    locked slate's full real salary/id data for a long while after that
+    (confirmed same day), so there's no need to give up on 151307 just
+    because the lobby stopped listing its contests.
+
+    Fix: remember whichever classic draft group has ever had the most
+    contests for this (year, week) -- across repeated calls, not just the
+    current live snapshot -- and keep using that one even after it drops out
+    of the live "default" pick. A pin only ever grows (replaced by a bigger
+    candidate), never shrinks, so a genuinely bigger/updated slate later in
+    the week can still take over, but a lock-induced shrink can't steal it
+    back. A (year, week) with no pin yet falls back to the live heuristic and
+    gets pinned by that same call, so normal weeks are pinned automatically
+    the first time anyone loads the app while the real main slate is live --
+    no manual step needed in the common case.
+    """
+    _maybe_refresh_lobby(force_refresh)
+    pins = _load_main_slate_pins()
+    ykey, wkey = str(year), str(week)
+    pinned = (pins.get(ykey) or {}).get(wkey)
+
+    live_default = _lobby_cache["default_draft_group_id"]
+    live_count = 0
+    if live_default is not None:
+        for s in _lobby_cache.get("slates", []):
+            if s["draft_group_id"] == live_default:
+                live_count = s["contest_count"]
+                break
+
+    if pinned is None or (live_default is not None and live_count > pinned.get("contest_count", 0)):
+        if live_default is not None:
+            pins.setdefault(ykey, {})[wkey] = {
+                "draft_group_id": live_default,
+                "contest_count": live_count,
+                "pinned_at": time.time(),
+            }
+            _save_main_slate_pins(pins)
+            return live_default
+        return pinned["draft_group_id"] if pinned else None
+
+    return pinned["draft_group_id"]
 
 
 def _fetch_json(url: str) -> Optional[Dict[str, Any]]:
@@ -416,6 +549,262 @@ def get_dk_salaries(draft_group_id: Optional[int] = None, force_refresh: bool = 
         "player_ids": entry["player_ids"],
         "defense_ids": entry["defense_ids"],
         "main_slate_teams": entry["teams"],
+    }
+
+
+_PRELOCK_CACHE: Dict[Tuple[int, int], Dict[str, Any]] = {}  # (year, week) -> get_dk_salaries()-shaped dict, or None
+
+
+def load_prelock_salary_snapshot(year: int, week: int) -> Optional[Dict[str, Any]]:
+    """Same shape as get_dk_salaries() (so resolve_dk_salary() takes it as a
+    drop-in substitute), built from
+    data/dfs_ownership/<year>/week_<NN>/main_slate/salaries_prelock.csv
+    instead of a live fetch.
+
+    Why this needs to exist at all (2026-09-16): a closed/settled week's
+    draft_group_id is NOT a stable historical record -- DK reuses/repoints
+    the numeric id over time, so a live draftables fetch by that id can
+    return 200 OK with a WRONG, unrelated player pool instead of failing
+    (confirmed on week 1's own pin, 151307: this module's docstring already
+    notes it was DK's live Main Slate back on 2026-08-22 during preseason
+    dev; by 2026-09-16 the same id returned a 24-team mix including
+    Thursday-week-2 BUF/DET, not week 1's real 32-team field). is_live-style
+    "did the fetch fail" checks (see src/api/app.py's _overlay_live_salaries)
+    can't catch this failure mode since the fetch itself succeeds -- only a
+    frozen, known-good pre-lock snapshot can. Callers should therefore
+    prefer this over get_dk_salaries() whenever a snapshot exists for the
+    requested week, live or not.
+
+    Cached in-process by (year, week) with no TTL -- a settled week's
+    snapshot is immutable once written (see scripts/dfs_ownership/
+    snapshot_slate_salaries.py); re-snapshotting a week (rare, only if
+    re-run before lock) invalidates by mtime like the other caches here.
+
+    Returns None if no snapshot file exists for this week (current/future
+    week, or one never snapshotted) -- callers should fall back to
+    get_dk_salaries() in that case.
+    """
+    import csv
+
+    key = (int(year), int(week))
+    path = os.path.join(BASE_DIR, "data", "dfs_ownership", str(int(year)), f"week_{int(week):02d}",
+                        "main_slate", "salaries_prelock.csv")
+    if not os.path.exists(path):
+        _PRELOCK_CACHE.pop(key, None)
+        return None
+
+    mtime = os.path.getmtime(path)
+    cached = _PRELOCK_CACHE.get(key)
+    if cached is not None and cached.get("_mtime") == mtime:
+        return cached
+
+    players: Dict[Tuple[str, str], int] = {}
+    player_ids: Dict[Tuple[str, str], int] = {}
+    defense: Dict[str, int] = {}
+    defense_ids: Dict[str, int] = {}
+    teams: set = set()
+    with open(path, "r", encoding="utf-8-sig", newline="") as f:
+        for row in csv.DictReader(f):
+            team = (row.get("team") or "").strip().upper()
+            if not team:
+                continue
+            teams.add(team)
+            try:
+                salary = int(float(row["salary"]))
+                dk_id = int(row["dk_id"]) if row.get("dk_id") else None
+            except (KeyError, ValueError):
+                continue
+            if (row.get("pos") or "").strip().upper() == "DST":
+                defense[team] = salary
+                if dk_id is not None:
+                    defense_ids[team] = dk_id
+            else:
+                name_norm = normalize_player_name(row.get("name") or "")
+                if not name_norm:
+                    continue
+                players[(name_norm, team)] = salary
+                if dk_id is not None:
+                    player_ids[(name_norm, team)] = dk_id
+
+    result = {
+        "draft_group_id": None, "fetched_at": mtime, "is_live": True,
+        "players": players, "defense": defense,
+        "player_ids": player_ids, "defense_ids": defense_ids,
+        "main_slate_teams": teams, "_mtime": mtime,
+    }
+    _PRELOCK_CACHE[key] = result
+    return result
+
+
+def _refresh_showdown_slate(draft_group_id: int) -> None:
+    """Fetches one Showdown Captain Mode draft group's draftables and folds the
+    two-rows-per-player feed into one record per player carrying BOTH the base
+    (FLEX) salary and the captain salary/id.
+
+    Cached shape (`_showdown_slate_caches[dg]`):
+        {
+          "fetched_at": float,
+          "teams": {abbrev, abbrev},                 # the two teams in the game
+          "players": {(normalized_name, team): {"name", "team", "pos",
+                       "salary" (base/FLEX), "cpt_salary", "flex_id", "cpt_id"}},
+          "defense": {team: {same shape, pos="DST"}},
+        }
+    Kickers (pos "K") are kept in `players` -- DK prices them on Showdown even
+    though the sim engine doesn't project them, so a caller can at least show
+    the salary.
+    """
+    resp = _fetch_json(DRAFTABLES_URL.format(draft_group_id=draft_group_id))
+    if resp is None:
+        return
+    draftables = resp.get("draftables", [])
+
+    by_player: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for d in draftables:
+        team = _normalize_team(d.get("teamAbbreviation"))
+        salary = d.get("salary")
+        pos = d.get("position")
+        draftable_id = d.get("draftableId")
+        slot = d.get("rosterSlotId")
+        name = d.get("displayName", "")
+        if not team or salary is None or not name:
+            continue
+        key = ("__dst__", team) if pos == "DST" else (normalize_player_name(name), team)
+        rec = by_player.setdefault(key, {"name": name, "team": team, "pos": pos})
+        if slot == DK_SHOWDOWN_CPT_SLOT:
+            rec["cpt_salary"] = salary
+            rec["cpt_id"] = draftable_id
+        else:  # FLEX slot, or an unexpected slot id -> treat as the base row
+            rec["flex_salary"] = salary
+            rec["flex_id"] = draftable_id
+
+    players: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    defense: Dict[str, Dict[str, Any]] = {}
+    teams: set = set()
+    for key, rec in by_player.items():
+        base = rec.get("flex_salary")
+        if base is None and rec.get("cpt_salary") is not None:
+            base = int(round(rec["cpt_salary"] / 1.5))
+        if base is None:
+            continue
+        teams.add(rec["team"])
+        entry = {
+            "name": rec["name"], "team": rec["team"], "pos": rec["pos"],
+            "salary": base,
+            "cpt_salary": rec.get("cpt_salary", int(round(base * 1.5))),
+            "flex_id": rec.get("flex_id"),
+            "cpt_id": rec.get("cpt_id"),
+        }
+        if rec["pos"] == "DST":
+            defense[rec["team"]] = entry
+        else:
+            players[key] = entry
+
+    if not players:
+        print(f"DK scraper: showdown draft group {draft_group_id} returned no usable salaries.")
+        return
+
+    _showdown_slate_caches[draft_group_id] = {
+        "fetched_at": time.time(),
+        "teams": teams,
+        "players": players,
+        "defense": defense,
+    }
+    print(f"DK scraper: refreshed Showdown salaries for draft group {draft_group_id} "
+          f"({len(players)} players, {len(defense)} DST, teams {sorted(teams)}).")
+
+
+def _showdown_slate_entry(draft_group_id: int, force_refresh: bool) -> Optional[Dict[str, Any]]:
+    entry = _showdown_slate_caches.get(draft_group_id)
+    stale = entry is None or (time.time() - entry["fetched_at"] > CACHE_TTL_SECONDS)
+    if force_refresh or stale:
+        _refresh_showdown_slate(draft_group_id)
+        entry = _showdown_slate_caches.get(draft_group_id)
+    return entry
+
+
+def get_dk_showdown_slates(force_refresh: bool = False) -> Dict[str, Any]:
+    """Every live Showdown Captain Mode slate with its two teams resolved.
+
+    One draftables fetch per showdown slate (cached 30 min) -- needed because
+    DK's lobby listing labels a showdown slate only by start time, never by
+    matchup. Typically 1-8 showdown slates live at once.
+
+        {
+          "is_live": bool,
+          "slates": [{"draft_group_id", "label", "teams": [a, b],
+                      "contest_count", "player_count"}, ...],
+        }
+    Fail-soft: never raises; a slate whose draftables fetch failed comes back
+    with teams=[] and player_count=0 rather than being dropped.
+    """
+    _maybe_refresh_lobby(force_refresh)
+    out = []
+    for s in _lobby_cache["slates"]:
+        if s.get("game_type") not in SHOWDOWN_GAME_TYPES:
+            continue
+        dg = s["draft_group_id"]
+        entry = _showdown_slate_entry(dg, force_refresh)
+        out.append({
+            "draft_group_id": dg,
+            "label": s.get("label"),
+            "teams": sorted(entry["teams"]) if entry else [],
+            "contest_count": s.get("contest_count"),
+            "player_count": len(entry["players"]) if entry else 0,
+        })
+    return {"is_live": _lobby_cache["fetched_at"] is not None, "slates": out}
+
+
+def get_dk_showdown_salaries(
+    draft_group_id: Optional[int] = None,
+    away_team: Optional[str] = None,
+    home_team: Optional[str] = None,
+    force_refresh: bool = False,
+) -> Dict[str, Any]:
+    """Salary pool for one Showdown slate -- by explicit `draft_group_id`, or
+    discovered by matching a `{away_team, home_team}` pair against every live
+    showdown slate's resolved teams (internal abbreviations, e.g. "LA" not
+    "LAR").
+
+        {
+          "found": bool,
+          "draft_group_id": int | None,
+          "fetched_at": float | None,
+          "teams": [a, b],
+          "players": [{"name","team","pos","salary","cpt_salary",
+                       "flex_id","cpt_id"}, ...],   # includes K; excludes DST
+          "defense": [{...same shape, pos="DST"...}, ...],
+        }
+    Fail-soft: `found=False` with empty lists on any miss/failure.
+    """
+    _maybe_refresh_lobby(force_refresh)
+    empty = {"found": False, "draft_group_id": draft_group_id, "fetched_at": None,
+             "teams": [], "players": [], "defense": []}
+
+    dg = draft_group_id
+    if dg is None:
+        if not (away_team and home_team):
+            return empty
+        want = {away_team, home_team}
+        for s in _lobby_cache["slates"]:
+            if s.get("game_type") not in SHOWDOWN_GAME_TYPES:
+                continue
+            entry = _showdown_slate_entry(s["draft_group_id"], force_refresh)
+            if entry and want.issubset(entry["teams"]):
+                dg = s["draft_group_id"]
+                break
+        if dg is None:
+            return empty
+
+    entry = _showdown_slate_entry(dg, force_refresh)
+    if entry is None:
+        return {**empty, "draft_group_id": dg}
+    return {
+        "found": True,
+        "draft_group_id": dg,
+        "fetched_at": entry["fetched_at"],
+        "teams": sorted(entry["teams"]),
+        "players": sorted(entry["players"].values(), key=lambda p: -p["salary"]),
+        "defense": list(entry["defense"].values()),
     }
 
 
