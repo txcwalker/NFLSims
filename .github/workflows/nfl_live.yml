@@ -61,6 +61,11 @@ jobs:
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
           cache-version: 1
+          # Audit S0.4/C3: this hand-list previously omitted xgboost (the
+          # win_probability/fourth_down/field_goal .rds models need it) plus
+          # several other packages real R/ scripts actually library() --
+          # cross-checked against R/renv.lock, the new committed manifest of
+          # everything actually installed/used.
           extra-packages: |
             any::curl
             any::httr
@@ -73,6 +78,19 @@ jobs:
             any::tibble
             any::stringr
             any::data.table
+            any::xgboost
+            any::nflfastR
+            any::nflreadr
+            any::rtoot
+            any::atrrr
+            any::dotenv
+            any::rlang
+            any::scales
+            any::slider
+            any::tidyr
+            any::pROC
+            any::caret
+            any::ggplot2
 
       - name: Sanity check libraries
         run: |
