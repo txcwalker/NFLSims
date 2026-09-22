@@ -4,6 +4,41 @@
 
 ---
 
+### [2026-09-22] Handoff from Claude Opus 5.5 (DFS optimizer UX: pool team/game filter, edit-safe projection threshold, exposure drill-down)
+
+- **Active Task:** Three DFS Optimizer UI requests from Cam, all frontend-only, all in
+  [frontend/src/pages/Optimizer.jsx](frontend/src/pages/Optimizer.jsx). Done and live-tested
+  against the running DFS site (week's existing 20-lineup build).
+- **Files Modified:**
+  - [frontend/src/pages/Optimizer.jsx](frontend/src/pages/Optimizer.jsx):
+    1. **Player Pool team/game filter** -- `teamGameFilter` state (`'ALL' | 'G:<AWAY@HOME>' | 'T:<TEAM>'`)
+       + a dropdown beside the search box, options from `poolGameOptions` (derived from the pool itself,
+       not `games`). View-only -- does NOT exclude from the optimizer (SettingsPanel / GameBar still own that).
+       Live check: 338 -> 24 players on ARI@SF, all rows that game.
+    2. **Projection threshold waits for blur** -- `editingProj` (`{id, projection, gppProjection}` snapshot
+       taken onFocus, cleared onBlur / Enter). While set, that player skips the "Hide & Exclude below" filter
+       in `visiblePool`, sorts by the snapshot (default sort is by projection, so a half-typed 12->1 would
+       otherwise throw the row down the table), and isn't dimmed. `isPlayerExcluded` itself is unchanged, so
+       the optimize payload is unaffected. Live check: typed 0.1 into Gibbs, row held position + focus;
+       restored to 25.4 (no override left behind). **Not live-tested with a threshold > 0** -- Cam's saved
+       threshold was 0 and settings autosave, so didn't change it.
+    3. **Exposure drill-down** -- clicking a Portfolio Exposure card toggles it into `selectedExposureKeys`
+       (key = `name_team_pos`, now also stored as `key` on each `playerExposures` row). `displayedLineups`
+       filters the lineups table to lineups with ALL / ANY (`exposureMatchMode`, toggle shown at 2+ players)
+       of them; a stats strip shows avg EV% / Port.Score / ITM% / Top1% / Top.1% / P95 / salary for the subset
+       vs. the whole portfolio (`summarizeLineups`). Selected players get an underline in lineup rows.
+       **Exports (DK upload + summary CSV) still use the full `sortedLineups`**, deliberately. Stale selections
+       are pruned when `playerExposures` changes; expanded row collapses when the filter changes (index-based).
+       Live check: Flowers 40% -> 8/20; + Aaron Jones (35%) -> 3 ALL / 12 ANY (8+7-3, consistent).
+- **Commit note:** Optimizer.jsx also carried another session's uncommitted work (DST `dk_name` export fix,
+  ContestPicker, FLEX-mix line, etc.) and WORKLOG.md that session's uncommitted entry. Only this session's
+  hunks were staged; the other work is still uncommitted in the working tree, untouched.
+- **Immediate Next Steps:** Cam to sanity-check #2 with a real threshold set. Possible follow-ups (not
+  requested): show original portfolio rank (`#`) in a filtered lineup view; a "lock/exclude from here"
+  action on the drill-down chips.
+
+---
+
 ### [2026-09-22] Handoff from Claude Sonnet 5 (2026-09 audit revisit — Batches A/C/H of the fix-pass plan)
 
 - **Active Task:** Cam asked to revisit the 2026-09 full-repo audit (run just before Week 1, see [docs/audit/2026_09_audit/](docs/audit/2026_09_audit/)) — 13 days and one large DFS-feature commit later, nothing from its [fix_pass_plan.md](docs/audit/2026_09_audit/fix_pass_plan.md) had been done except E1 (already marked done pre-existing). Scoped this pass to **Batches A (safety), C (tooling), H (docs) only** — B (dead-code removal), D/F (engine tests + validation benchmark), G (publish-prep), and both Cam-gated decisions (filename strip, live-bot canonical entry point) are deliberately deferred to later in the season, not skipped. `fix_pass_plan.md` itself now carries `✅ DONE`/`🔄 PARTIAL` markers per item — check there before re-doing anything below.

@@ -832,6 +832,15 @@ export default function Optimizer({
   // ── Filters
   const [playerSearch, setPlayerSearch] = useState('');
   const [posFilter, setPosFilter] = useState('ALL');
+  // Team/game filter for the pool table: 'ALL' | 'G:<AWAY@HOME>' | 'T:<TEAM>'.
+  // View-only -- does not exclude anyone from the optimizer.
+  const [teamGameFilter, setTeamGameFilter] = useState('ALL');
+  // Projection cell currently being typed into: { id, projection, gppProjection }
+  // snapshotted at focus. While set, that player is exempt from the "hide
+  // below X pts" threshold and sorts by the snapshot, so a half-typed value
+  // (12 -> 1 -> 13) neither hides the row nor jumps it around the table. Cleared
+  // on blur, at which point the real value applies.
+  const [editingProj, setEditingProj] = useState(null);
 
   // ── Sorting
   const [sortField, setSortField] = useState('projection');
@@ -856,6 +865,11 @@ export default function Optimizer({
   const [exposurePosFilter, setExposurePosFilter] = useState('ALL');
   const [exposureSortField, setExposureSortField] = useState('exposure');
   const [exposureSortAsc, setExposureSortAsc] = useState(false);
+  // Exposure drill-down: keys (`name_team_pos`, same as playerExposures' key)
+  // of players clicked in the exposure panel. Non-empty -> the lineups table
+  // shows only lineups containing ALL (or ANY, per exposureMatchMode) of them.
+  const [selectedExposureKeys, setSelectedExposureKeys] = useState(() => new Set());
+  const [exposureMatchMode, setExposureMatchMode] = useState('all'); // 'all' | 'any'
 
   // ── Sync settings to parent
   useEffect(() => { setOptimizerSettings(settings); }, [settings]);
@@ -1092,23 +1106,37 @@ export default function Optimizer({
     return false;
   }, [excludedTeams, excludedGames, gameExclusions, settings.projThreshold]);
 
+  // Options for the pool's team/game dropdown -- derived from the pool itself
+  // (not `games`) so it only lists matchups that actually have players here.
+  const poolGameOptions = useMemo(() => {
+    const gs = new Set(), ts = new Set();
+    enrichedPool.forEach(p => { if (p.game) gs.add(p.game); if (p.team) ts.add(p.team); });
+    return { games: [...gs].sort(), teams: [...ts].sort() };
+  }, [enrichedPool]);
+
   const visiblePool = useMemo(() => {
     const threshold = settings.projThreshold || 0;
+    const editId = editingProj?.id;
+    // Value used for sorting: the focus-time snapshot for the row being edited
+    // (see editingProj), the live value for everyone else.
+    const sortVal = (p, field) => (p.id === editId && field in editingProj ? editingProj[field] : p[field]);
     return enrichedPool
       .filter(p => {
         if (posFilter !== 'ALL' && p.pos !== posFilter) return false;
         if (playerSearch && !p.name.toLowerCase().includes(playerSearch.toLowerCase())) return false;
-        if (threshold > 0 && p.projection < threshold) return false;
+        if (teamGameFilter.startsWith('G:') && p.game !== teamGameFilter.slice(2)) return false;
+        if (teamGameFilter.startsWith('T:') && p.team !== teamGameFilter.slice(2)) return false;
+        if (threshold > 0 && p.projection < threshold && p.id !== editId) return false;
         return true;
       })
       .sort((a, b) => {
         const field = sortField === 'gppProjection' ? 'gppProjection' : sortField;
-        let va = a[field] ?? 0;
-        let vb = b[field] ?? 0;
+        let va = sortVal(a, field) ?? 0;
+        let vb = sortVal(b, field) ?? 0;
         if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
         return sortAsc ? va - vb : vb - va;
       });
-  }, [enrichedPool, posFilter, playerSearch, settings.projThreshold, sortField, sortAsc]);
+  }, [enrichedPool, posFilter, playerSearch, teamGameFilter, editingProj, settings.projThreshold, sortField, sortAsc]);
 
   const totalCount = visiblePool.length;
   const excludedCount = visiblePool.filter(p => isPlayerExcluded(p)).length;
@@ -1459,6 +1487,7 @@ export default function Optimizer({
           const poolPlayer = poolMap[`${p.name}_${p.team}`] || poolMap[p.name.toLowerCase()];
           const projOwn = p.ownership_pct ?? poolPlayer?.ownershipPct ?? 0;
           counts[key] = {
+            key,
             name: p.pos === 'DST' ? `${p.team} DST` : p.name,
             pos: p.pos,
             team: p.team,
@@ -1505,6 +1534,72 @@ export default function Optimizer({
         return exposureSortAsc ? valA - valB : valB - valA;
       });
   }, [playerExposures, exposureSearch, exposurePosFilter, exposureSortField, exposureSortAsc]);
+
+  // ── Exposure drill-down (click players in the exposure panel)
+  const lineupKey = (p) => `${p.name}_${p.team}_${p.pos}`; // must match playerExposures' key
+
+  const toggleExposureSelect = (key) => setSelectedExposureKeys(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+
+  // A fresh optimize / loaded build can drop players -- prune stale selections
+  // and collapse any expanded row (its index no longer points at the same lineup).
+  useEffect(() => {
+    setSelectedExposureKeys(prev => {
+      if (prev.size === 0) return prev;
+      const live = new Set(playerExposures.map(p => p.key));
+      const next = new Set([...prev].filter(k => live.has(k)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [playerExposures]);
+  useEffect(() => { setExpandedLineupIdx(null); }, [selectedExposureKeys, exposureMatchMode]);
+
+  /** Lineups shown in the results table.
+   * Inputs: sortedLineups (all lineups, current sort), selectedExposureKeys
+   *   (Set<string> of player keys), exposureMatchMode ('all' | 'any').
+   * Output: array of lineup objects -- sortedLineups unchanged when nothing is
+   *   selected, else only lineups containing all/any of the selected players.
+   * Exports keep using sortedLineups, so filtering never trims a DK upload. */
+  const displayedLineups = useMemo(() => {
+    if (selectedExposureKeys.size === 0) return sortedLineups;
+    const sel = [...selectedExposureKeys];
+    return sortedLineups.filter(lu => {
+      const keys = new Set(lu.players.map(lineupKey));
+      return exposureMatchMode === 'all' ? sel.every(k => keys.has(k)) : sel.some(k => keys.has(k));
+    });
+  }, [sortedLineups, selectedExposureKeys, exposureMatchMode]);
+
+  /** Average per-lineup metrics over a lineup set.
+   * Input: array of lineup objects. Output: { n, ev_pct, portfolio_score,
+   *   itm_pct, top1_pct, top01_pct, p95, salary } (means; null if unavailable).
+   * Used to compare the drilled-down subset against the whole portfolio. */
+  const summarizeLineups = (ls) => {
+    const avg = (f) => {
+      const vals = ls.map(f).filter(v => v != null && isFinite(v));
+      return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+    };
+    return {
+      n: ls.length,
+      ev_pct: avg(l => l.ev_pct),
+      portfolio_score: avg(l => l.portfolio_score),
+      itm_pct: avg(l => l.itm_pct),
+      top1_pct: avg(l => l.top1_pct),
+      top01_pct: avg(l => l.top01_pct),
+      p95: avg(l => l.lineup_p95 ?? l.projected_score),
+      salary: avg(l => l.total_salary),
+    };
+  };
+  const portfolioAvg = useMemo(() => summarizeLineups(sortedLineups), [sortedLineups]); // eslint-disable-line react-hooks/exhaustive-deps
+  const selectionAvg = useMemo(
+    () => (selectedExposureKeys.size ? summarizeLineups(displayedLineups) : null),
+    [displayedLineups, selectedExposureKeys] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const selectedExposurePlayers = useMemo(
+    () => playerExposures.filter(p => selectedExposureKeys.has(p.key)),
+    [playerExposures, selectedExposureKeys]
+  );
 
   const evColor = (v) => v > 0 ? '#22c55e' : v < 0 ? '#ef4444' : 'var(--text-muted)';
 
@@ -1977,6 +2072,23 @@ export default function Optimizer({
                   whiteSpace: 'nowrap',
                 }}
               >{showGppCol ? 'Hide' : 'Show'} GPP blend</button>
+              <select
+                value={teamGameFilter} onChange={e => setTeamGameFilter(e.target.value)}
+                title="Show only one game or team (view filter -- doesn't exclude anyone from the optimizer)"
+                style={{
+                  ...inputStyle, padding: '5px 8px', fontSize: '0.78rem',
+                  color: teamGameFilter !== 'ALL' ? 'var(--accent-primary)' : undefined,
+                  borderColor: teamGameFilter !== 'ALL' ? 'rgba(0,242,254,0.4)' : undefined,
+                }}
+              >
+                <option value="ALL">All games / teams</option>
+                <optgroup label="Games">
+                  {poolGameOptions.games.map(g => <option key={g} value={`G:${g}`}>{g.replace('@', ' @ ')}</option>)}
+                </optgroup>
+                <optgroup label="Teams">
+                  {poolGameOptions.teams.map(t => <option key={t} value={`T:${t}`}>{t}</option>)}
+                </optgroup>
+              </select>
               <input
                 type="text" placeholder="Search player…"
                 value={playerSearch} onChange={e => setPlayerSearch(e.target.value)}
@@ -2081,7 +2193,11 @@ export default function Optimizer({
                 {visiblePool.length === 0 ? (
                   <tr><td colSpan={showGppCol ? 16 : 15} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>No players match your filters.</td></tr>
                 ) : visiblePool.map(p => {
-                  const excluded = isPlayerExcluded(p);
+                  // Don't dim the row being typed into just because a half-typed
+                  // value dipped under the threshold (other exclusions still apply).
+                  const excluded = editingProj?.id === p.id
+                    ? isPlayerExcluded({ ...p, projection: Infinity })
+                    : isPlayerExcluded(p);
                   const tint = getProjTint(p);
                   const isAboveP75 = p.hasPcts && (p.simP75 ?? p.p75) != null && p.projection > (p.simP75 ?? p.p75);
                   return (
@@ -2137,6 +2253,9 @@ export default function Optimizer({
                             type="number" step={0.1}
                             value={p.projection}
                             onChange={e => setProjection(p.id, e.target.value)}
+                            onFocus={() => setEditingProj({ id: p.id, projection: p.projection, gppProjection: p.gppProjection })}
+                            onBlur={() => setEditingProj(null)}
+                            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                             style={{
                               ...inputStyle, width: '60px', padding: '3px 5px', fontWeight: 700,
                               color: isAboveP75 ? '#ef4444' : 'var(--text-white)',
@@ -2287,7 +2406,68 @@ export default function Optimizer({
           <div className="optimizer-results-layout">
             {/* Lineups Table */}
             <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 10px 0', fontSize: '1rem' }}>Generated Lineups ({sortedLineups.length})</h2>
+              <h2 style={{ margin: '0 0 10px 0', fontSize: '1rem' }}>
+                Generated Lineups ({selectionAvg ? `${displayedLineups.length} of ${sortedLineups.length}` : sortedLineups.length})
+              </h2>
+
+              {/* Exposure drill-down: selected players + subset-vs-portfolio averages */}
+              {selectionAvg && (
+                <div style={{ background: 'rgba(0,242,254,0.04)', border: '1px solid rgba(0,242,254,0.18)', borderRadius: '8px', padding: '10px', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Lineups with</span>
+                    {selectedExposurePlayers.length > 1 && (
+                      <div style={{ display: 'flex', gap: '2px' }}>
+                        {['all', 'any'].map(m => (
+                          <button key={m} onClick={() => setExposureMatchMode(m)} style={{
+                            ...pillBtnBase, padding: '1px 7px', fontSize: '0.68rem',
+                            background: exposureMatchMode === m ? 'rgba(0,242,254,0.15)' : 'rgba(255,255,255,0.03)',
+                            color: exposureMatchMode === m ? 'var(--accent-primary)' : 'var(--text-muted)',
+                            borderColor: exposureMatchMode === m ? 'rgba(0,242,254,0.4)' : 'rgba(255,255,255,0.08)',
+                          }}>{m.toUpperCase()} of</button>
+                        ))}
+                      </div>
+                    )}
+                    {selectedExposurePlayers.map(p => (
+                      <span key={p.key} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.74rem', fontWeight: 600, padding: '2px 4px 2px 8px', borderRadius: '20px', background: (POS_COLORS[p.pos] || '#888') + '1f', border: `1px solid ${(POS_COLORS[p.pos] || '#888')}55`, color: 'var(--text-white)' }}>
+                        {p.name}
+                        <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{p.exposure.toFixed(1)}%</span>
+                        <button onClick={() => toggleExposureSelect(p.key)} title="Remove"
+                          style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.72rem', padding: '0 3px' }}>✕</button>
+                      </span>
+                    ))}
+                    <button onClick={() => setSelectedExposureKeys(new Set())}
+                      style={{ ...pillBtnBase, marginLeft: 'auto', padding: '2px 9px', fontSize: '0.7rem', background: 'rgba(255,255,255,0.04)', color: 'var(--text-secondary)', borderColor: 'rgba(255,255,255,0.12)' }}>
+                      Clear filter
+                    </button>
+                  </div>
+                  {selectionAvg.n === 0 ? (
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>No lineups contain all of these players together.</div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))', gap: '6px' }}>
+                      {[
+                        { label: 'Lineups', v: selectionAvg.n, base: portfolioAvg.n, fmt: v => `${v}`, baseFmt: v => `of ${v}` },
+                        { label: 'Avg EV%', v: selectionAvg.ev_pct, base: portfolioAvg.ev_pct, fmt: v => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`, color: evColor },
+                        { label: 'Avg Port.Score', v: selectionAvg.portfolio_score, base: portfolioAvg.portfolio_score, fmt: v => v.toFixed(2) },
+                        { label: 'Avg ITM%', v: selectionAvg.itm_pct, base: portfolioAvg.itm_pct, fmt: v => `${v.toFixed(2)}%` },
+                        { label: 'Avg Top1%', v: selectionAvg.top1_pct, base: portfolioAvg.top1_pct, fmt: v => `${v.toFixed(2)}%` },
+                        { label: 'Avg Top.1%', v: selectionAvg.top01_pct, base: portfolioAvg.top01_pct, fmt: v => `${v.toFixed(2)}%` },
+                        { label: 'Avg P95', v: selectionAvg.p95, base: portfolioAvg.p95, fmt: v => v.toFixed(1) },
+                        { label: 'Avg Salary', v: selectionAvg.salary, base: portfolioAvg.salary, fmt: v => `$${Math.round(v).toLocaleString()}` },
+                      ].filter(s => s.v != null).map(s => (
+                        <div key={s.label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '6px', padding: '6px 8px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 700, color: s.color ? s.color(s.v) : 'var(--text-white)' }}>{s.fmt(s.v)}</div>
+                          {s.base != null && (
+                            <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }} title="Whole-portfolio average">
+                              {s.baseFmt ? s.baseFmt(s.base) : `port. ${s.fmt(s.base)}`}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="table-container" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                 <table style={{ fontSize: '0.78rem', width: '100%' }}>
                   <thead>
@@ -2310,11 +2490,11 @@ export default function Optimizer({
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedLineups.length === 0 ? (
+                    {displayedLineups.length === 0 ? (
                       <tr><td colSpan={18} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
-                        No lineups yet. Click ⚡ Optimize to generate.
+                        {sortedLineups.length === 0 ? 'No lineups yet. Click ⚡ Optimize to generate.' : 'No lineups match the selected players.'}
                       </td></tr>
-                    ) : sortedLineups.map((lu, idx) => {
+                    ) : displayedLineups.map((lu, idx) => {
                       const rowTint = getLineupRowTint(lu, sortedLineups);
                       const slotted = getSlottedColumns(lu.players);
                       const isExpanded = expandedLineupIdx === idx;
@@ -2324,8 +2504,9 @@ export default function Optimizer({
                       const renderSlot = (player) => {
                         if (!player) return <td style={{ padding: '5px 6px', color: 'rgba(255,255,255,0.2)' }}>—</td>;
                         const displayName = player.pos === 'DST' ? `${player.team} DST` : player.name.split(' ').slice(-1)[0];
+                        const isSelected = selectedExposureKeys.has(lineupKey(player));
                         return (
-                          <td style={{ padding: '5px 6px', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '5px 6px', whiteSpace: 'nowrap', ...(isSelected ? { boxShadow: 'inset 0 -2px 0 var(--accent-primary)' } : {}) }}>
                             <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: TEAM_COLORS[player.team] || '#888', marginRight: '4px', verticalAlign: 'middle' }} />
                             <span style={{ fontWeight: 600 }}>{displayName}</span>
                           </td>
@@ -2508,22 +2689,27 @@ export default function Optimizer({
                     const posColor = POS_COLORS[p.pos] || '#888';
                     const isPositiveLev = p.leverage > 0;
                     const levText = p.ownership > 0 ? `${isPositiveLev ? '+' : ''}${p.leverage.toFixed(1)}%` : '—';
-                    
+                    const isSelected = selectedExposureKeys.has(p.key);
+                    const baseBg = isSelected ? 'rgba(0,242,254,0.08)' : 'rgba(255,255,255,0.02)';
+
                     return (
                       <div
-                        key={`${p.name}_${p.pos}`}
+                        key={p.key}
+                        onClick={() => toggleExposureSelect(p.key)}
+                        title={isSelected ? 'Click to remove from the lineup filter' : 'Click to show only lineups with this player (click more to combine)'}
                         style={{
-                          background: 'rgba(255,255,255,0.02)',
-                          border: '1px solid rgba(255,255,255,0.04)',
+                          background: baseBg,
+                          border: `1px solid ${isSelected ? 'rgba(0,242,254,0.45)' : 'rgba(255,255,255,0.04)'}`,
                           borderRadius: '8px',
                           padding: '8px 10px',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '6px',
+                          cursor: 'pointer',
                           transition: 'background 0.2s',
                         }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                        onMouseEnter={e => e.currentTarget.style.background = isSelected ? 'rgba(0,242,254,0.12)' : 'rgba(255,255,255,0.04)'}
+                        onMouseLeave={e => e.currentTarget.style.background = baseBg}
                       >
                         {/* Player Info Row */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
