@@ -85,17 +85,17 @@ We will generate and save diagnostic plots to `src/nfl_sim/models/efsd_v_0_1_0/`
 
 ### 1. Model Component (`src/nfl_sim/models/efsd_v_0_1_0/`)
 
-#### [NEW] [train_efsd.py](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/models/efsd_v_0_1_0/train_efsd.py)
+#### [NEW] [train_efsd.py](../../src/nfl_sim/models/efsd_v_0_1_0/train_efsd.py)
 * Loads dataset, executes data cleaning/filling, constructs the target and features, trains the model, computes evaluation metrics (RMSE, MAE, $R^2$), calculates advanced metrics (Time-Bucket, Sign Accuracy, EPA Correlation), and generates the diagnostic plots.
 * Saves `efsd_model.json` (model weights) and `metadata.json` (metadata + metrics).
 
-#### [NEW] [efsd_inference.py](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/models/efsd_v_0_1_0/efsd_inference.py)
+#### [NEW] [efsd_inference.py](../../src/nfl_sim/models/efsd_v_0_1_0/efsd_inference.py)
 * Class `EFSDModelV010` wraps the booster file.
 * Exposes `predict_efsd(...)` for scalar evaluations and `predict_batch(...)` for fast vectorized calculations.
 
 ### 2. Simulator & Evaluator Updates (`src/nfl_sim/`)
 
-#### [MODIFY] [nfl_positional_evaluator.py](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/nfl_positional_evaluator.py)
+#### [MODIFY] [nfl_positional_evaluator.py](../../src/nfl_sim/nfl_positional_evaluator.py)
 * Load `EFSDModelV010` in `PositionalEvaluator`.
 * Implement `_drive_end_efsd(self, score_diff_off, game_sec, terminal, off_to, def_to)`:
   * Non-terminal: returns `-self.efsd_model.predict_batch(opp_kickoff_state)`.
@@ -117,7 +117,7 @@ We will generate and save diagnostic plots to `src/nfl_sim/models/efsd_v_0_1_0/`
 
 ### 4. Frontend Comparison Interface (`frontend_analysis/`)
 
-#### [MODIFY] [HistoricalLab.jsx](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/frontend_analysis/src/pages/HistoricalLab.jsx)
+#### [MODIFY] [HistoricalLab.jsx](../../frontend_analysis/src/pages/HistoricalLab.jsx)
 * **Timeline Charts**: Render KEP and EFSD as **separate stacked charts** rather than overlaid lines on a shared axis. KEP is bounded (~±24) while EFSD is unbounded (blowouts can exceed ±30), so a shared y-axis would compress one or distort the other. Two independent charts with their own y-scales prevent this and make each metric independently readable.
 * **Selected Play Details**: Show KEP and EFSD side-by-side in the play detail panel.
 * **Suggested Lines Panel**: Add a metric toggle `[ KEP ] [ EFSD ]` and fetch suggestions dynamically using the selected metric.

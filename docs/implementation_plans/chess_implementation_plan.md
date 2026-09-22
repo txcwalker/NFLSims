@@ -35,18 +35,18 @@ Rather than grouping results by generic "Pass vs. Run" play calls, we will analy
 
 ### 1. Backend Models
 
-#### [NEW] [positional_ep_inference.py](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/models/positional_ep_v_0_1_0/positional_ep_inference.py)
+#### [NEW] [positional_ep_inference.py](../../src/nfl_sim/models/positional_ep_v_0_1_0/positional_ep_inference.py)
 Create the Expected Points inference wrapper:
 - Loads the trained `positional_ep_model.json`.
 - Implements `predict_expected_points(yardline_100, down, ydstogo, goal_to_go)` returning a float.
 
-#### [NEW] [train_positional_ep.py](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/models/positional_ep_v_0_1_0/train_positional_ep.py)
+#### [NEW] [train_positional_ep.py](../../src/nfl_sim/models/positional_ep_v_0_1_0/train_positional_ep.py)
 Create a script to train the EP model:
 - Reads the play-by-play historical dataset `data/processed/hardened_pass_training_master_v2_5.csv`.
 - Trains an `XGBRegressor` on features `['yardline_100', 'down', 'ydstogo', 'goal_to_go']` targeting the `ep` column.
 - Serializes the model to `positional_ep_model.json`.
 
-#### [NEW] [nfl_positional_evaluator.py](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/nfl_positional_evaluator.py)
+#### [NEW] [nfl_positional_evaluator.py](../../src/nfl_sim/nfl_positional_evaluator.py)
 Create the core evaluation manager:
 - Computes KEP using a pre-calculated kickoff WP grid.
 - Runs drive-long simulations, classifies the first play's executed concept (Screen, Short, Medium, Deep, Run), and aggregates drive outcome KEPs to determine the point deltas for each play type.
@@ -55,7 +55,7 @@ Create the core evaluation manager:
 
 ### 2. Backend API Service
 
-#### [MODIFY] [app.py](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/api/app.py)
+#### [MODIFY] [app.py](../../src/api/app.py)
 - Register `PositionalExpectedPointsModel` on startup.
 - Add endpoint `GET /api/positional-evaluator`:
   - Accepts down, distance, yardline, clock, score diff, timeouts.
@@ -67,10 +67,10 @@ Create the core evaluation manager:
 
 ### 3. Frontend Pages
 
-#### [MODIFY] [InDevelopment.jsx](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/frontend/src/pages/InDevelopment.jsx)
+#### [MODIFY] [InDevelopment.jsx](../../frontend/src/pages/InDevelopment.jsx)
 - Connect sliders to `/api/positional-evaluator` and render dynamic KEP, EP, and optimal moves.
 
-#### [MODIFY] [GameSummary.jsx](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/frontend_analysis/src/pages/GameSummary.jsx)
+#### [MODIFY] [GameSummary.jsx](../../frontend_analysis/src/pages/GameSummary.jsx)
 - Fetch play evaluations from `/api/games/{game_id}/positional-eval` and render the point-equivalent evaluation bar.
 
 ---

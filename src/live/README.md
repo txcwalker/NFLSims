@@ -23,20 +23,20 @@ src/live/
 
 ## Description of Files
 
-* **[`espn_adapter.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/live/espn_adapter.py)**:
+* **[`espn_adapter.py`](espn_adapter.py)**:
   * Translates raw ESPN API scoreboard feeds into structured 4th down game states, resolving possessions and field locations.
 
-* **[`main.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/live/main.py)**:
+* **[`main.py`](main.py)**:
   * Runs the primary execution loop, managing game-day polling intervals and invoking the simulator and posting pipelines.
 
-* **[`post_targets.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/live/post_targets.py)**:
+* **[`post_targets.py`](post_targets.py)**:
   * Dispatches verified postings to Bluesky and Mastodon, handling credentials and dry-run outputs.
 
-* **[`posting_policy.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/live/posting_policy.py)**:
+* **[`posting_policy.py`](posting_policy.py)**:
   * Contains the criteria gates (e.g., mistakes >= 3% WP) that determine if a play is worth posting, and drafts the text templates.
 
-* **[`simulator_bridge.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/live/simulator_bridge.py)**:
+* **[`simulator_bridge.py`](simulator_bridge.py)**:
   * Spawns an R subprocess to run the simulation models and return expected win probabilities.
 
-* **[`state_store.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/live/state_store.py)**:
+* **[`state_store.py`](state_store.py)**:
   * Interacts with SQLite to ensure no play is processed twice, no drive has duplicate posts, and posting rates stay within limits.

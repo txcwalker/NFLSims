@@ -6,6 +6,8 @@
 
 > **Note:** Per `MODEL_DEVELOPMENT_STANDARD.md`, this single document covers all three required stages: EDA Findings, Modeling Decision, and Evaluation Results.
 
+> **Coach-lever note (audit S3-9, 2026-09):** the model + engine only ever read `proe` and `deep_shot_rate` from a coach's DNA. `no_huddle_rate`, `sec_per_play`, `air_yards_tendency`, `screen_rate`, `play_action_rate`, `rpo_rate`, and `conservative_score_bias` are computed, stored, and hand-editable but consumed by nothing — see [coach_coordinator_levers_2026_notes.md](../../data/dna/coach_coordinator_levers_2026_notes.md) before assuming any of them affects a sim.
+
 ---
 
 ## 1. Purpose

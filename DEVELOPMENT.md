@@ -1,6 +1,7 @@
 # DEVELOPMENT.md — NFLSims Workspace Map
 
-<!-- Human + AI onboarding doc. Updated: 2026-08-05. For the token-dense
+<!-- Human + AI onboarding doc. Updated: 2026-09-22 (fixed the boxscores
+tracking claim below; see AGENTS.md for what else changed this pass). For the token-dense
 AI-to-AI handoff contract (active bugs, fragile areas, exact test commands),
 see AGENTS.md — this file is the architecture/setup map, that one is the
 "what's currently on fire" ledger. Read both. -->
@@ -132,7 +133,7 @@ Full phase-by-phase build history: [WORKLOG.md](WORKLOG.md)'s 2026-07-22 entry (
 
 **Trained models** (`src/nfl_sim/models/*/`, joblib + xgboost-native json) are git-tracked, not gitignored — update only on a real retrain, and re-verify predictions haven't drifted (see AGENTS.md §0's `iteration_range` lesson for one real way this has silently broken before).
 
-**Not git-tracked at all, confirmed:** `docs/boxscores/week_*/` (local-only generated boxscores).
+**`docs/boxscores/week_*/` IS git-tracked** (82 files as of the 2026-09 audit, Phase 6) — this doc previously claimed the opposite. Whether that's the right call (generated output vs. source) is an open question, not yet decided — see the audit's H3 doc-consolidation item.
 
 ## 7. AI Onboarding Notes
 

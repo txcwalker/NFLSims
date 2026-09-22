@@ -10,11 +10,23 @@ Effort: XS (<15 min) · S (<1 hr) · M (half day) · L (multi-day)
 Already done this session: **S2-1** (iteration_range), **S2-2** (kickoff
 returns), **week-aware toggle** (playoff crash workaround).
 
+**2026-09-22 pass (mid-season revisit):** Cam scoped this pass to Batches
+**A, C, H only** — B (dead-code removal), D/F (engine tests + validation
+benchmark), and G (publish-prep) + both Cam-gated items are deliberately
+deferred until later in the season, not skipped. Within scope: A1/A2/A3 done
+(A1's OneDrive move had actually already happened; only cleanup + the
+`_require_json` fail-loud work + the B2 backup script were left), C1/C2/C3
+done, H1/H2/H4 done, H3 partially done (root doc moves + an expanded
+absolute-path sweep; the `docs/boxscores` gitignore+delete call and the
+`docs/` grab-bag folding are still open, deliberately not done without
+Cam's sign-off on deleting 82 tracked files). See WORKLOG.md 2026-09-22
+entry for the full detail and verification.
+
 ---
 
 ## Batch A — Safety (do first, before any calibration or benchmark)
 
-### A1 · 🔴 S2-5 — get the repo out of OneDrive sync · effort S
+### A1 · ✅ DONE 2026-09-22 · 🔴 S2-5 — get the repo out of OneDrive sync · effort S
 - **From:** Phase 3. **Why found:** a full-tree scan turned up `*-Cams-Desktop`
   conflict copies in 4 locations — `data/interim/` parquets,
   `src/nfl_sim/__pycache__/*.pyc`, `.py` files inside `venv_py38_old/`, and
@@ -34,7 +46,7 @@ returns), **week-aware toggle** (playoff crash workaround).
 - **Alternative:** OneDrive "Files On-Demand" + mark always-local. Doesn't stop
   conflict-copy creation, just changes where bytes live.
 
-### A2 · 🔴 S2-6 — back up the un-regeneratable assets · effort S now / M later
+### A2 · ✅ "now" fix DONE 2026-09-22 (real builder still open) · 🔴 S2-6 — back up the un-regeneratable assets · effort S now / M later
 - **From:** Phase 3. **Why found:** `data/processed/hardened_pass_training_master_v2_5.csv`
   is **308 MB**, gitignored, and has **no committed builder script** (consumed
   by `efsd`/`positional_ep` training + `script_chainer.py`). The R model
@@ -46,13 +58,18 @@ returns), **week-aware toggle** (playoff crash workaround).
   the un-tracked un-regeneratable set to a **Cloudflare R2 or Backblaze B2**
   bucket (10 GB free, zero egress — same host the `serverless_parquet_datalake.md`
   plan picks). Run it after every material change to those files.
+  **Cam chose Backblaze B2 (2026-09-22).** Script written and dry-run
+  verified (finds all 13 files, ~295 MB) — needs Cam's own B2 account/bucket
+  + `B2_APPLICATION_KEY_ID`/`B2_APPLICATION_KEY`/`B2_BUCKET_NAME` env vars
+  before the first real upload; the script refuses to run with a clear error
+  if they're unset, never silently no-ops.
 - **Fix (real, M):** write the builder for `hardened_pass_training_master`
   (or precisely document its assembly), so it becomes regeneratable like the
   DNA files — then gitignoring it is safe because the recipe is committed. The
   R `.rds` splits fold into the "retrain the 4 R-era models before 1.0"
   roadmap item.
 
-### A3 · 🟠 S2-3 — fail loud on missing critical inputs · effort S
+### A3 · ✅ DONE 2026-09-22 · 🟠 S2-3 — fail loud on missing critical inputs · effort S
 - **From:** Phase 1. **Why found:** `game_engine._load_json` / `batch._load_json`
   return `{}` for a missing file; `model_registry.load_all` skips a missing
   model dir leaving the attribute `None`; `predict_*` fall back to `0.58` /
@@ -134,7 +151,7 @@ returns), **week-aware toggle** (playoff crash workaround).
 
 ## Batch C — Tooling foundation
 
-### C1 · 🟡 pyproject.toml + editable install · effort S
+### C1 · ✅ DONE 2026-09-22 · 🟡 pyproject.toml + editable install · effort S
 - **From:** Phases 0 (S0.3), 3 (S3-16), 6 (S3-32). **Why found:** no
   `pyproject.toml` / `pytest.ini` / `setup.cfg` anywhere. Consequences: bare
   `pytest` (no path arg) wanders into `scratch/` and `legacy/` and **errors
@@ -149,7 +166,7 @@ returns), **week-aware toggle** (playoff crash workaround).
   not the `sys.path` problem). Do the full `pyproject.toml` — it's the same
   effort and fixes both.
 
-### C2 · 🟡 S3-24 — CI that runs the tests · effort S
+### C2 · ✅ DONE 2026-09-22 · 🟡 S3-24 — CI that runs the tests · effort S
 - **From:** Phase 4. **Why found:** the only two GitHub workflows are for the
   4th-down bot. **Nothing runs the 97-test suite on push/PR**, and there's no
   build check. The audit is about to land a batch of engine changes with no
@@ -158,7 +175,7 @@ returns), **week-aware toggle** (playoff crash workaround).
   `pytest tests/ -q`, then `cd frontend && npm ci && npm run build` and the
   same for `frontend_analysis`. ~30 lines.
 
-### C3 · 🟡 S3-26 — real `renv.lock` for R · effort S
+### C3 · ✅ DONE 2026-09-22 (manifest only, isolation deliberately not activated -- see WORKLOG) · 🟡 S3-26 — real `renv.lock` for R · effort S
 - **From:** Phases 0 (S0.4), 5. **Why found:** `DEVELOPMENT.md` notes "no
   `renv.lock` committed"; the de-facto R manifest lives inside
   `.github/workflows/nfl_live.yml`'s `extra-packages:` list — not
@@ -342,14 +359,14 @@ returns), **week-aware toggle** (playoff crash workaround).
 
 ## Batch H — Docs
 
-### H1 · 🟠 rewrite `README.md` · effort S
+### H1 · ✅ DONE 2026-09-22 · 🟠 rewrite `README.md` · effort S
 - **From:** Phases 0 (S0.1), 6. **Why found:** frozen at 2026-07-15 (predates
   all 2026-season work — no mention of the DNA/override system, week-aware sim,
   the 2026 season sim); still says "one API on 8002"; lines 97–100 use
   `file:///c:/Users/txcwa/…` **absolute paths** (global hard-rule violation).
 - **Fix:** rewrite against current reality. Relative links only.
 
-### H2 · 🟡 fix `DEVELOPMENT.md` + `AGENTS.md` + `GOAL_TRACKER.md` · effort S
+### H2 · ✅ DONE 2026-09-22 · 🟡 fix `DEVELOPMENT.md` + `AGENTS.md` + `GOAL_TRACKER.md` · effort S
 - **`DEVELOPMENT.md`** §6 states "*Not git-tracked at all, confirmed:
   `docs/boxscores/week_*/`*" — **82 files ARE tracked** (Phase 6). Also ~5 wks
   stale. Fix the claim, refresh the active-areas list.
@@ -362,7 +379,7 @@ returns), **week-aware toggle** (playoff crash workaround).
   (`docs/roadmaps/` has 1 of ~4), inconsistent target dates. Do this pass
   **after F1** so it reflects the real validation state.
 
-### H3 · 🟡 root `.md` + `docs/` consolidation · effort S
+### H3 · 🔄 PARTIAL 2026-09-22 (root doc moves + an expanded absolute-path sweep done; boxscores gitignore+delete and the docs/ grab-bag folding still open, needs Cam's sign-off) · 🟡 root `.md` + `docs/` consolidation · effort S
 - **From:** Phases 0 (S0.5), 6 (S3-34/35/36/37).
 - Move the 5 stale root planning docs (`DETAILED_GOALS`, `FRONTEND_GOALS`,
   `FANTASY_BETTING_SITE`, `GAME_ANALYSIS_SITE`, `FUTURE_DEVELOPMENT`) to
@@ -374,7 +391,7 @@ returns), **week-aware toggle** (playoff crash workaround).
   `implementation_plans/`. Delete `docs/reports/test run 1/`.
 - Fix the `file:///` absolute paths in `src/live/README.md`.
 
-### H4 · 🟡 S3-9 — document the inert coach levers · effort XS
+### H4 · ✅ DONE 2026-09-22 · 🟡 S3-9 — document the inert coach levers · effort XS
 - **From:** Phase 2. **Cam's call: keep them, may wire later.** So this is a
   doc task: a header/comment block in
   `data/dna/coach_coordinator_levers_2026.csv` and a line in `AGENTS.md` §8 +

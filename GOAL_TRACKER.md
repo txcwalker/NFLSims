@@ -30,7 +30,7 @@ This is a living document tracking all project goals, statuses, and target dates
 | Phase 3: Fill out `.md` documentation content (Why/What/SME) | ✅ Completed | May 2026 |
 | Phase 3: Add strict Input/Output/Purpose docstrings to all `v_0_1_0` functions | 🔄 In Progress | June 2026 |
 | Create `PROJECT_ROADMAP.md` | ✅ Completed | May 2026 |
-| Create per-sub-project roadmaps (`docs/roadmaps/`) | ✅ Completed | June 2026 |
+| Create per-sub-project roadmaps (`docs/roadmaps/`) | 🔄 In Progress (1 of ~4 exist — only `fourth_down_bot_roadmap.md`; audit 2026-09 finding) | June 2026 |
 | Annual maintenance cycle documented | 🔄 In Progress | Aug 2026 |
 
 ---
@@ -53,8 +53,8 @@ This is a living document tracking all project goals, statuses, and target dates
 | Season-long simulator (Week 1 → Week 18)            | ✅ Completed    | —             |
 | Weekly single-game simulator wrapper                | ✅ Completed    | July 2026     |
 | Season from Week X simulator                        | ✅ Completed    | July 2026     |
-| Full system validation vs. 2024 season actuals      | ✅ Completed    | Aug 2026      |
-| **Tier 1 Production Release**                       | ✅ Completed    | **Sept 2026** |
+| Full system validation vs. 2024 season actuals      | 🔄 In Progress (no benchmark run has ever produced numbers against a pass/fail bar — audit 2026-09 finding, Phase 7 §4. `fix_pass_plan.md` Batch F defines the actual gate; not yet run) | Aug 2026      |
+| **Tier 1 Production Release**                       | ❌ Not published (audit 2026-09 finding — engine runs live weekly sims but nothing is deployed/published outside dev) | **Sept 2026** |
 
 ---
 

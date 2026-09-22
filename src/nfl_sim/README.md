@@ -29,26 +29,26 @@ src/nfl_sim/
 
 ## Description of Files
 
-* **[`batch.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/batch.py)**:
+* **[`batch.py`](batch.py)**:
   * Manages large Monte Carlo batches. It loads roster DNA, matches slots, and aggregates stats.
 
-* **[`game_engine.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/game_engine.py)**:
+* **[`game_engine.py`](game_engine.py)**:
   * Implements the core play-by-play physics game simulation using highly optimized numpy arrays.
 
-* **[`model_registry.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/model_registry.py)**:
+* **[`model_registry.py`](model_registry.py)**:
   * Loads and interfaces machine learning submodels (YAC, air yards, rushing yards, chaos, field goals).
 
-* **[`proe_overlay_v_0_1_0.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/proe_overlay_v_0_1_0.py)**:
+* **[`proe_overlay_v_0_1_0.py`](proe_overlay_v_0_1_0.py)**:
   * Applies Bayesian-blended coaching PROE values in logit space.
 
-* **[`scoring.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/scoring.py)**:
+* **[`scoring.py`](scoring.py)**:
   * Processes fantasy points under DraftKings and FanDuel scoring rules.
 
-* **[`script_chainer.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/script_chainer.py)**:
+* **[`script_chainer.py`](script_chainer.py)**:
   * Samples starting conditions and play scenarios from a historical game play pool.
 
-* **[`utils.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/utils.py)**:
+* **[`utils.py`](utils.py)**:
   * Standardizes player and coach names (e.g., player initial abbreviation, coach capitalization).
 
-* **[`visuals.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/nfl_sim/visuals.py)**:
+* **[`visuals.py`](visuals.py)**:
   * Produces plots of simulated fantasy distributions, point spreads, and combined game scores.

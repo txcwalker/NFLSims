@@ -19,14 +19,14 @@ src/data_pipeline/
 
 ## Description of Files
 
-* **[`backtest_weights.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/data_pipeline/backtest_weights.py)**:
+* **[`backtest_weights.py`](backtest_weights.py)**:
   * Evaluates different blending proportions for player DNA traits by checking simulation outcomes against real-world fantasy scoring.
 
-* **[`pilot_summary.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/data_pipeline/pilot_summary.py)**:
+* **[`pilot_summary.py`](pilot_summary.py)**:
   * Compiles multi-week simulation outputs, aggregates standings, and runs season outcome projections.
 
-* **[`report_generator.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/data_pipeline/report_generator.py)**:
+* **[`report_generator.py`](report_generator.py)**:
   * Summarizes simulated game results and player usage distributions into structural weekly reports.
 
-* **[`roster_manager.py`](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/src/data_pipeline/roster_manager.py)**:
+* **[`roster_manager.py`](roster_manager.py)**:
   * Build rolling player DNA maps by blending baseline stats with current-year recency weights.
