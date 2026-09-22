@@ -44,5 +44,8 @@ python-dotenv==1.2.2
 requests==2.34.2
 joblib==1.5.3
 
+# --- Backup (scripts/data_utils/backup_critical_assets.py, audit A2) ---
+b2sdk==2.13.0
+
 # --- Testing ---
 pytest==9.1.1

@@ -372,21 +372,21 @@ class NFLGameEngine:
         
         # Load DNA Registry
         self.dna = dna if dna is not None else {
-            'qb': self._load_json('data/dna/qb_dna.json'),
+            'qb': self._require_json('data/dna/qb_dna.json'),
             'skill': self._load_skill_dna(),
-            'coach': self._load_json('data/dna/coach_dna.json'),
-            'trench': self._load_json('data/dna/trench_dna.json')
+            'coach': self._require_json('data/dna/coach_dna.json'),
+            'trench': self._require_json('data/dna/trench_dna.json')
         }
-        
-        self.team_coaches = team_coaches if team_coaches is not None else self._load_json(f'data/dna/team_to_coach_{self.year}.json')
+
+        self.team_coaches = team_coaches if team_coaches is not None else self._require_json(f'data/dna/team_to_coach_{self.year}.json')
         self.rosters = rosters if rosters is not None else {
-            away_team: self._load_json(f"{self.rosters_dir}/{away_team}_traits_{self.year}.json").get('traits', {}),
-            home_team: self._load_json(f"{self.rosters_dir}/{home_team}_traits_{self.year}.json").get('traits', {})
+            away_team: self._require_json(f"{self.rosters_dir}/{away_team}_traits_{self.year}.json").get('traits', {}),
+            home_team: self._require_json(f"{self.rosters_dir}/{home_team}_traits_{self.year}.json").get('traits', {})
         }
         self.rosters = resolve_handcuff_overrides(self.rosters)
 
         # Trench Tiers
-        self.trench_tiers = trench_tiers if trench_tiers is not None else self._load_json(f'data/dna/trench_tiers_{self.year}.json')
+        self.trench_tiers = trench_tiers if trench_tiers is not None else self._require_json(f'data/dna/trench_tiers_{self.year}.json')
         
         # Precompute static coach aggression adjustments
         self.coach_aggression = {}
@@ -462,7 +462,7 @@ class NFLGameEngine:
         self.rush_matchup_away = _trench_spread(trench_away.get('run_block_off_z', 0.0)) - _trench_spread(trench_home.get('run_def_z', 0.0))
         self.rush_matchup_home = _trench_spread(trench_home.get('run_block_off_z', 0.0)) - _trench_spread(trench_away.get('run_def_z', 0.0))
 
-        self.rush_gate_calib = self._load_json('docs/eda_outputs/trench/rush_gate_calibration.json')
+        self.rush_gate_calib = self._require_json('docs/eda_outputs/trench/rush_gate_calibration.json')
         organic_neg = self.rush_gate_calib.get('organic_neg_rate', 0.0)
         organic_exp = self.rush_gate_calib.get('organic_exp_rate', 0.0)
         neg_a = self.rush_gate_calib.get('target_neg_intercept', 0.0)
@@ -881,15 +881,29 @@ class NFLGameEngine:
             with open(path, 'r') as f: return json.load(f)
         return {}
 
+    def _require_json(self, path):
+        # Unlike _load_json, a missing file here means the sim would silently
+        # run on empty/default DNA for every player/team -- audit S2-3: this
+        # exact failure mode (proe reading 0.0 for every team, a stale
+        # ModelRegistry singleton, sacks jumping to 6.4/g) ran undetected for
+        # months because the loader just returned {} instead of raising.
+        if not os.path.exists(path):
+            raise FileNotFoundError(
+                f"NFLGameEngine: required input missing: {path} "
+                f"(away={self.away_team}, home={self.home_team}, year={self.year})"
+            )
+        with open(path, 'r') as f:
+            return json.load(f)
+
     def _load_skill_dna(self):
         # Fallback to the old skill_dna.json (pre-rb/wr/te split) was removed
         # here -- confirmed unreachable: rb_dna.json/wr_dna.json/te_dna.json
         # are always populated (270/260/123 entries as of this check), so the
         # merged dict can never come back empty in practice.
         merged = {}
-        merged.update(self._load_json('data/dna/rb_dna.json'))
-        merged.update(self._load_json('data/dna/wr_dna.json'))
-        merged.update(self._load_json('data/dna/te_dna.json'))
+        merged.update(self._require_json('data/dna/rb_dna.json'))
+        merged.update(self._require_json('data/dna/wr_dna.json'))
+        merged.update(self._require_json('data/dna/te_dna.json'))
         return merged
 
     def _get_starter_static(self, team, pos):

@@ -46,52 +46,54 @@ class ModelRegistry:
     def __init__(self, model_dir='src/nfl_sim/models'):
         pass
 
+    def _require_dir(self, path):
+        # Unlike the old bare `if os.path.exists(...)` guards, a missing model
+        # dir here means the engine would silently run with that model's
+        # attribute left None and its predict_* falling back to a hardcoded
+        # constant (0.58 / 0.0 / league-average) -- audit S2-3: this exact
+        # failure mode ran undetected for months.
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"ModelRegistry: required model dir missing: {path}")
+        return path
+
     def load_all(self):
         # V0.1.0 Chaos Model
-        chaos_v10_dir = os.path.join(self.model_dir, 'chaos_v_0_1_0')
-        if os.path.exists(chaos_v10_dir):
-            from .models.chaos_v_0_1_0.inference import ChaosModelV010
-            self.chaos_model = ChaosModelV010(chaos_v10_dir)
-            
+        chaos_v10_dir = self._require_dir(os.path.join(self.model_dir, 'chaos_v_0_1_0'))
+        from .models.chaos_v_0_1_0.inference import ChaosModelV010
+        self.chaos_model = ChaosModelV010(chaos_v10_dir)
+
         # V0.1.1 Air Yards (Double Hurdle)
-        ay_v11_dir = os.path.join(self.model_dir, 'air_yards_v_0_1_1')
-        if os.path.exists(ay_v11_dir):
-            self.air_yards_sampler = AirYardsDoubleHurdleSampler(ay_v11_dir)
-        
+        ay_v11_dir = self._require_dir(os.path.join(self.model_dir, 'air_yards_v_0_1_1'))
+        self.air_yards_sampler = AirYardsDoubleHurdleSampler(ay_v11_dir)
+
         # V0.1.1 YAC (XGBoost Regressor)
-        yac_v11_dir = os.path.join(self.model_dir, 'yac_model_v_0_1_1')
-        if os.path.exists(yac_v11_dir):
-            self.yac_model = YACModelV011(yac_v11_dir)
-        
+        yac_v11_dir = self._require_dir(os.path.join(self.model_dir, 'yac_model_v_0_1_1'))
+        self.yac_model = YACModelV011(yac_v11_dir)
+
         # V0.1.0 Rushing Yards
-        rush_v10_dir = os.path.join(self.model_dir, 'rush_yards_v_0_1_0')
-        if os.path.exists(rush_v10_dir):
-            self.rush_model = RushYardsModelV010(rush_v10_dir)
-        
+        rush_v10_dir = self._require_dir(os.path.join(self.model_dir, 'rush_yards_v_0_1_0'))
+        self.rush_model = RushYardsModelV010(rush_v10_dir)
+
         # V0.1.0 Field Goal Model
-        fg_v10_dir = os.path.join(self.model_dir, 'fg_v_0_1_0')
-        if os.path.exists(fg_v10_dir):
-            from .models.fg_v_0_1_0.inference import FieldGoalModelV010
-            self.fg_model = FieldGoalModelV010(fg_v10_dir)
-            
+        fg_v10_dir = self._require_dir(os.path.join(self.model_dir, 'fg_v_0_1_0'))
+        from .models.fg_v_0_1_0.inference import FieldGoalModelV010
+        self.fg_model = FieldGoalModelV010(fg_v10_dir)
+
         # V0.1.0 Win Probability Model
-        wp_v10_dir = os.path.join(self.model_dir, 'win_probability_v_0_1_0')
-        if os.path.exists(wp_v10_dir):
-            from .models.win_probability_v_0_1_0.inference import WinProbabilityModelV010
-            self.wp_model = WinProbabilityModelV010(wp_v10_dir)
-            
+        wp_v10_dir = self._require_dir(os.path.join(self.model_dir, 'win_probability_v_0_1_0'))
+        from .models.win_probability_v_0_1_0.inference import WinProbabilityModelV010
+        self.wp_model = WinProbabilityModelV010(wp_v10_dir)
+
         # V0.1.0 Fourth Down Conversion Model
-        fd_conv_dir = os.path.join(self.model_dir, 'fourth_down_conversion_v_0_1_0')
-        if os.path.exists(fd_conv_dir):
-            from .models.fourth_down_conversion_v_0_1_0.inference import FourthDownConversionModelV010
-            self.fd_conversion_model = FourthDownConversionModelV010(fd_conv_dir)
+        fd_conv_dir = self._require_dir(os.path.join(self.model_dir, 'fourth_down_conversion_v_0_1_0'))
+        from .models.fourth_down_conversion_v_0_1_0.inference import FourthDownConversionModelV010
+        self.fd_conversion_model = FourthDownConversionModelV010(fd_conv_dir)
 
         # V0.1.0 Clock Pace Model (empirical bootstrap pools, clock_physics_v020)
-        clock_pace_dir = os.path.join(self.model_dir, 'clock_pace_v_0_1_0')
-        if os.path.exists(clock_pace_dir):
-            from .models.clock_pace_v_0_1_0.inference import ClockPaceModelV010
-            self.clock_pace_model = ClockPaceModelV010(clock_pace_dir)
-        
+        clock_pace_dir = self._require_dir(os.path.join(self.model_dir, 'clock_pace_v_0_1_0'))
+        from .models.clock_pace_v_0_1_0.inference import ClockPaceModelV010
+        self.clock_pace_model = ClockPaceModelV010(clock_pace_dir)
+
         # Play Selection V.0.1.0 Buckets (three zones loaded dynamically).
         # Each bucket booster was trained with early_stopping_rounds=30
         # (train.py) -- best_iteration is carried in the native-json booster
@@ -101,16 +103,15 @@ class ModelRegistry:
         # redzone/short buckets). See utils.resolve_iteration_range / audit
         # phase 1, and the identical Gate 2b/4 handling in chaos/inference.py.
         self.play_selection_iter_ranges = {}
-        ps_dir = os.path.join(self.model_dir, 'play_selection_v_0_1_0')
-        if os.path.exists(ps_dir):
-            for f in os.listdir(ps_dir):
-                if f.endswith('.json') and f != 'metadata.json':
-                    b_name = f.replace('.json', '')
-                    m = xgb.XGBClassifier()
-                    m.load_model(os.path.join(ps_dir, f))
-                    booster = m.get_booster()
-                    self.play_selection_buckets[b_name] = booster
-                    self.play_selection_iter_ranges[b_name] = resolve_iteration_range(booster)
+        ps_dir = self._require_dir(os.path.join(self.model_dir, 'play_selection_v_0_1_0'))
+        for f in os.listdir(ps_dir):
+            if f.endswith('.json') and f != 'metadata.json':
+                b_name = f.replace('.json', '')
+                m = xgb.XGBClassifier()
+                m.load_model(os.path.join(ps_dir, f))
+                booster = m.get_booster()
+                self.play_selection_buckets[b_name] = booster
+                self.play_selection_iter_ranges[b_name] = resolve_iteration_range(booster)
 
         # Find project root dynamically
         curr = os.path.dirname(os.path.abspath(__file__))

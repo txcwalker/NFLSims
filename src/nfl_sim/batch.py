@@ -95,17 +95,17 @@ class BatchSimulator:
         
         # Load assets once per batch
         self.dna = {
-            'qb': self._load_json('data/dna/qb_dna.json'),
+            'qb': self._require_json('data/dna/qb_dna.json'),
             'skill': self._load_skill_dna(),
-            'coach': self._load_json('data/dna/coach_dna.json'),
-            'trench': self._load_json('data/dna/trench_dna.json')
+            'coach': self._require_json('data/dna/coach_dna.json'),
+            'trench': self._require_json('data/dna/trench_dna.json')
         }
-        self.team_coaches = self._load_json(f'data/dna/team_to_coach_{self.year}.json')
+        self.team_coaches = self._require_json(f'data/dna/team_to_coach_{self.year}.json')
         self.rosters = {
-            team_off: self._load_json(f"{self.rosters_dir}/{team_off}_traits_{self.year}.json").get('traits', {}),
-            team_def: self._load_json(f"{self.rosters_dir}/{team_def}_traits_{self.year}.json").get('traits', {})
+            team_off: self._require_json(f"{self.rosters_dir}/{team_off}_traits_{self.year}.json").get('traits', {}),
+            team_def: self._require_json(f"{self.rosters_dir}/{team_def}_traits_{self.year}.json").get('traits', {})
         }
-        self.trench_tiers = self._load_json(f'data/dna/trench_tiers_{self.year}.json')
+        self.trench_tiers = self._require_json(f'data/dna/trench_tiers_{self.year}.json')
         
         # Compute slot mapping dynamically once per batch
         self.player_to_slot = {
@@ -184,13 +184,25 @@ class BatchSimulator:
             return data
         return {}
 
+    def _require_json(self, path):
+        # Unlike _load_json, a missing file here means the batch would
+        # silently run on empty/default DNA for every player/team -- audit
+        # S2-3: this exact failure mode ran undetected for months because the
+        # loader just returned {} instead of raising.
+        if path not in self._json_cache and not os.path.exists(path):
+            raise FileNotFoundError(
+                f"BatchSimulator: required input missing: {path} "
+                f"(team_off={self.team_off}, team_def={self.team_def}, year={self.year})"
+            )
+        return self._load_json(path)
+
     def _load_skill_dna(self):
         cache_key = f"__merged_skill_dna_{self.year}"
         if cache_key in self._json_cache:
             return self._json_cache[cache_key]
-        rb = self._load_json('data/dna/rb_dna.json')
-        wr = self._load_json('data/dna/wr_dna.json')
-        te = self._load_json('data/dna/te_dna.json')
+        rb = self._require_json('data/dna/rb_dna.json')
+        wr = self._require_json('data/dna/wr_dna.json')
+        te = self._require_json('data/dna/te_dna.json')
         merged = {}
         merged.update(rb)
         merged.update(wr)
