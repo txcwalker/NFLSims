@@ -799,6 +799,19 @@ class OptimizeRequest(BaseModel):
     # `max_exposure` stays as the fallback for any caller that doesn't (and
     # as the value used when this is omitted entirely).
     max_exposure_by_pos: Optional[Dict[str, float]] = None
+    # Where each lineup's ILP score draw comes from (2026-09-23):
+    #   'sim'      -- one REAL slate-wide sim iteration per lineup: every
+    #                 player's deviation from his own sim mean in that same
+    #                 iteration, so booms, duds and stack correlation come
+    #                 straight from the game engine.
+    #   'gaussian' -- the original correlated-normal draw (IQR-sized sigma,
+    #                 hand-set _build_correlation_matrix). DEFAULT: the
+    #                 2026-09-23 week-3 A/B (scripts/eda/compare_optimizer_
+    #                 draw_sources.py) had 'sim' at ~100-106% portfolio EV vs.
+    #                 ~177-187% for 'gaussian', well outside rep-to-rep noise.
+    # 'sim' silently degrades to 'gaussian' when the week has no sim data;
+    # the response's portfolio.draw_source says which one actually ran.
+    draw_source: Literal['sim', 'gaussian'] = 'gaussian'
 
 # -------------------------------------------------------------------------
 # ENDPOINTS
@@ -5149,6 +5162,57 @@ async def optimize_lineups(req: OptimizeRequest):
     else:
         req_n = min(req.n_lineups, 1000)
 
+    # Iteration-aligned real sim scores for THIS week's slate (see
+    # _build_week_trial_scores for why this no longer reads the season-long
+    # parquet unfiltered). n_sim_iter comes from the data -- 10,000 for weeks
+    # simmed at full size, 1,000 for older ones -- never a hardcoded 1000.
+    trial_scores_map: Dict[tuple, np.ndarray] = {}
+    n_sim_iter, trial_source = 0, 'none'
+    try:
+        trial_scores_map, n_sim_iter, trial_source = _build_week_trial_scores(
+            req.week, {p['team'] for p in active_players})
+    except Exception as e:
+        print(f"Error loading trial aligned scores: {e}")
+    # Synthetic fallback arrays (players with no sim rows) use the same length
+    # so every player is indexed by the same iteration ids.
+    n_index = n_sim_iter if n_sim_iter > 0 else 1000
+
+    valid_filter = sorted({int(i) for i in req.iteration_filter if 0 <= int(i) < n_index}) if req.iteration_filter else None
+
+    # ── 'sim' draw source: per-player deviations from real sim iterations ──
+    # sim_dev[k, i] = player i's (projection-scaled) sim score in slate-wide
+    # iteration k minus his own (scaled) sim mean. A lineup's ILP objective
+    # is then ilp_scores + width_mult * sim_dev[k] -- the exact shape of the
+    # gaussian path (ilp_scores + width_mult * L @ z), with the made-up
+    # correlated normal swapped for one real simulated week. Centering on
+    # the MEAN keeps the perturbation zero-mean like the gaussian's, so the
+    # ceiling tilt still comes only from gpp_projection (no double count).
+    # Scaling matches grading's get_player_trial_scores: an edited
+    # projection rescales that player's whole sim distribution.
+    # Players with no sim rows (custom adds) get an independent normal draw
+    # sized by their std_dev, per lineup.
+    sim_dev: Optional[np.ndarray] = None
+    sim_missing = np.zeros(n, dtype=bool)
+    iter_order = np.arange(0)
+    draw_source = req.draw_source if (req.draw_source == 'sim' and n_sim_iter > 0) else 'gaussian'
+    if draw_source == 'sim':
+        sim_dev = np.zeros((n_index, n), dtype=np.float32)
+        for i, p in enumerate(active_players):
+            arr = trial_scores_map.get((p['name'], p['team'], p['pos']))
+            if arr is None:
+                sim_missing[i] = True
+                continue
+            med = float(np.percentile(arr, 50))
+            proj = p.get('projection', 10.0)
+            scaled = arr * (proj / med) if (med > 1.0 and abs(proj - med) > 0.1) else arr
+            sim_dev[:, i] = scaled - scaled.mean()
+        # One distinct real iteration per lineup attempt where possible (a
+        # permutation, cycled), restricted to the Game Distribution
+        # box-select when one is set -- so a filtered optimize BUILDS for
+        # that scenario, not just grades against it.
+        iter_pool = np.array(valid_filter) if valid_filter else np.arange(n_index)
+        iter_order = np.random.default_rng().permutation(iter_pool)
+
     # Lock/exclude index mapping
     locked_indices = {i for i, p in enumerate(active_players) if p.get('locked', False)}
     excluded_indices = set()  # already filtered out
@@ -5257,7 +5321,13 @@ async def optimize_lineups(req: OptimizeRequest):
 
             # Draw correlated scores for ILP — uses ilp_scores (gpp-blended ceiling)
             # NOT projections (P50), so the ILP picks players with real ceiling.
-            if width_mult > 0:
+            if width_mult > 0 and draw_source == 'sim':
+                k = int(iter_order[(attempts - 1) % len(iter_order)])
+                perturbation = sim_dev[k].astype(float)
+                if sim_missing.any():
+                    perturbation[sim_missing] = std_devs[sim_missing] * rng.standard_normal(int(sim_missing.sum()))
+                draw_scores = np.maximum(0, ilp_scores + width_mult * perturbation)
+            elif width_mult > 0:
                 z = rng.standard_normal(n)
                 perturbation = L @ z
                 draw_scores = np.maximum(0, ilp_scores + width_mult * perturbation)
@@ -5300,21 +5370,8 @@ async def optimize_lineups(req: OptimizeRequest):
     # ── Precompute simulated field scores once for the entire request ─────────
     n_stat_sims = 10000
 
-    # Iteration-aligned real sim scores for THIS week's slate (see
-    # _build_week_trial_scores for why this no longer reads the season-long
-    # parquet unfiltered). n_sim_iter comes from the data -- 10,000 for weeks
-    # simmed at full size, 1,000 for older ones -- never a hardcoded 1000.
-    trial_scores_map: Dict[tuple, np.ndarray] = {}
-    n_sim_iter, trial_source = 0, 'none'
-    try:
-        trial_scores_map, n_sim_iter, trial_source = _build_week_trial_scores(
-            req.week, {p['team'] for p in active_players})
-    except Exception as e:
-        print(f"Error loading trial aligned scores: {e}")
-    # Synthetic fallback arrays (players with no sim rows) use the same length
-    # so every player is indexed by the same iteration ids.
-    n_index = n_sim_iter if n_sim_iter > 0 else 1000
-
+    # trial_scores_map / n_index / valid_filter are built above, before
+    # lineup generation -- the 'sim' draw_source builds from the same arrays.
     rng = np.random.default_rng()
     # Sample aligned iteration indices (n_stat_sims draws, with replacement,
     # from 0..n_index-1). Every game on the slate was simulated together per
@@ -5326,7 +5383,6 @@ async def optimize_lineups(req: OptimizeRequest):
     # iteration_filter. The filter's upper bound is n_index, not 1000: a
     # 10,000-iteration week sends ids up to 9999, which the old `< 1000` check
     # silently dropped (~90% of a box-select thrown away).
-    valid_filter = sorted({int(i) for i in req.iteration_filter if 0 <= int(i) < n_index}) if req.iteration_filter else None
     if valid_filter:
         aligned_indices = rng.choice(np.array(valid_filter), size=n_stat_sims, replace=True)
         iteration_filter_frac = round(len(valid_filter) / float(n_index), 4)
@@ -5611,6 +5667,7 @@ async def optimize_lineups(req: OptimizeRequest):
             # it had -- same idea as showdown's field_source.
             'trial_source': trial_source,
             'n_sim_iterations': n_sim_iter,
+            'draw_source': draw_source,
         }
     }
 
