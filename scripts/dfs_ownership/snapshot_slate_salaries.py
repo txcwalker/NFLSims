@@ -191,10 +191,22 @@ def snapshot_main(week: int, year: int) -> None:
                 if tm != team:
                     continue
                 did = dk["player_ids"].get((nname, tm))
-                rows.append({"name": nname, "team": tm, "pos": "", "salary": sal,
+                # dk["player_pos"] added 2026-09-22 -- get_dk_salaries() used
+                # to discard position entirely (see dk_scraper.py's
+                # _refresh_slate fix), which is why every classic main-slate
+                # snapshot since week 1 has pos="" for every non-DST player.
+                pos = dk.get("player_pos", {}).get((nname, tm), "")
+                rows.append({"name": nname, "team": tm, "pos": pos, "salary": sal,
                              "dk_id": did, "snapshot_ts": ts})
             if team in dk["defense"]:
-                rows.append({"name": f"{team} DST", "team": team, "pos": "DST",
+                # Real DK display name (e.g. "Buccaneers") when the live feed had
+                # one, else the old "{team} DST" placeholder -- kept so a
+                # lineup-upload CSV built off this snapshot shows DK's actual
+                # name instead of the sim engine's generic "Defense" (see
+                # dk_scraper.load_prelock_salary_snapshot / app.py's
+                # get_week_dk_names()).
+                dst_name = dk.get("defense_names", {}).get(team) or f"{team} DST"
+                rows.append({"name": dst_name, "team": team, "pos": "DST",
                              "salary": dk["defense"][team],
                              "dk_id": dk["defense_ids"].get(team), "snapshot_ts": ts})
     if not rows:

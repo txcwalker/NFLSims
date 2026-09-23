@@ -87,6 +87,38 @@ def rolling_stats_for_fields(per_field_game_values, through_week):
     return season, l4
 
 
+def rolling_sum(game_values, through_week, window=None):
+    """Same eligibility rules as rolling_average() (only weeks <=
+    through_week, last `window` of those if given), but sums instead of
+    averaging -- for VOLUME (attempts/targets/carries/dropbacks/
+    completions), where what matters is the total sample size behind a
+    window, not a per-game mean of counts. Unlike rolling_average(), an
+    empty/no-data window returns 0, not None -- zero real volume is a valid,
+    poolable value (feeds a weighted-average denominator downstream), not
+    "no rate exists yet"."""
+    weeks = sorted(w for w in game_values if w <= through_week)
+    if window is not None:
+        weeks = weeks[-window:]
+    return sum(game_values[w] for w in weeks if game_values[w] is not None)
+
+
+def compute_season_to_date_volume(game_values, through_week):
+    return rolling_sum(game_values, through_week, window=None)
+
+
+def compute_l4_volume(game_values, through_week):
+    return rolling_sum(game_values, through_week, window=4)
+
+
+def rolling_volume_for_fields(per_field_volume_values, through_week):
+    """Volume sibling of rolling_stats_for_fields() -- sums instead of
+    averaging. per_field_volume_values: {field: {week: volume}}.
+    Returns (season_volume, l4_volume), each {field: total_volume}."""
+    season = {f: compute_season_to_date_volume(gv, through_week) for f, gv in per_field_volume_values.items()}
+    l4 = {f: compute_l4_volume(gv, through_week) for f, gv in per_field_volume_values.items()}
+    return season, l4
+
+
 def build_player_game_log(pbp, player_id, position, team_totals=None):
     """pbp: single-season PBP DataFrame (pass_attempt/rush_attempt rows).
     player_id: gsis_id, matched against the *_player_id columns -- NOT
@@ -99,46 +131,49 @@ def build_player_game_log(pbp, player_id, position, team_totals=None):
     for target_share/carry_share; if omitted those two fields are skipped
     (caller can supply them when team context is available -- see
     build_team_week_totals()).
-    Returns {field: {week: value}} for whichever of PLAYER_RATE_FIELDS apply."""
+    Returns (log, volume) -- both {field: {week: value}} for whichever of
+    PLAYER_RATE_FIELDS apply. `volume` mirrors `log`'s keys exactly: each
+    field's real per-week sample size (pass attempts, targets, carries,
+    dropbacks, or completions -- whichever denominator actually produced
+    that week's rate), for a caller that wants to pool weeks by real sample
+    size instead of averaging per-game values unweighted (see
+    docs/implementation_plans/volume_weighted_dna_blend_plan.md)."""
     pbp_pass = pbp[pbp["play_type"] == "pass"]
     pbp_run = pbp[pbp["play_type"] == "run"]
 
     log = {}
+    volume = {}
 
     if position != "QB":
         p_pass = pbp_pass[pbp_pass["receiver_player_id"] == player_id]
         if len(p_pass):
             by_week = p_pass.groupby("week")
+            targets_by_week = by_week.size()
             log["catch_rate"] = by_week["complete_pass"].mean().to_dict()
             log["adot"] = by_week["air_yards"].mean().to_dict()
             log["deep_target_rate"] = by_week["air_yards"].apply(lambda s: (s >= 20).mean()).to_dict()
+            volume["catch_rate"] = targets_by_week.to_dict()
+            volume["adot"] = targets_by_week.to_dict()
+            volume["deep_target_rate"] = targets_by_week.to_dict()
             complete = p_pass[p_pass["complete_pass"] == 1].groupby("week")
             log["yac_per_rec"] = complete["yards_after_catch"].mean().to_dict()
+            completions_by_week = complete.size()
+            volume["yac_per_rec"] = completions_by_week.to_dict()
             if "xyac_mean_yardage" in p_pass.columns:
                 completions = p_pass[p_pass["complete_pass"] == 1].copy()
                 completions["yac_over_expected"] = completions["yards_after_catch"] - completions["xyac_mean_yardage"]
                 by_week_completions = completions.groupby("week")
                 log["elusiveness"] = by_week_completions["yac_over_expected"].mean().to_dict()
                 log["broken_tackle_rate"] = by_week_completions["yac_over_expected"].apply(lambda s: (s > 3.0).mean()).to_dict()
+                volume["elusiveness"] = completions_by_week.to_dict()
+                volume["broken_tackle_rate"] = completions_by_week.to_dict()
             if team_totals is not None:
                 team = p_pass["posteam"].mode().iat[0] if len(p_pass["posteam"].mode()) else None
-                targets_by_week = by_week.size()
                 log["target_share"] = {
                     wk: n / team_totals.get((team, wk), {}).get("team_targets", n) if team_totals.get((team, wk)) else None
                     for wk, n in targets_by_week.items()
                 }
-
-        p_run = pbp_run[pbp_run["rusher_player_id"] == player_id]
-        if len(p_run):
-            by_week = p_run.groupby("week")
-            log["ypc"] = by_week["yards_gained"].mean().to_dict()
-            if team_totals is not None:
-                team = p_run["posteam"].mode().iat[0] if len(p_run["posteam"].mode()) else None
-                carries_by_week = by_week.size()
-                log["carry_share"] = {
-                    wk: n / team_totals.get((team, wk), {}).get("team_carries", n) if team_totals.get((team, wk)) else None
-                    for wk, n in carries_by_week.items()
-                }
+                volume["target_share"] = targets_by_week.to_dict()
     else:
         p_pass = pbp_pass[pbp_pass["passer_player_id"] == player_id]
         if len(p_pass):
@@ -146,11 +181,47 @@ def build_player_game_log(pbp, player_id, position, team_totals=None):
             log["cpoe"] = by_week["cpoe"].mean().to_dict()
             log["avg_air_yards_per_att"] = by_week["air_yards"].mean().to_dict()
             n_att = by_week["pass_attempt"].sum()
-            n_sack = by_week["sack"].sum()
-            log["sack_rate"] = (n_sack / (n_sack + n_att)).to_dict()
-            log["scramble_rate"] = by_week["qb_scramble"].mean().to_dict()
+            volume["cpoe"] = n_att.to_dict()
+            volume["avg_air_yards_per_att"] = n_att.to_dict()
 
-    return log
+            n_sack = by_week["sack"].sum()
+            sack_dropbacks = n_sack + n_att
+            log["sack_rate"] = (n_sack / sack_dropbacks).to_dict()
+            volume["sack_rate"] = sack_dropbacks.to_dict()
+
+            # qb_scramble is only ever 1 on play_type == "run" rows (a
+            # scramble means the QB kept it instead of throwing, so it's
+            # coded as a run, not a pass -- see docs/eda_outputs/
+            # qb_scramble_rate_2025.md). Computing it from p_pass alone
+            # silently returns 0.0 for every QB every week; scrambles have
+            # to be pulled from pbp_run and combined with pass attempts into
+            # a real dropback rate.
+            n_scramble = pbp_run[
+                (pbp_run["rusher_player_id"] == player_id) & (pbp_run["qb_scramble"] == 1)
+            ].groupby("week").size().reindex(n_att.index, fill_value=0)
+            scramble_dropbacks = n_scramble + n_att
+            log["scramble_rate"] = (n_scramble / scramble_dropbacks).to_dict()
+            volume["scramble_rate"] = scramble_dropbacks.to_dict()
+
+    # Rushing stats apply to whoever actually carries the ball -- RB
+    # primarily, but also QB scrambles/sneaks/designed runs and occasional
+    # WR jet sweeps. Previously gated behind "position != QB", which silently
+    # dropped every QB's real rushing production from the weekly blend.
+    p_run = pbp_run[pbp_run["rusher_player_id"] == player_id]
+    if len(p_run):
+        by_week = p_run.groupby("week")
+        carries_by_week = by_week.size()
+        log["ypc"] = by_week["yards_gained"].mean().to_dict()
+        volume["ypc"] = carries_by_week.to_dict()
+        if team_totals is not None:
+            team = p_run["posteam"].mode().iat[0] if len(p_run["posteam"].mode()) else None
+            log["carry_share"] = {
+                wk: n / team_totals.get((team, wk), {}).get("team_carries", n) if team_totals.get((team, wk)) else None
+                for wk, n in carries_by_week.items()
+            }
+            volume["carry_share"] = carries_by_week.to_dict()
+
+    return log, volume
 
 
 def build_player_ngs_game_log(ngs_pass_df, ngs_recv_df, player_id, position):
@@ -158,17 +229,23 @@ def build_player_ngs_game_log(ngs_pass_df, ngs_recv_df, player_id, position):
     import_ngs_data('passing', ...)), avg_separation_yds (receivers, from
     import_ngs_data('receiving', ...)). Both frames have a real per-week
     `week` column (0 = season aggregate, excluded here) keyed by
-    player_gsis_id. Pass ngs_pass_df/ngs_recv_df=None to skip either."""
+    player_gsis_id. Pass ngs_pass_df/ngs_recv_df=None to skip either.
+    Returns (log, volume) -- volume uses each frame's own real weekly
+    sample-size column (`attempts` for passing, `targets` for receiving),
+    same convention as build_player_game_log()."""
     log = {}
+    volume = {}
     if position == "QB" and ngs_pass_df is not None:
         p = ngs_pass_df[(ngs_pass_df["player_gsis_id"] == player_id) & (ngs_pass_df["week"] > 0)]
         if len(p):
             log["avg_time_to_throw_sec"] = dict(zip(p["week"], p["avg_time_to_throw"]))
+            volume["avg_time_to_throw_sec"] = dict(zip(p["week"], p["attempts"]))
     elif position != "QB" and ngs_recv_df is not None:
         p = ngs_recv_df[(ngs_recv_df["player_gsis_id"] == player_id) & (ngs_recv_df["week"] > 0)]
         if len(p):
             log["avg_separation_yds"] = dict(zip(p["week"], p["avg_separation"]))
-    return log
+            volume["avg_separation_yds"] = dict(zip(p["week"], p["targets"]))
+    return log, volume
 
 
 def build_team_week_totals(pbp):
@@ -228,23 +305,27 @@ def build_player_zone_game_log(pbp, player_id, position, team_zone_totals=None):
                         if team_zone_totals.get((team, wk, zone)) else None
                         for wk, n in targets_by_week.items()
                     }
-        pbp_run = pbp[pbp["play_type"] == "run"]
-        p_run = pbp_run[pbp_run["rusher_player_id"] == player_id]
-        if len(p_run) and team_zone_totals is not None:
-            for zone, zdf in p_run.groupby("zone"):
-                by_week = zdf.groupby("week")
-                team = zdf["posteam"].mode().iat[0] if len(zdf["posteam"].mode()) else None
-                carries_by_week = by_week.size()
-                log["carry_share"][zone] = {
-                    wk: n / team_zone_totals.get((team, wk, zone), {}).get("team_carries", n)
-                    if team_zone_totals.get((team, wk, zone)) else None
-                    for wk, n in carries_by_week.items()
-                }
     else:
         p_pass = pbp_pass[pbp_pass["passer_player_id"] == player_id]
         if len(p_pass):
             for zone, zdf in p_pass.groupby("zone"):
                 log["cpoe"][zone] = zdf.groupby("week")["cpoe"].mean().to_dict()
+
+    # Rushing zone shares apply to any position that runs the ball -- see
+    # build_player_game_log's identical carve-out for why QB isn't excluded
+    # (QB sneaks/scrambles are rusher_player_id rows just like RB carries).
+    pbp_run = pbp[pbp["play_type"] == "run"]
+    p_run = pbp_run[pbp_run["rusher_player_id"] == player_id]
+    if len(p_run) and team_zone_totals is not None:
+        for zone, zdf in p_run.groupby("zone"):
+            by_week = zdf.groupby("week")
+            team = zdf["posteam"].mode().iat[0] if len(zdf["posteam"].mode()) else None
+            carries_by_week = by_week.size()
+            log["carry_share"][zone] = {
+                wk: n / team_zone_totals.get((team, wk, zone), {}).get("team_carries", n)
+                if team_zone_totals.get((team, wk, zone)) else None
+                for wk, n in carries_by_week.items()
+            }
 
     return log
 
@@ -313,9 +394,19 @@ def build_team_game_log(pbp, team):
 
 def rolling_stats_for_player(pbp, player_id, position, through_week, team_totals=None,
                               ngs_pass_df=None, ngs_recv_df=None):
-    log = build_player_game_log(pbp, player_id, position, team_totals=team_totals)
-    log.update(build_player_ngs_game_log(ngs_pass_df, ngs_recv_df, player_id, position))
-    return rolling_stats_for_fields(log, through_week)
+    """Returns (season, l4, season_volume, l4_volume) -- the last two are
+    each field's real total sample size (attempts/targets/carries/
+    dropbacks/completions) summed over the same window as season/l4's
+    rates, not yet consumed by dna_blender_v_0_1_0 (still the fixed taper
+    as of this writing) -- see
+    docs/implementation_plans/volume_weighted_dna_blend_plan.md Phase 1."""
+    log, volume = build_player_game_log(pbp, player_id, position, team_totals=team_totals)
+    ngs_log, ngs_volume = build_player_ngs_game_log(ngs_pass_df, ngs_recv_df, player_id, position)
+    log.update(ngs_log)
+    volume.update(ngs_volume)
+    season, l4 = rolling_stats_for_fields(log, through_week)
+    season_volume, l4_volume = rolling_volume_for_fields(volume, through_week)
+    return season, l4, season_volume, l4_volume
 
 
 def rolling_stats_for_team(pbp, team, through_week):

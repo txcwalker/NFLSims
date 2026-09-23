@@ -9,24 +9,17 @@ export const PAGES = [
   },
   {
     id: 'standings',
-    label: 'Full Standings',
+    label: 'Current Season',
     showInNavbar: true,
     icon: '🏆',
-    description: 'Simulated records and playoff probability outcomes for all 32 NFL teams divided by division.'
+    description: 'Real, actual 2026 stats to date -- standings, league leaders, team stats, and the current week\'s matchup(s).'
   },
   {
     id: 'season-2026',
-    label: '2026 Season',
+    label: '2026 Rest of Season',
     showInNavbar: true,
     icon: '🏈',
-    description: 'Full 2026 simulated season: standings, league leaders, team stats, matchup win probabilities, and per-team usage/matchups.'
-  },
-  {
-    id: 'live-wp',
-    label: 'Live Win Probability',
-    showInNavbar: true,
-    icon: '📈',
-    description: 'Dynamic play-by-play line charts and leverage index streams tracking live game momentum.'
+    description: 'Additive 2026 projection: real results through the last completed week plus simulated projections for the rest -- standings, league leaders, team stats, matchup win probabilities, and per-team usage/matchups.'
   },
   {
     id: 'fourth-downs',

@@ -34,7 +34,7 @@ _PATH = os.path.join(_REPO_ROOT, "data", "bankroll", "accounts.json")
 
 _ID_RE = re.compile(r"[^a-z0-9_]")
 
-VALID_KINDS = ("paper_baseline", "paper_catered", "real")
+VALID_KINDS = ("paper_baseline", "paper_catered", "real", "high_stakes")
 
 _DEFAULT_ACCOUNTS = [
     {"label": "Baseline (untouched optimizer)", "kind": "paper_baseline", "starting_bankroll": 0.0},

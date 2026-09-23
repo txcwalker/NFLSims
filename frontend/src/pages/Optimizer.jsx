@@ -146,26 +146,25 @@ function buildGameMap(games) {
   return map;
 }
 
-/** Build player pool from allSimResults (primary) → weekProjections (secondary) → ALL_ROSTERS fallback */
-function buildPlayerPool(weekProjections, allSimResults, games) {
+/** Build player pool from allSimResults (primary) → weekProjections (secondary) → ALL_ROSTERS fallback.
+ * `slateTeams`, when non-empty, restricts the pool to those teams -- see the
+ * note below on why this replaced the old "keep everyone" behavior. */
+function buildPlayerPool(weekProjections, allSimResults, games, slateTeams) {
   const gameMap = buildGameMap(games);
   const seen = new Set();
   const pool = [];
+  const restrictToSlate = slateTeams && slateTeams.size > 0;
 
-  // Teams on the live DK slate (dk_main, from /api/games -- itself sourced
-  // from dk["main_slate_teams"]). A team missing from this set has no real
-  // DK price yet (game not posted to the slate, not a bye), so its players
-  // must not appear at all -- not with a real projection and a guessed
-  // salary. Empty when games haven't loaded yet, in which case nothing is
-  // filtered (better to show everyone than hide everyone on a slow load).
-  const mainSlateTeams = new Set();
-  (games || []).forEach(g => {
-    if (g.dk_main) {
-      mainSlateTeams.add(g.away_team);
-      mainSlateTeams.add(g.home_team);
-    }
-  });
-  const onSlate = team => mainSlateTeams.size === 0 || mainSlateTeams.has(team);
+  // Previously every team was kept regardless of dk_main, on the theory that
+  // a Thursday/Monday game just sits on its own separate slate rather than
+  // being unpriced. In practice the Optimizer only ever builds lineups
+  // against the single currently-selected slate (Main Slate today -- "Only
+  // Main Slate is wired up today" per the DK Slate picker), so a player from
+  // an off-slate game (e.g. IND@KC's Sunday Night game, or a Thu/Mon game)
+  // can never actually be rostered here -- showing them with a blank "—"
+  // salary just cluttered the pool (Cam flagged Jonathan Taylor/Jahmyr Gibbs
+  // appearing on the Week 2 Main Slate pool, 2026-09-17). Filtered out below
+  // via `slateTeams` (the teams on `games` whose `dk_main` flag is true).
 
   // Helper to standardize game labels as AWAY@HOME
   const getStandardGameLabel = (team, opponent) => {
@@ -192,13 +191,33 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
   // (dk_id case) and, identically, of specific players showing a blank
   // salary in the pool table despite /api/week_projections having a real
   // price for them (salary case).
+  // optimal_pct specifically must ALWAYS come from /api/week_projections
+  // (a true whole-slate Classic 9-slot lineup rate — precomputed exactly via
+  // compute_optimal_pct_2026.py when available, else a live 50-iteration
+  // solve_optimal_lineup_milp sample) and never from allSimResults' own
+  // per-game optimal_pct, which is a DIFFERENT, showdown-scoped statistic
+  // (how often a player is in the best 6-man captain+FLEX lineup drawn from
+  // just its own 2 teams -- see run_simulation()'s solve_showdown_iteration
+  // call in src/api/app.py, and Leverage.jsx's own comment making the same
+  // distinction). A 2-team pool is trivially easier to dominate than the
+  // full ~300-player slate, so that number runs 70-90%+ for most any decent
+  // starter -- confirmed 2026-09-19 as the cause of "optimal % way too high"
+  // in this pool once the showdown-side sample size got large enough to
+  // converge on that (real, but wrong-context) rate instead of noise.
+  // Because Tier 1 (allSimResults) wins the seen-key dedup for virtually
+  // every player, this must be resolved up front and applied unconditionally
+  // in both tiers below, not left as a per-tier fallback.
   const dkIdByKey = new Map();
+  const dkNameByKey = new Map();
   const salaryByKey = new Map();
+  const optimalPctByKey = new Map();
   (Array.isArray(weekProjections) ? weekProjections : (weekProjections?.players || [])).forEach(p => {
     if (p.name && p.team) {
       const key = `${p.name}_${p.team}`;
       dkIdByKey.set(key, p.dk_id ?? null);
+      dkNameByKey.set(key, p.dk_name ?? null);
       salaryByKey.set(key, p.salary ?? null);
+      optimalPctByKey.set(key, p.optimal_pct ?? null);
     }
   });
 
@@ -206,7 +225,7 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
   Object.values(allSimResults || {}).forEach(res => {
     if (!res?.projections) return;
     res.projections.forEach(p => {
-      if (!onSlate(p.team)) return;
+      if (restrictToSlate && !slateTeams.has(p.team)) return;
       const key = `${p.name}_${p.team}`;
       if (seen.has(key)) return;
       seen.add(key);
@@ -231,10 +250,11 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
         locked: false,
         excluded: false,
         ownershipPct: p.ownership_proj ?? null,
-        optimal_pct: p.optimal_pct ?? null,
+        optimal_pct: optimalPctByKey.get(key) ?? null,
         game: gameLabel,
         dk_pcts_all: pcts,
         dk_id: dkIdByKey.get(key) ?? null,
+        dk_name: dkNameByKey.get(key) ?? null,
       });
     });
   });
@@ -246,7 +266,7 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
 
   wpList.forEach(p => {
     if (!p.name || !p.pos) return;
-    if (!onSlate(p.team)) return;
+    if (restrictToSlate && !slateTeams.has(p.team)) return;
     const pos = (p.pos || '').replace(/\d/g, '').toUpperCase();
     if (!['QB','RB','WR','TE','DST'].includes(pos)) return;
     const key = `${p.name}_${p.team}`;
@@ -280,10 +300,11 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
       locked: false,
       excluded: false,
       ownershipPct: p.ownership_proj ?? null,
-      optimal_pct: p.optimal_pct ?? null,
+      optimal_pct: optimalPctByKey.get(key) ?? null,
       game: gameLabel,
       dk_pcts_all: pcts,
       dk_id: p.dk_id ?? null,
+      dk_name: dkNameByKey.get(key) ?? p.dk_name ?? null,
     });
   });
 
@@ -313,6 +334,7 @@ function buildPlayerPool(weekProjections, allSimResults, games) {
           game: gameMap[team] || team,
           dk_pcts_all: null,
           dk_id: dkIdByKey.get(key) ?? null,
+          dk_name: dkNameByKey.get(key) ?? null,
         });
       });
     });
@@ -537,6 +559,82 @@ function ContestPicker({ dkContests, setSettings }) {
   );
 }
 
+const MAX_EXPOSURE_KEYS = [
+  ['maxExposureQB', 'QB', POS_COLORS.QB],
+  ['maxExposureRB', 'RB', POS_COLORS.RB],
+  ['maxExposureWR', 'WR', POS_COLORS.WR],
+  ['maxExposureTE', 'TE', POS_COLORS.TE],
+  ['maxExposureDST', 'DST', POS_COLORS.DST],
+];
+
+/** Per-position cap on how often any ONE player at that position can appear
+ * across the generated set -- passed to /api/optimize as max_exposure_by_pos.
+ * Replaces the old single global Max Exposure % slider: a chalky QB pool
+ * can be capped tighter than a deep WR pool without also choking off
+ * legitimate RB/WR rotation. Each slider is independent (10-100%, same
+ * range/step the old global slider used). */
+function MaxExposureSliders({ settings, setSettings }) {
+  return (
+    <div style={{ marginBottom: '4px' }}>
+      <label style={labelStyle} title="Cap on how often any one player at this position can appear across the generated lineups.">
+        Max Exposure by Position
+      </label>
+      {MAX_EXPOSURE_KEYS.map(([key, label, color]) => (
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <span style={{ width: '30px', fontSize: '0.74rem', fontWeight: 700, color }}>{label}</span>
+          <input type="range" min={10} max={100} step={5}
+            value={settings[key] ?? 40}
+            onChange={e => setSettings(s => ({ ...s, [key]: parseInt(e.target.value) }))}
+            style={{ flex: 1 }}
+          />
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-primary)', minWidth: '34px', textAlign: 'right' }}>
+            {settings[key] ?? 40}%
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const FLEX_MIX_KEYS = [
+  ['flexRB', 'RB', POS_COLORS.RB],
+  ['flexWR', 'WR', POS_COLORS.WR],
+  ['flexTE', 'TE', POS_COLORS.TE],
+  ['flexAny', 'Any', 'var(--text-muted)'],
+];
+
+/** Approximate target mix for which position fills FLEX across the generated
+ * set -- passed to /api/optimize as flex_position_weights. Raw slider values
+ * (0-100 each, independent) are normalized server-side, so they don't need
+ * to sum to 100; the % shown next to each slider is that normalized preview,
+ * computed the same way, so what's displayed always matches what gets sent. */
+function FlexMixSliders({ settings, setSettings }) {
+  const total = FLEX_MIX_KEYS.reduce((sum, [key]) => sum + (settings[key] || 0), 0);
+  return (
+    <div style={{ marginTop: '10px' }}>
+      <label style={labelStyle} title="Approximate share of generated lineups where FLEX is filled by each position. Normalized automatically -- doesn't need to add to 100.">
+        FLEX Position Mix
+      </label>
+      {FLEX_MIX_KEYS.map(([key, label, color]) => {
+        const pct = total > 0 ? Math.round(100 * (settings[key] || 0) / total) : 0;
+        return (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span style={{ width: '30px', fontSize: '0.74rem', fontWeight: 700, color }}>{label}</span>
+            <input type="range" min={0} max={100} step={5}
+              value={settings[key] || 0}
+              onChange={e => setSettings(s => ({ ...s, [key]: parseInt(e.target.value) }))}
+              style={{ flex: 1 }}
+            />
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-primary)', minWidth: '34px', textAlign: 'right' }}>
+              {pct}%
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function SettingsPanel({ settings, setSettings, allTeams, allGames, excludedTeams, setExcludedTeams, excludedGames, setExcludedGames, dkContests = [] }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   return (
@@ -657,17 +755,9 @@ function SettingsPanel({ settings, setSettings, allTeams, allGames, excludedTeam
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Include DST in Unique Count</span>
         </label>
 
-        <label style={labelStyle}>Max Exposure %</label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <input type="range" min={10} max={100} step={5}
-            value={settings.maxExposure}
-            onChange={e => setSettings(s => ({ ...s, maxExposure: parseInt(e.target.value) }))}
-            style={{ flex: 1 }}
-          />
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-primary)', minWidth: '36px' }}>
-            {settings.maxExposure}%
-          </span>
-        </div>
+        <MaxExposureSliders settings={settings} setSettings={setSettings} />
+
+        <FlexMixSliders settings={settings} setSettings={setSettings} />
       </div>
 
       {/* ── Filters ── */}
@@ -747,20 +837,31 @@ export default function Optimizer({
     ApiService.getDkContests(selectedDraftGroupId).then(res => setDkContests(res.contests || [])).catch(() => {});
   }, [selectedDraftGroupId]);
 
+  // Teams actually on the currently selected slate (Main Slate today) --
+  // used to keep buildPlayerPool from listing players whose game can never
+  // be rostered here (see that function's comment).
+  const slateTeams = useMemo(() => {
+    const s = new Set();
+    (games || []).forEach(g => {
+      if (g.dk_main) { s.add(g.away_team); s.add(g.home_team); }
+    });
+    return s;
+  }, [games]);
+
   // ── Player pool = PURE sim output. Never mutated by user actions. Rebuilt
   // whenever the week's projections / sims / games change. All of the user's
   // manual work lives in `overlay` below and is re-applied on top in
   // `enrichedPool`, so a mid-week sim refresh no longer wipes it.
   const [playerPool, setPlayerPool] = useState(() =>
-    buildPlayerPool(weekProjections, allSimResults, games)
+    buildPlayerPool(weekProjections, allSimResults, games, slateTeams)
   );
 
   useEffect(() => {
     const wpList = Array.isArray(weekProjections) ? weekProjections : (weekProjections?.players || []);
     if (wpList.length > 0 || Object.keys(allSimResults || {}).length > 0) {
-      setPlayerPool(buildPlayerPool(weekProjections, allSimResults, games));
+      setPlayerPool(buildPlayerPool(weekProjections, allSimResults, games, slateTeams));
     }
-  }, [weekProjections, allSimResults, games]);
+  }, [weekProjections, allSimResults, games, slateTeams]);
 
   // ── Overlay: the user's manual layer on top of the sim pool.
   //   players[id] = { projAdjust?, projAbsolute?, ownershipPct?, ownershipFrozenValue?, locked?, excluded? }
@@ -824,10 +925,30 @@ export default function Optimizer({
     // doubles as the entry count fed to the backend's EV math.
     payoutStructure: null, // real rank-by-rank tiers from a picked live contest; null = use the contest-type-shaped estimate
     nLineups: 20, minUnique: 2,
-    includeDstUnique: false, maxExposure: 40,
+    includeDstUnique: false,
     projThreshold: 0,
+    // Approximate target mix for which position fills FLEX across the
+    // generated set (see /api/optimize's flex_position_weights). Default is
+    // ANY: 100 / everything else 0, i.e. fully unconstrained -- identical to
+    // pre-slider behavior (the solver just picks FLEX on score) for anyone
+    // who never touches these.
+    flexRB: 0, flexWR: 0, flexTE: 0, flexAny: 100,
+    // Per-position exposure caps (see /api/optimize's max_exposure_by_pos),
+    // replacing the old single global Max Exposure % slider. 40 matches that
+    // slider's old default, so a fresh session behaves the same until these
+    // are touched.
+    maxExposureQB: 40, maxExposureRB: 40, maxExposureWR: 40, maxExposureTE: 40, maxExposureDST: 40,
   };
-  const [settings, setSettings] = useState(() => optimizerSettings || defaultSettings);
+  // Merged (not `||`) with whatever's already loaded/saved, so a settings
+  // object saved before a new field existed (e.g. the flex-mix sliders, or
+  // these per-position exposure caps) still gets that field's default
+  // instead of silently missing it -- a bare `||` picks the *entire* saved
+  // object as-is, permanently masking any default added after it was saved.
+  // (Concretely: this was the FLEX Position Mix sliders showing only 0%/100%
+  // for anyone with pre-existing saved state -- the missing `flexAny: 100`
+  // dropped out of the mix's denominator entirely, so whichever slider you'd
+  // just touched became the *entire* total, always reading back 100%.)
+  const [settings, setSettings] = useState(() => ({ ...defaultSettings, ...(optimizerSettings || {}) }));
 
   // ── Filters
   const [playerSearch, setPlayerSearch] = useState('');
@@ -1207,6 +1328,7 @@ export default function Optimizer({
       ownership_pct: p.ownershipPct,
       dk_pcts_all: p.active_pcts_all || p.dk_pcts_all || null,
       dk_id: p.dk_id ?? null,
+      dk_name: p.dk_name ?? null,
     }));
   };
 
@@ -1233,7 +1355,16 @@ export default function Optimizer({
       contest_size: settings.contestSize,
       min_unique_players: settings.minUnique,
       include_dst_in_unique: settings.includeDstUnique,
-      max_exposure: settings.maxExposure / 100,
+      // Per-position caps (Settings → Max Exposure by Position) -- replaces
+      // the old single global max_exposure scalar; the backend still has a
+      // default for that field, but the classic optimizer always sends this.
+      max_exposure_by_pos: {
+        QB: (settings.maxExposureQB ?? 40) / 100,
+        RB: (settings.maxExposureRB ?? 40) / 100,
+        WR: (settings.maxExposureWR ?? 40) / 100,
+        TE: (settings.maxExposureTE ?? 40) / 100,
+        DST: (settings.maxExposureDST ?? 40) / 100,
+      },
       entry_fee: settings.entryFee,
       // An NFL DK/FD contest is assumed full by game lock, so contest size
       // doubles as the entry count for the backend's EV math -- no separate
@@ -1248,6 +1379,12 @@ export default function Optimizer({
       // sample (see field_simulator.py) instead of falling back to a
       // uniform-random field.
       week: selectedWeek,
+      // Approximate FLEX-position target mix (Settings → FLEX Position Mix).
+      // Raw slider values; the backend normalizes them itself.
+      flex_position_weights: {
+        RB: settings.flexRB || 0, WR: settings.flexWR || 0,
+        TE: settings.flexTE || 0, ANY: settings.flexAny || 0,
+      },
     };
 
     try {
@@ -1353,7 +1490,7 @@ export default function Optimizer({
       players: (lu.players || []).map(pl => ({
         name: pl.name, pos: pl.pos, team: pl.team, slot: pl.slot,
         salary: pl.salary, projection: pl.projection, ownership_pct: pl.ownership_pct,
-        dk_id: pl.dk_id,
+        dk_id: pl.dk_id, dk_name: pl.dk_name,
       })),
     }));
     lineups.forEach(lu => lu.players.forEach(pl => {
@@ -1653,7 +1790,11 @@ export default function Optimizer({
     const header = 'QB,RB,RB,WR,WR,WR,FLEX,TE,DST,Salary,Projected Score';
     const rows = sortedLineups.map(lu => {
       const cols = getSlottedColumns(lu.players);
-      const names = cols.map(p => p ? p.name.split(' ').slice(-1)[0] : '');
+      const names = cols.map(p => {
+        if (!p) return '';
+        if (p.pos === 'DST') return p.dk_name || `${p.team} DST`;
+        return p.name.split(' ').slice(-1)[0];
+      });
       return [...names, lu.total_salary, lu.projected_score].join(',');
     });
     const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' });
@@ -1673,6 +1814,14 @@ export default function Optimizer({
   // miss or someone outside the Main Slate pool) exports by name only, which
   // DK's upload will not resolve -- flagged via the alert below rather than
   // silently shipping a broken row.
+  //
+  // DST cells specifically use dk_name (DK's real display name, e.g.
+  // "Buccaneers", threaded through from get_week_dk_names() -- see
+  // src/api/app.py) rather than the player's own `name`, which for every
+  // defense is the sim engine's generic placeholder "Defense" (see
+  // get_week_salaries's defense_salary_by_team comment). Exporting `name`
+  // directly produced "Defense (id)" for every DST slot, which DK's own
+  // upload doesn't recognize.
   const exportDkUploadCSV = () => {
     const header = 'QB,RB,RB,WR,WR,WR,TE,FLEX,DST';
     let missingIds = 0;
@@ -1682,8 +1831,9 @@ export default function Optimizer({
       const ordered = [bySlot.QB[0], bySlot.RB[0], bySlot.RB[1], bySlot.WR[0], bySlot.WR[1], bySlot.WR[2], bySlot.TE[0], bySlot.FLEX[0], bySlot.DST[0]];
       return ordered.map(p => {
         if (!p) return '';
-        if (p.dk_id == null) { missingIds++; return p.name; }
-        return `${p.name} (${p.dk_id})`;
+        const label = p.pos === 'DST' ? (p.dk_name || `${p.team} DST`) : p.name;
+        if (p.dk_id == null) { missingIds++; return label; }
+        return `${label} (${p.dk_id})`;
       }).join(',');
     });
     if (missingIds > 0) {
@@ -1886,7 +2036,7 @@ export default function Optimizer({
           borderRadius: '10px', padding: '10px 16px', marginBottom: '12px',
           display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', color: '#f5c542',
         }}>
-          ⚠️ Running on baseline projections — run simulations on the DFS Simulator page for enhanced percentile data.
+          ⚠️ Running on baseline projections — run simulations on the Game Explorer page for enhanced percentile data.
         </div>
       )}
 
@@ -2389,6 +2539,15 @@ export default function Optimizer({
                     {restoredBuild && (
                       <span style={{ marginLeft: '8px', color: 'var(--accent-primary)' }}>
                         · viewing a saved build{restoredBuild.label ? ` "${restoredBuild.label}"` : ''}
+                      </span>
+                    )}
+                    {/* Realized FLEX mix vs. the Settings sliders' target -- only
+                        worth a line once a non-default mix was actually requested. */}
+                    {resultsMode === 'optimize' && portfolioStats.flex_mix_pct && (settings.flexRB || settings.flexWR || settings.flexTE) > 0 && (
+                      <span style={{ marginLeft: '8px' }}>
+                        · FLEX mix: <span style={{ color: POS_COLORS.RB }}>{portfolioStats.flex_mix_pct.RB}% RB</span>{' '}
+                        <span style={{ color: POS_COLORS.WR }}>{portfolioStats.flex_mix_pct.WR}% WR</span>{' '}
+                        <span style={{ color: POS_COLORS.TE }}>{portfolioStats.flex_mix_pct.TE}% TE</span>
                       </span>
                     )}
                   </div>

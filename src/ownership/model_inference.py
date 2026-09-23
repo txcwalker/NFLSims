@@ -13,12 +13,13 @@ of raising. Every player gets `ownership_source` set to "model" or
 "heuristic" so it's visible, per player, which one actually produced their
 number -- useful for a post-game review of how the early model performed.
 
-Known limitation (2026-09-14): these models were trained on very little
-data (1 classic slate, 2-3 showdown slates) -- shipped anyway on explicit
-instruction ("results won't be good for most of the year but it's better
-than what we were doing"). Re-run train_ownership_model.py as more slates
-get archived; this module always loads whatever's on disk, no code change
-needed to pick up a re-trained model.
+Known limitation (updated 2026-09-22): still thin data (2 classic slates, 6
+showdown slates as of this update -- see docs/implementation_plans/
+ownership_model_v2_plan.md), shipped anyway per the same standing
+instruction as 2026-09-14 ("better than what we were doing"). Re-run
+train_ownership_model.py as more slates get archived; this module always
+loads whatever's on disk, no code change needed to pick up a re-trained
+model.
 """
 from __future__ import annotations
 
@@ -31,10 +32,12 @@ import pandas as pd
 
 from src.ownership.heuristic import _compute_ownership, _compute_showdown_ownership
 from src.ownership.normalize import normalize_classic_ownership, normalize_showdown_ownership
+from src.ownership.prior_week import prior_week_feature
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MODEL_DIR = os.path.join(BASE_DIR, "data", "dfs_ownership", "_processed", "models")
 SCHEDULE_CSV_PATH = os.path.join(BASE_DIR, "data", "external", "schedule_2026.csv")
+YEAR = 2026  # matches the hardcoded schedule filename above -- no multi-season support yet anywhere in this module
 
 _model_cache: dict = {}   # name -> (model, meta) or None (tried, unavailable)
 _vegas_cache: dict = {}   # week -> (implied_by_team, spread_by_team)
@@ -101,6 +104,35 @@ def _sigmoid_pct(x: np.ndarray) -> np.ndarray:
     return 100.0 / (1.0 + np.exp(-x))
 
 
+def _stakes_tier(entry_fee: Optional[float]) -> Optional[str]:
+    """Mirrors scripts/dfs_ownership/standings_parser.py's stakes_tier()
+    exactly (casual <=$5, sharp >=$20, else mid) -- duplicated rather than
+    imported so this always-loaded live-inference module never depends on
+    the scripts/ package tree (a broken import there would take the whole
+    API process down with it). Keep in sync if the thresholds ever change."""
+    if entry_fee is None:
+        return None
+    if entry_fee <= 5:
+        return "casual"
+    if entry_fee >= 20:
+        return "sharp"
+    return "mid"
+
+
+def _contest_fields(contest: Optional[dict]) -> dict:
+    """{field_size, stakes_tier, max_entries} for the segmentation features
+    added 2026-09-22 -- None/missing for any key the caller doesn't supply,
+    which XGBoost (numeric -> NaN, coerced) and the dummy-column reindex
+    (categorical -> all-zero) both already treat as "no signal", so omitting
+    `contest` entirely reproduces the exact pre-segmentation behavior."""
+    contest = contest or {}
+    return {
+        "field_size": contest.get("field_size"),
+        "stakes_tier": _stakes_tier(contest.get("entry_fee")),
+        "max_entries": contest.get("max_entries"),
+    }
+
+
 def _predict(model, meta: dict, rows: list) -> np.ndarray:
     df = pd.DataFrame(rows)
     raw_cols, cat_cols = meta["raw_feature_columns"], meta["categorical_columns"]
@@ -130,13 +162,23 @@ def _dispersion_and_rank(players: list) -> tuple[dict, dict]:
 
 
 def predict_classic_ownership(players: list, week: Optional[int] = None,
-                               cash_consensus: Optional[dict] = None, seed: Optional[int] = None) -> list:
+                               cash_consensus: Optional[dict] = None, seed: Optional[int] = None,
+                               contest: Optional[dict] = None) -> list:
     """Drop-in for _compute_ownership(players, seed=...): mutates each
     priced player, adding ownership_pct + ownership_source ("model" or
     "heuristic"). `cash_consensus` is an optional {(name, team): frac}
     map (see app.py's existing _generate_cash_consensus_lineups usage) --
     omit it and the model just sees 0 for that feature, a graceful (not
     fatal) degradation.
+
+    `contest` (added 2026-09-22, segmentation features) is an optional
+    {"field_size": float, "entry_fee": float, "max_entries": float} dict --
+    the SAME numbers get predicted for two different contests that happen to
+    share these characteristics, since the model never sees contest identity,
+    only field_size/stakes_tier(from entry_fee)/max_entries. Omit it (or any
+    key within it) for today's pre-segmentation behavior: this stays the
+    single "one set of numbers per week" call every existing caller makes,
+    unchanged -- see _contest_fields().
 
     Falls back to the heuristic for the WHOLE pool if no classic model is on
     disk yet; a player missing dk_pcts_all (so no real median/ceiling) still
@@ -153,6 +195,7 @@ def predict_classic_ownership(players: list, week: Optional[int] = None,
     implied_by_team, spread_by_team, total_by_team = _vegas_lookup(week)
     n_games = _n_games_on_slate(week)
     cash_consensus = cash_consensus or {}
+    contest_fields = _contest_fields(contest)
     disp, rank = _dispersion_and_rank(players)
 
     # "Locked" here means the SAME thing it means to the heuristic (and to
@@ -174,6 +217,7 @@ def predict_classic_ownership(players: list, week: Optional[int] = None,
             "team_implied_total": p.get("implied_total") or implied_by_team.get(p.get("team")),
             "team_spread": spread_by_team.get(p.get("team")),
             "n_games_on_slate": n_games,
+            "prior_week_score": prior_week_feature(p.get("name"), p.get("team"), YEAR, week),
             # Prefer a value already on the player dict (e.g. the bulk
             # weekly-sim bootstrap already attaches this per-player) over the
             # external map, so a caller with it embedded doesn't also have
@@ -181,7 +225,7 @@ def predict_classic_ownership(players: list, week: Optional[int] = None,
             "cash_consensus_frac": (p.get("cash_consensus_frac") if p.get("cash_consensus_frac") is not None
                                      else cash_consensus.get((p.get("name"), p.get("team")), 0.0)),
             "salary_dispersion_pos": disp.get(i, 0.0), "salary_rank_pctile": rank.get(i, 0.5),
-            "pos": p.get("pos"),
+            "pos": p.get("pos"), **contest_fields,
         })
     if rows:
         preds = _predict(model, meta, rows)
@@ -204,13 +248,18 @@ def predict_classic_ownership(players: list, week: Optional[int] = None,
     return players
 
 
-def predict_showdown_ownership(players: list, week: Optional[int] = None, seed: Optional[int] = None) -> list:
+def predict_showdown_ownership(players: list, week: Optional[int] = None, seed: Optional[int] = None,
+                                contest: Optional[dict] = None) -> list:
     """Drop-in for _compute_showdown_ownership(players, seed=...): mutates
     each priced player, adding ownership_pct (FLEX) + cpt_ownership_pct +
     ownership_source. Falls back to the heuristic (for BOTH targets
     together) if either the flex or CPT model is missing, so a pool never
     ends up with one target from the model and the other from the
-    heuristic -- inconsistent premises would make them hard to compare."""
+    heuristic -- inconsistent premises would make them hard to compare.
+
+    `contest` -- see predict_classic_ownership's docstring; same
+    {"field_size", "entry_fee", "max_entries"} shape, same graceful-omit
+    behavior via _contest_fields()."""
     flex_loaded, cpt_loaded = _load_model("showdown_flex"), _load_model("showdown_cpt")
     if flex_loaded is None or cpt_loaded is None:
         _compute_showdown_ownership(players, seed=seed)
@@ -221,6 +270,7 @@ def predict_showdown_ownership(players: list, week: Optional[int] = None, seed: 
     flex_model, flex_meta = flex_loaded
     cpt_model, cpt_meta = cpt_loaded
     implied_by_team, spread_by_team, total_by_team = _vegas_lookup(week)
+    contest_fields = _contest_fields(contest)
     disp, rank = _dispersion_and_rank(players)
 
     # Captured before any computation -- same "leave a pre-existing value
@@ -241,8 +291,9 @@ def predict_showdown_ownership(players: list, week: Optional[int] = None, seed: 
             "team_implied_total": p.get("implied_total") or implied_by_team.get(p.get("team")),
             "team_spread": spread_by_team.get(p.get("team")),
             "optimal_cpt_pct": p.get("optimal_cpt_pct") or 0.0, "optimal_flex_pct": p.get("optimal_flex_pct") or 0.0,
+            "prior_week_score": prior_week_feature(p.get("name"), p.get("team"), YEAR, week),
             "salary_dispersion_pos": disp.get(i, 0.0), "salary_rank_pctile": rank.get(i, 0.5),
-            "pos": p.get("pos"),
+            "pos": p.get("pos"), **contest_fields,
         })
     if rows:
         flex_preds = _predict(flex_model, flex_meta, rows)

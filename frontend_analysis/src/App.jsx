@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { PAGES } from './pagesConfig';
 import Home from './pages/Home';
-import LiveWP from './pages/LiveWP';
 import FourthDowns from './pages/FourthDowns';
 import Standings from './pages/Standings';
 import Season2026 from './pages/Season2026';
@@ -73,8 +72,6 @@ function App() {
         return <Standings />;
       case 'season-2026':
         return <Season2026 />;
-      case 'live-wp':
-        return <LiveWP />;
       case 'fourth-downs':
         return <FourthDowns />;
       case 'game-summary':

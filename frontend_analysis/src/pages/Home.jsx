@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ApiService } from '../api';
-import { Play, TrendingUp, Cpu, Award, Trophy, ArrowRight } from 'lucide-react';
+import { Play, Cpu, Award, Trophy, ArrowRight } from 'lucide-react';
 
 // Formats a Date as ESPN's YYYYMMDD scoreboard param.
 function toEspnDate(d) {
@@ -170,9 +170,6 @@ function Home({ navigateTo }) {
                   )}
 
                   <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }} onClick={(e) => e.stopPropagation()}>
-                    <button className="btn btn-outline" style={{ flex: 1, fontSize: '11px', padding: '6px' }} onClick={() => navigateTo('live-wp')}>
-                      <TrendingUp size={12} /> WP Graph
-                    </button>
                     <button className="btn btn-cyan" style={{ flex: 1, fontSize: '11px', padding: '6px' }} onClick={() => navigateTo('game-summary', { id: game.game_id, date: gameDate || fallbackDate || '' })}>
                       <Play size={12} /> Analyze Center
                     </button>
@@ -184,13 +181,6 @@ function Home({ navigateTo }) {
             {/* Quick Strategic Actions */}
             <h2 style={{ fontSize: '18px', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Command Tools</h2>
             <div className="games-grid">
-              <div className="panel" style={{ cursor: 'pointer' }} onClick={() => navigateTo('live-wp')}>
-                <div style={{ color: 'var(--accent-cyan)', marginBottom: '12px' }}><TrendingUp size={24} /></div>
-                <h3 style={{ fontSize: '16px', marginBottom: '6px' }}>Live Win Probability</h3>
-                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  Monitor ongoing matchups with real-time probability charts and expected points analytics.
-                </p>
-              </div>
               <div className="panel" style={{ cursor: 'pointer' }} onClick={() => navigateTo('fourth-downs')}>
                 <div style={{ color: 'var(--accent-orange)', marginBottom: '12px' }}><Cpu size={24} /></div>
                 <h3 style={{ fontSize: '16px', marginBottom: '6px' }}>4th Down Decision Explorer</h3>

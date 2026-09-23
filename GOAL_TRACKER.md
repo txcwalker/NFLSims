@@ -74,7 +74,7 @@ This is a living document tracking all project goals, statuses, and target dates
 | DFS player projection model | ✅ Completed | Jan 2027 |
 | DraftKings lineup optimizer & exporter | ✅ Completed | Feb 2027 |
 | FanDuel lineup optimizer & exporter | ✅ Completed | Feb 2027 |
-| DFS ownership projection model (salary/Vegas/cash-consensus blend) | ✅ Completed | Aug 2026 |
+| DFS ownership projection model (salary/Vegas/cash-consensus blend) | 🔄 In Progress (v2: segmentation + prior-week features shipped 2026-09-22; weekly retrain as slates accrue; bigger structural changes — per-bucket models, flex-lean feature — deferred to offseason) | Aug 2026 |
 | DFS tournament field simulation engine (archetype-based field, replaces GPP proj/contest sim/portfolio scoring) | 🔄 In Progress (plan drafted) | — |
 | NFL award odds (MVP, OPOY, DPOY, etc.) | 🔄 In Progress | Dec 2026 |
 | Wins Above Replacement (WAR) metric designed | ❌ Pending | Jan 2027 |

@@ -21,15 +21,31 @@ All figures are season totals: summed per team per season Monte Carlo
 iteration, then averaged (Expected) and medianed across iterations -- same
 convention as generate_season_leaders_2026.py and run_full_season_sim_2026.py.
 
+ADDITIVE REST-OF-SEASON (2026-09-16): games/players from weeks before the
+current week (see current_week_v_0_1_0.get_current_week) are dropped from
+the simulated aggregation below, then each team's real PF/PA/pass-yards/
+rush-yards through those completed weeks (from real_results_v_0_1_0, same
+NGS-based source build_actual_season_stats_2026.py uses) is added back as a
+constant offset. Turnovers/sacks/defense/"Allowed" columns have no real
+per-play source yet (see real_results_v_0_1_0's docstring) and stay purely
+simulated for now -- a known, documented gap, same one
+build_actual_season_stats_2026.py's own docstring calls out.
+
 Usage: python generate_team_stats_2026.py
 """
 import os
+import sys
 import pandas as pd
 import numpy as np
+
+sys.path.append(os.getcwd())
+from src.data_pipeline.current_week_v_0_1_0 import get_current_week
+from src.data_pipeline.real_results_v_0_1_0 import import_real_played_games, import_real_player_ngs
 
 SIM_YEAR = 2026
 GAMES_CACHE = f"data/interim/sim_results_{SIM_YEAR}_games.parquet"
 PLAYERS_CACHE = f"data/interim/sim_results_{SIM_YEAR}_players.parquet"
+SCHEDULE_CSV = f"data/external/schedule_{SIM_YEAR}.csv"
 OUTPUT_DIR = "docs/reports"
 
 TEAM_DIVISIONS = {
@@ -62,6 +78,30 @@ def generate():
     print("Loading simulation caches...")
     games_df = pd.read_parquet(GAMES_CACHE)
     players_df = pd.read_parquet(PLAYERS_CACHE)
+
+    # --- ADDITIVE: drop completed-week games/players from the simulated
+    # aggregation -- their real contribution gets added back below instead.
+    current_week = get_current_week(SIM_YEAR)
+    print(f"Current week (auto-detected): {current_week}")
+    sched = pd.read_csv(SCHEDULE_CSV)
+    week_by_game_id = dict(zip(sched['game_id'], sched['week']))
+    games_df = games_df[games_df['game_id'].map(week_by_game_id).fillna(999) >= current_week]
+    players_df = players_df[players_df['game_id'].map(week_by_game_id).fillna(999) >= current_week]
+
+    real_offsets = {}
+    real_played = import_real_played_games(SIM_YEAR)
+    real_played = real_played[real_played['week'] < current_week]
+    if not real_played.empty:
+        real_passing, real_rushing, real_receiving = import_real_player_ngs(SIM_YEAR)
+        for team in TEAM_DIVISIONS:
+            pf = real_played.loc[real_played['away_team'] == team, 'away_score'].sum() + \
+                 real_played.loc[real_played['home_team'] == team, 'home_score'].sum()
+            pa = real_played.loc[real_played['away_team'] == team, 'home_score'].sum() + \
+                 real_played.loc[real_played['home_team'] == team, 'away_score'].sum()
+            pYds = real_passing.loc[real_passing['team_abbr'] == team, 'pass_yards'].sum()
+            rYds = real_rushing.loc[real_rushing['team_abbr'] == team, 'rush_yards'].sum()
+            real_offsets[team] = {'pf': pf, 'pa': pa, 'pYds': pYds, 'rYds': rYds}
+        print(f"Real completed-week team offsets available for {len(real_played)} games.")
 
     # --- Points For/Against, per team per iteration ---
     print("Computing points for/against...")
@@ -116,6 +156,18 @@ def generate():
     team_stats = team_stats.merge(team_offense, on='Team').merge(team_defense, on='Team').merge(yds_allowed, on='Team')
     team_stats['Conference'] = team_stats['Team'].map(lambda t: TEAM_DIVISIONS[t][0])
     team_stats['Division'] = team_stats['Team'].map(lambda t: TEAM_DIVISIONS[t][1])
+
+    # --- ADDITIVE: add each team's real completed-week PF/PA/pass/rush
+    # yards back on top of the (now remaining-weeks-only) simulated totals.
+    # Adding a constant to a distribution shifts its mean/median by the
+    # same constant, so this is valid for both the _avg and _med columns.
+    if real_offsets:
+        for col, key in [('PF_avg', 'pf'), ('PF_med', 'pf'), ('PA_avg', 'pa'), ('PA_med', 'pa'),
+                          ('pYds_avg', 'pYds'), ('pYds_med', 'pYds'), ('rYds_avg', 'rYds'), ('rYds_med', 'rYds')]:
+            team_stats[col] = team_stats.apply(lambda r: r[col] + real_offsets.get(r['Team'], {}).get(key, 0), axis=1)
+        team_stats['TotalYds_avg'] = team_stats['pYds_avg'] + team_stats['rYds_avg']
+        team_stats['TotalYds_med'] = team_stats['pYds_med'] + team_stats['rYds_med']
+
     team_stats['PointDiff_avg'] = team_stats['PF_avg'] - team_stats['PA_avg']
 
     # Save full CSV

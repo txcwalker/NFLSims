@@ -70,6 +70,180 @@
 
 ---
 
+### [2026-09-22] Handoff from Claude Sonnet 5 (Week-3 rollover + DFS ownership model v2, built largely autonomously)
+
+- **Active Task:** Two linked pieces of work, same session. (1) Get the DFS dev site
+  defaulting to week 3 with real matchups showing (Cam explicitly scoped out
+  projections/ownership for that piece — "we can run all of that tomorrow"). (2) The
+  ownership model v2 build from [docs/implementation_plans/ownership_model_v2_plan.md](docs/implementation_plans/ownership_model_v2_plan.md)
+  (segmentation features + prior-week signal) — Cam stepped out for several hours and
+  asked how much of it could be built without him; built essentially all of it, with
+  two deliberate frontend-UI stubs flagged below rather than guessed at.
+- **Files Modified:**
+  - [src/api/app.py](src/api/app.py): `/api/weeks` was hardcoded to `[1, 2]` — the actual
+    reason week 3 never showed up anywhere in the frontend (it picks
+    `Math.max(...weeks)` as the default on load). Now `[1, 2, 3]`. Added
+    `OptimizeRequest.max_entries` / `ShowdownOptimizeRequest.max_entries` (both
+    `Optional[float] = None` — no frontend field sets these yet, added so the backend
+    is ready). Added `ShowdownPrepRequest.entry_fee/field_size/max_entries` (same
+    story, see Immediate Next Steps #1). Wired a `contest={field_size, entry_fee,
+    max_entries}` dict into all three `predict_classic_ownership`/
+    `predict_showdown_ownership` call sites that have real per-request values
+    (`/optimize`, `/api/showdown_optimize`) — `/showdown_prep`'s call passes the new
+    (currently-always-None) fields through for when the frontend catches up.
+  - [src/ownership/model_inference.py](src/ownership/model_inference.py): added an
+    optional `contest` param to both predict functions; `_stakes_tier()` (duplicated
+    from `standings_parser.py`'s function on purpose — this module is always-loaded by
+    the live API, and importing from `scripts/` would mean a broken script-tree import
+    could take the whole server down with it) and `_contest_fields()` turn `contest`
+    into the three raw feature values, defaulting to None/no-signal when omitted so
+    every existing caller's behavior is unchanged. Wired `prior_week_score` into both
+    row-building loops. Updated the module's stale "1 classic slate, 2-3 showdown"
+    docstring note.
+  - [src/ownership/prior_week.py](src/ownership/prior_week.py) (new): the prior-week
+    sentinel feature. Encoding, per Cam (confirmed mid-session): `-99` genuinely never
+    seen before (rookie debut, whether that's week 1 or later), `-76` returning from a
+    3+ consecutive-week absence while salaried each of those weeks (a real injury —
+    "even injured players have salaries"), `-51` team was on a bye the prior week, `0`
+    no salary listing the prior week but seen at some earlier week (practice-squad
+    elevation / re-signed veteran — "most representative of their previous weeks"),
+    else the real score. Caught and fixed a real bug in this **before** it shipped:
+    the roster-eligibility check (`_salary_keys`) originally only scanned the classic
+    main slate, but DK's Main Slate genuinely excludes Thursday/SNF/MNF games (verified
+    by cross-referencing which teams were missing from a real main-slate snapshot
+    against the schedule — exactly the Thu/SNF/MNF matchups, nothing else, and this
+    matches `/api/games`'s own existing weekday/gametime heuristic). Un-fixed, every
+    player on a primetime team would've been wrongly coded `-99`/`0` every single
+    week. Fixed by unioning every slate folder (main + all showdowns) for the week,
+    not just main_slate — verified against a real player (Josh Allen/BUF) before and
+    after: `0.0` (wrong) → `40.82` (his real week-2 score, correct).
+  - [src/scrapers/dk_scraper.py](src/scrapers/dk_scraper.py): fixed a real,
+    **pre-existing** bug (present since week 1, not introduced this session) —
+    `_refresh_slate()` read `position` off each DK draftable purely to route
+    DST-vs-everyone-else, then discarded it; `get_dk_salaries()`'s `players` dict had
+    nowhere to put a position at all. This is why every classic main-slate salary
+    snapshot has had `pos=""` for every non-DST player since the archive started.
+    Added a `player_pos` dict alongside `players`, threaded through `get_dk_salaries()`'s
+    return shape (+ its `empty` fallback) and `load_prelock_salary_snapshot()`'s
+    CSV-reading counterpart, for parity.
+  - [scripts/dfs_ownership/snapshot_slate_salaries.py](scripts/dfs_ownership/snapshot_slate_salaries.py):
+    `snapshot_main()` now writes real `pos` from `dk["player_pos"]` instead of a
+    hardcoded `""`.
+  - [scripts/dfs_ownership/train_ownership_model.py](scripts/dfs_ownership/train_ownership_model.py):
+    fixed a second real bug found while re-grounding the plan in real numbers —
+    `leave_one_slate_out_cv`/`_heuristic_baseline` grouped by bare `slate_id` (just
+    the archive folder's basename, e.g. `"main_slate"`), which is *identical* across
+    different weeks by construction, so week 1 and week 2's classic data were silently
+    merging into one CV fold even after week 2 was recovered. Now groups by
+    `(year, week, slate_id)`. Added `field_size`/`max_entries`/`prior_week_score` to
+    `CLASSIC_FEATURES`/`SHOWDOWN_FEATURES`, `stakes_tier` to `CATEGORICAL_COLS` (NOT
+    also in the feature lists — same convention `pos` already follows, doubling it up
+    silently double-selects the column), `prior_week_score` computed in `_enrich()`.
+  - `data/dfs_ownership/2026/week_01/main_slate/salaries_prelock.csv`: position
+    backfilled in place (week 1's original draft-group id, 151307, is documented
+    elsewhere in this file as confirmed repointed/poisoned by DK since capture — could
+    not safely re-fetch). 568 resolved from week 2/3's now-correct data (cross-team,
+    same player usually keeps position), 128 from `data/current_rosters/dfs/*_traits_2026.json`,
+    26 left blank (all deep-bench/min-salary, acceptable gap).
+  - `data/dfs_ownership/2026/week_02/main_slate/` + `showdown_{BUF_DET,IND_KC,LAR_NYG}/`:
+    recovered from scratch — week 2's pre-lock salary snapshot had never been taken at
+    all (no `manifest.json` existed for any of these). Classic recovered via the sticky
+    main-slate pin (`data/dk_main_slate_pins.json`, draft group 153428); showdowns
+    recovered by probing DK's sequential draft-group-id block for that week and
+    verifying each fetch's returned team names against the schedule before trusting
+    it (confirmed DK runs several product variants — Showdown, Snake Showdown, etc. —
+    per matchup under different ids; checked they were byte-identical player pools
+    before picking one arbitrarily). **Independently cross-verified**, not just
+    assumed correct, against data captured live during week 2 itself and unrelated to
+    this session: 76/76 real skill-player salaries matched
+    `data/optimizer/2026/week_02/builds/*.json`'s `players_used`; Josh Allen's captain
+    salary (17100 = 11400 × 1.5) matched the showdown workspace's own saved lineup.
+    Re-fetched a second time after the position fix landed, re-verified again, still
+    76/76 clean.
+  - `data/dfs_ownership/2026/week_02/main_slate/{firstdown_1_20max,minimax_.5_150max,pocket_.01_150max}.csv`:
+    renamed from typo'd originals (`firstdown_1_20max .csv` — trailing space;
+    `minimax_,5_150max.csv` / `pocket_,01_150max.csv` — comma instead of period) that
+    the standings parser was silently skipping even after the salary snapshot came back.
+  - `data/dfs_ownership/2026/week_03/main_slate/` + `showdown_ATL_GB/`: new pre-lock
+    snapshots for the current week (main slate + the one showdown posted so far —
+    DK only posts each single-game showdown near its own kickoff, not all at once;
+    this needs re-running a few more times before Thursday/Sunday/Monday locks).
+  - `data/dfs_ownership/_processed/{ownership_actuals,features}.parquet`: rebuilt
+    several times as the above landed.
+  - `data/dfs_ownership/_processed/models/*.json`: retrained + shipped (not
+    `--dry-run`) three times this session as each fix landed; final numbers below are
+    the ones actually on disk.
+  - [docs/implementation_plans/ownership_model_v2_plan.md](docs/implementation_plans/ownership_model_v2_plan.md):
+    living design doc, updated throughout the session as things were discovered
+    (not written after the fact) — real CV numbers, the data-recovery process, all
+    resolved design questions. Left as the design record; this WORKLOG entry is the
+    source of truth for what actually shipped.
+- **Verification Performed:**
+  - Week-3 rollover: live in the browser (Optimizer + Showdown Optimizer both load on
+    Week 3 by default, real matchups/Vegas lines render, `read_console_messages`/
+    `read_network_requests` clean).
+  - `python -c "import ast; ast.parse(...)"` on every touched `.py` file; separately
+    `import src.api.app` in-process (Pydantic model validation + FastAPI construction)
+    with no errors.
+  - Direct function tests of `predict_classic_ownership`/`predict_showdown_ownership`
+    (with and without `contest`): `ownership_source` stays `"model"` (not falling back
+    to heuristic), renormalization lands on the real structural targets (classic
+    QB≈100/DST≈100/RB+WR+TE≈700; showdown FLEX≈500/CPT≈100), and supplying contest
+    info measurably shifts predictions vs. omitting it.
+  - Full HTTP-level FastAPI `TestClient` smoke tests (in-process — deliberately did
+    NOT touch the live server already running on port 8002, which belongs to another
+    chat session and is running pre-session code): `/api/optimize` against real week-2
+    data → 200, real lineups, new `max_entries` field accepted; `/api/showdown_prep`
+    against real week-2 BUF/DET data → 200, sensible CPT/FLEX split, new contest
+    fields accepted.
+  - Final leave-one-slate-out CV (the numbers the shipped models were judged against
+    the plan's documented acceptance bar — "doesn't get worse" than pre-session — and
+    passed): classic 2 folds, 0.6pp model MAE vs. 2.7pp heuristic, wins 2/2; showdown
+    FLEX 6 folds, 7.2pp vs. 30.2pp, wins 6/6; showdown CPT 6 folds, 2.2pp vs. 21.1pp,
+    wins 6/6.
+  - Random 15-player spot-check of `prior_week_feature` against real week-3 data
+    post-fix — all real, sensible scores (Mahomes 31.98, bench players 0.0), no
+    spurious sentinels; separately confirmed the `-99` (never-seen) and week-1
+    (no-prior-week-exists) paths return correctly for a fabricated name.
+- **Current System Status:** Everything verified as above; nothing committed (Cam's
+  standing rule: never commit without being explicitly asked — this session's changes
+  sit on top of whatever was already uncommitted). The live `backend-api-dfs` server on
+  port 8002 (another chat's, left untouched all session) is running **pre-session
+  code** — it needs a restart before any of tonight's fixes are live for actual use.
+  `week_03/`'s showdown coverage is 1 of ~13 games (only the Thursday one posted by
+  DK so far).
+- **Immediate Next Steps for the Next Agent:**
+  1. Two things deliberately built as backend-only stubs, not wired to any UI, because
+     they're product/UX decisions Cam should make, not ones to guess at solo: (a)
+     `max_entries` (max entries per user, "Nmax") has no frontend field anywhere in
+     this app yet — nothing will ever populate it until one's built. (b)
+     `/showdown_prep` structurally runs *before* a contest is chosen (right after
+     picking a game), so even though it now accepts `entry_fee`/`field_size`/
+     `max_entries`, the current frontend flow has nothing to send there yet — would
+     need the "target contest chosen up front" flow from
+     [docs/implementation_plans/optimizer_persistence_plan.md](docs/implementation_plans/optimizer_persistence_plan.md)
+     to land first, or a smaller reordering just for showdown.
+  2. Restart `backend-api-dfs` (port 8002) before relying on any of tonight's fixes
+     live — it's currently serving stale pre-session code.
+  3. Re-run `snapshot_slate_salaries.py --week 3` (no `--main`, already have it) a few
+     more times before Sunday/Monday lock to catch the rest of week 3's showdown
+     slates as DK posts them — same gap that caused week 2's data loss if skipped.
+  4. `-76` (injury) and `-51` (bye) sentinels are built and load-bearing in the shipped
+     model, but literally cannot have fired on real data yet — no bye weeks and no
+     3+-week absences exist this early in the season. Worth a manual sanity check the
+     first time either fires for real.
+  5. Week 1's 26 unresolved (still-blank) positions are all deep-bench/min-salary
+     players — low-impact, but worth knowing if anyone later audits week-1 data quality.
+  6. Per the plan's §3.1, revisit per-bucket model splitting (vs. today's pooled +
+     segmentation-features approach) once coverage reaches the README's ~4-6-slates-
+     per-bucket target — not yet, deliberately.
+  7. Ask Cam whether/how he wants tonight's changes committed — likely several logical
+     commits (dk_scraper position fix; ownership v2 segmentation+prior-week; week 1-3
+     data recovery; week-3 rollover), not one giant one, matching this repo's usual
+     pattern.
+
+---
+
 ### [2026-09-22] Handoff from Claude Sonnet 5 (2026-09 audit revisit — Batches A/C/H of the fix-pass plan)
 
 - **Active Task:** Cam asked to revisit the 2026-09 full-repo audit (run just before Week 1, see [docs/audit/2026_09_audit/](docs/audit/2026_09_audit/)) — 13 days and one large DFS-feature commit later, nothing from its [fix_pass_plan.md](docs/audit/2026_09_audit/fix_pass_plan.md) had been done except E1 (already marked done pre-existing). Scoped this pass to **Batches A (safety), C (tooling), H (docs) only** — B (dead-code removal), D/F (engine tests + validation benchmark), G (publish-prep), and both Cam-gated decisions (filename strip, live-bot canonical entry point) are deliberately deferred to later in the season, not skipped. `fix_pass_plan.md` itself now carries `✅ DONE`/`🔄 PARTIAL` markers per item — check there before re-doing anything below.

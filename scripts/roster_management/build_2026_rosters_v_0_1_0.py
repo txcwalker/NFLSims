@@ -121,10 +121,14 @@ def enrich_player(full_name, pos, target_share, carry_share, skill_dna, is_rooki
             "pressure_rate": p_dna.get("pressure_rate", 0.20),
             "avg_time_to_throw_sec": p_dna.get("avg_time_to_throw_sec", 2.7),
             "ngs_aggressiveness_index": p_dna.get("ngs_aggressiveness_index", 15.0),
+            # carry_share included per zone (sneaks/scrambles/designed runs) --
+            # was missing entirely until Phase 7 audit found QB rushing zone
+            # shares never got a baseline to blend against; the hand-curated
+            # rz_/gl_ CSV columns always overlay this default anyway.
             "splits": p_dna.get("splits", {
-                "primary": {"cpoe": 0.0, "sack_rate": 0.06, "play_action_rate": 0.20},
-                "redzone": {"cpoe": 0.0, "sack_rate": 0.06, "play_action_rate": 0.20},
-                "goalline": {"cpoe": 0.0, "sack_rate": 0.06, "play_action_rate": 0.20},
+                "primary": {"cpoe": 0.0, "carry_share": carry_share, "sack_rate": 0.06, "play_action_rate": 0.20},
+                "redzone": {"cpoe": 0.0, "carry_share": carry_share, "sack_rate": 0.06, "play_action_rate": 0.20},
+                "goalline": {"cpoe": 0.0, "carry_share": carry_share, "sack_rate": 0.06, "play_action_rate": 0.20},
             }),
         })
     elif pos == "RB":

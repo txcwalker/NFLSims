@@ -23,7 +23,6 @@ frontend_analysis/src/
 * **[`GameSummary.jsx`](pages/GameSummary.jsx)** — main game view: win-probability
   graph, 4th-down decisions, and the KEP/EP chess-evaluator tab.
 * **[`FourthDowns.jsx`](pages/FourthDowns.jsx)** — 4th-down decision breakdowns.
-* **[`LiveWP.jsx`](pages/LiveWP.jsx)** — live win-probability tracker.
 * **[`Standings.jsx`](pages/Standings.jsx)** — Monte Carlo standings / playoff odds.
 * **[`Home.jsx`](pages/Home.jsx)** — landing page.
 * **[`HistoricalLab.jsx`](pages/HistoricalLab.jsx)** — Week 1 2025 chess-evaluator

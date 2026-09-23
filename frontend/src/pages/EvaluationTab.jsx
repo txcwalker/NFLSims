@@ -34,31 +34,47 @@ export default function EvaluationTab({ allSimResults = {}, games = [], selected
   const [replayRows, setReplayRows] = useState([]);
   const [pendingEntries, setPendingEntries] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [grading, setGrading] = useState(false);
+
+  const loadEvalData = async () => {
+    if (!slateId) { setFieldRows([]); setPaperRows([]); setReplayRows([]); setPendingEntries([]); return; }
+    setLoading(true);
+    const [field, paper, replay, entries] = await Promise.all([
+      ApiService.getFieldEval(slateId),
+      ApiService.getPaperResults(slateId),
+      ApiService.getSimReplay(slateId),
+      ApiService.listPaperEntries(slateId, selectedWeek),
+    ]);
+    setFieldRows(field.rows || []);
+    const settledIds = new Set((paper.rows || []).map(r => r.entry_id));
+    setPaperRows(paper.rows || []);
+    setReplayRows(replay.rows || []);
+    setPendingEntries((entries.entries || []).filter(e => !settledIds.has(e.entry_id)));
+    setLoading(false);
+  };
+
+  // Re-settle every paper entry against whatever standings CSV has been
+  // dropped in (see score_paper_entries.py) before loading this tab's
+  // tables -- cheap/idempotent, so it's safe on every slate/week change,
+  // not just on click. "Grade Now" below re-runs it on demand.
+  const runGrading = async () => {
+    setGrading(true);
+    await ApiService.gradePaperEntries({ week: selectedWeek });
+    setGrading(false);
+    await loadEvalData();
+  };
 
   useEffect(() => {
     let cancelled = false;
-    // Every setState below runs inside this microtask's `.then`, not the
+    // Everything below runs inside this microtask's `.then`, not the
     // synchronous effect body, so a slateId change can't cascade a render
     // during the effect pass itself (same pattern as useWorkspaceSlots).
     Promise.resolve().then(async () => {
       if (cancelled) return;
-      if (!slateId) { setFieldRows([]); setPaperRows([]); setReplayRows([]); setPendingEntries([]); return; }
-      setLoading(true);
-      const [field, paper, replay, entries] = await Promise.all([
-        ApiService.getFieldEval(slateId),
-        ApiService.getPaperResults(slateId),
-        ApiService.getSimReplay(slateId),
-        ApiService.listPaperEntries(slateId, selectedWeek),
-      ]);
-      if (cancelled) return;
-      setFieldRows(field.rows || []);
-      const settledIds = new Set((paper.rows || []).map(r => r.entry_id));
-      setPaperRows(paper.rows || []);
-      setReplayRows(replay.rows || []);
-      setPendingEntries((entries.entries || []).filter(e => !settledIds.has(e.entry_id)));
-      setLoading(false);
+      await runGrading();
     });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slateId, selectedWeek]);
 
   return (
@@ -88,6 +104,10 @@ export default function EvaluationTab({ allSimResults = {}, games = [], selected
             ))}
           </select>
         </label>
+        <button onClick={runGrading} disabled={grading || !slateId} title="Rescan every paper entry against any dropped-in standings CSV"
+          style={{ ...inputStyle, cursor: (grading || !slateId) ? 'default' : 'pointer', opacity: (grading || !slateId) ? 0.6 : 1 }}>
+          {grading ? 'Grading…' : '🔄 Grade Now'}
+        </button>
         {loading && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>loading…</span>}
       </div>
 

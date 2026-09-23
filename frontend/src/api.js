@@ -383,6 +383,20 @@ export const ApiService = {
     return safeFetch(`${API_BASE}/games?week=${week}${q}`, {}, generateMockGames(week));
   },
 
+  // Button-triggered (Navbar) -- re-pulls the nflverse schedule feed and
+  // overwrites data/external/schedule_2026.csv server-side. Deliberately not
+  // routed through safeFetch: that helper silently falls back to mock data on
+  // failure, which would tell the user a refresh succeeded when the backend
+  // never actually ran it. Throws so the caller can show a real error.
+  async refreshVegasLines(year = 2026) {
+    const res = await fetch(`${API_BASE}/refresh_vegas_lines?year=${year}`, { method: 'POST' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
   async getWeekProjections(week, draftGroupId) {
     const fallback = {
       week: week,
@@ -401,8 +415,27 @@ export const ApiService = {
   },
 
   async getWeekCashLineups(week) {
-    const fallback = { week: week, lineups: [] };
+    const fallback = { week: week, lineups: [], excluded: [], locked: [] };
     return safeFetch(`${API_BASE}/week_cash_lineups?week=${week}`, {}, fallback);
+  },
+
+  // Button-triggered (Cash Lineups page player pool) -- re-solves the
+  // consensus builds with `excluded` players removed and `locked` players
+  // ([{name, team}, ...] each) forced into every build, and persists both
+  // lists server-side for this week. Not routed through safeFetch, same
+  // reasoning as refreshVegasLines: a silent mock fallback would tell the
+  // user the rerun succeeded when it didn't.
+  async regenerateCashLineups(week, { excluded = [], locked = [] } = {}, year = 2026) {
+    const res = await fetch(`${API_BASE}/week_cash_lineups?week=${week}&year=${year}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ excluded, locked }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `HTTP ${res.status}`);
+    }
+    return res.json();
   },
 
   async getDkSlates(week, year = 2026) {
@@ -422,12 +455,15 @@ export const ApiService = {
     return safeFetch(`${API_BASE}/dk/contest_payout?contest_id=${contestId}`, {}, fallback);
   },
 
-  async getRosters(away, home, draftGroupId) {
+  // Pass `week` to read the DFS-week-adjusted traits tree (gameday active/
+  // inactive + starter toggles applied, see postRosterStatus) instead of
+  // the season-long default.
+  async getRosters(away, home, draftGroupId, week) {
     const result = {
       [away]: MOCK_ROSTERS[away] || { team_settings: {}, roster: [] },
       [home]: MOCK_ROSTERS[home] || { team_settings: {}, roster: [] }
     };
-    const q = draftGroupId ? `&draft_group_id=${draftGroupId}` : '';
+    const q = (draftGroupId ? `&draft_group_id=${draftGroupId}` : '') + (week ? `&week=${week}` : '');
     return safeFetch(`${API_BASE}/rosters?away=${away}&home=${home}&year=2026${q}`, {}, result);
   },
 
@@ -650,6 +686,22 @@ export const ApiService = {
     }
   },
 
+  // UI-triggered equivalent of running score_paper_entries.py by hand --
+  // rescans every paper_entries.json against any dropped-in standings CSV.
+  // Cheap/idempotent; callers use it both automatically (on page load) and
+  // from an explicit "Grade Now" button.
+  async gradePaperEntries({ week, year } = {}) {
+    try {
+      const params = new URLSearchParams();
+      if (week != null) params.set('week', week);
+      if (year != null) params.set('year', year);
+      const res = await fetch(`${API_BASE}/paper/grade${params.toString() ? `?${params}` : ''}`, { method: 'POST' });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+
   // ── Evaluation tab reads (offline-built by score_paper_entries.py /
   // eval_field.py -- these are just JSON views over their parquet output).
   async getFieldEval(slateId) {
@@ -717,6 +769,35 @@ export const ApiService = {
       return res.ok ? await res.json() : { entries: [] };
     } catch {
       return { entries: [] };
+    }
+  },
+
+  // ── DFS gameday injury/starter toggle (see app.py's
+  // POST/GET /api/dfs/roster_status[/job]). `changesByTeam`:
+  // {TEAM: [{player_name, action}]} -- may include one or both teams in the
+  // game so a full inactives list touching both sides compiles + resims as
+  // ONE job. Not routed through safeFetch -- a mock-fallback "success" here
+  // would tell the user a resim kicked off when it didn't, same reasoning
+  // as regenerateCashLineups above.
+  async postRosterStatus(gameId, changesByTeam) {
+    const res = await fetch(`${API_BASE}/dfs/roster_status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ game_id: gameId, changes: changesByTeam }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
+  async getRosterStatusJob(gameId) {
+    try {
+      const res = await fetch(`${API_BASE}/dfs/roster_status/job?game_id=${encodeURIComponent(gameId)}`);
+      return res.ok ? await res.json() : { status: 'idle' };
+    } catch {
+      return { status: 'idle' };
     }
   },
 

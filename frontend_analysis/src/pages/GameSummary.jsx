@@ -391,8 +391,8 @@ function GameSummary({ gameId, gameDate, navigateTo }) {
                   </div>
 
                   <div style={{ height: '240px', width: '100%', marginTop: '12px', position: 'relative' }}>
-                    <span style={{ position: 'absolute', top: 4, left: 4, fontSize: '10px', fontWeight: 800, color: homeColor, zIndex: 1 }}>{activeGame.home_team}</span>
-                    <span style={{ position: 'absolute', bottom: 20, left: 4, fontSize: '10px', fontWeight: 800, color: awayColor, zIndex: 1 }}>{activeGame.away_team}</span>
+                    <span style={{ position: 'absolute', top: 4, left: -16, fontSize: '10px', fontWeight: 800, color: homeColor, zIndex: 1 }}>{activeGame.home_team}</span>
+                    <span style={{ position: 'absolute', bottom: 20, left: -16, fontSize: '10px', fontWeight: 800, color: awayColor, zIndex: 1 }}>{activeGame.away_team}</span>
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
                         data={chartData}

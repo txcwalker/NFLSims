@@ -147,23 +147,76 @@ def fix_posteam_for_fg(posteam: str, home_abbr: str, away_abbr: str, play_type_t
     return posteam
 
 
-def parse_plays_to_fd_rows(game_id: str, plays: List[Dict[str, Any]], team_map: Dict[str, str], season: Optional[int] = None, week: Optional[int] = None) -> List[Dict[str, Any]]:
+def resolve_posteam_id(start: Dict[str, Any], team_id_map: Optional[Dict[str, str]]) -> Optional[str]:
+    """
+    Resolves the offense's abbreviation from `start.team.id` via a numeric
+    ESPN team-id -> abbreviation map (see `build_team_id_map`), when the
+    play-level `team.abbreviation` field is absent.
+
+    Why this matters: administrative "no-snap" play entries (Timeout,
+    Field Goal Good, Extra Point Good, penalty-enforcement markers, etc.)
+    have no top-level `team` field, so callers used to fall back to
+    guessing possession from `start.possessionText`/`downDistanceText`
+    (e.g. "TB 1", "4th & Goal at TB 2"). That text names whichever team's
+    END ZONE the ball is near -- standard football field-position notation
+    -- which is the DEFENSE whenever the offense is driving deep into
+    enemy territory. Confirmed empirically 2026-09-16 (CIN @ TB,
+    game 401872925, play 4018729252075/4018729252087): both a mid-drive
+    timeout and the ensuing chip-shot field goal read "TB" from that text
+    while CIN held the ball the entire time, which flipped `posteam` to
+    the DEFENSE for one play and produced a false possession change (and,
+    for the 4th-down bot, an extra/duplicate 4th-down entry) seconds
+    apart with the actual down never resetting. `start.team.id` is
+    present on both entries and correctly identifies CIN throughout --
+    use it as the fallback signal instead of the field-position guess.
+    """
+    if not team_id_map:
+        return None
+    start_team = start.get("team")
+    if not isinstance(start_team, dict):
+        return None
+    team_id = start_team.get("id")
+    if team_id is None:
+        return None
+    return team_id_map.get(str(team_id))
+
+
+def build_team_id_map(header_competitors: List[Dict[str, Any]]) -> Dict[str, str]:
+    """{ESPN numeric team id (as str): abbreviation}, from the summary
+    payload's header.competitions[0].competitors list (each entry has
+    `id`/`team.id` and `team.abbreviation`). Empty dict on malformed input."""
+    id_map: Dict[str, str] = {}
+    for c in header_competitors or []:
+        team_id = c.get("id") or (c.get("team") or {}).get("id")
+        abbr = (c.get("team") or {}).get("abbreviation")
+        if team_id is not None and abbr:
+            id_map[str(team_id)] = abbr.upper()
+    return id_map
+
+
+def parse_plays_to_fd_rows(game_id: str, plays: List[Dict[str, Any]], team_map: Dict[str, str], season: Optional[int] = None, week: Optional[int] = None, team_id_map: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
     """
     Normalizes ESPN play-by-play data to a standardized 4th down schema.
+
+    team_id_map: optional {ESPN numeric team id: abbreviation} (see
+    `build_team_id_map`) -- used to correctly resolve possession on
+    no-snap administrative plays instead of guessing from field-position
+    text (see `resolve_posteam_id`). Falls back to the pre-existing
+    field-position guess when not supplied, for backward compatibility.
     """
     home_abbr = team_map.get("home", "").upper()
     away_abbr = team_map.get("away", "").upper()
-    
+
     normalized_rows = []
-    
+
     for p in plays:
         play_id = str(p.get("id"))
         if not play_id:
             continue
-            
+
         # Parse text and description
         text = p.get("text") or p.get("description") or ""
-        
+
         # Parse period / quarter
         period = 1
         period_obj = p.get("period")
@@ -171,7 +224,7 @@ def parse_plays_to_fd_rows(game_id: str, plays: List[Dict[str, Any]], team_map: 
             period = int(period_obj.get("number") or 1)
         elif period_obj is not None:
             period = int(period_obj)
-            
+
         # Parse clock
         clock_display = ""
         clock_obj = p.get("clock")
@@ -179,7 +232,7 @@ def parse_plays_to_fd_rows(game_id: str, plays: List[Dict[str, Any]], team_map: 
             clock_display = clock_obj.get("displayValue") or ""
         elif clock_obj is not None:
             clock_display = str(clock_obj)
-            
+
         # Extract down
         down = None
         start = p.get("start") or {}
@@ -191,27 +244,32 @@ def parse_plays_to_fd_rows(game_id: str, plays: List[Dict[str, Any]], team_map: 
             elif sddt.startswith("2"): down = 2
             elif sddt.startswith("3"): down = 3
             elif sddt.startswith("4"): down = 4
-            
+
         if down is None:
             down = infer_down_from_text(text)
-            
+
         # We only keep 4th down plays for the decision bot
         if down != 4:
             continue
-            
+
         # Parse possession text
         team_abbr = (p.get("team", {}).get("abbreviation") or "").upper()
-        
+        id_mapped_abbr = resolve_posteam_id(start, team_id_map) or ""
+
         start_poss_text = (
             start.get("possessionText") or
             start.get("possession", {}).get("displayValue") or
             start.get("team", {}).get("abbreviation") or
             team_abbr
         )
-        
-        # Resolve possession team and yardline using midfield adapter
-        poss_team, poss_yard = parse_possession_text(start_poss_text, default_team=team_abbr)
-        posteam = team_abbr or poss_team
+
+        # Resolve possession team and yardline using midfield adapter.
+        # poss_team/poss_yard still feed compute_yardline_100 below (field
+        # position is legitimately described relative to a side of the
+        # field) -- only `posteam` itself prefers the real team_abbr, then
+        # the id-mapped abbreviation, over that field-position guess.
+        poss_team, poss_yard = parse_possession_text(start_poss_text, default_team=team_abbr or id_mapped_abbr)
+        posteam = team_abbr or id_mapped_abbr or poss_team
         if not posteam:
             continue
 
@@ -220,7 +278,14 @@ def parse_plays_to_fd_rows(game_id: str, plays: List[Dict[str, Any]], team_map: 
         # Called play type (computed early: fix_posteam_for_fg needs it)
         play_type_text = p.get("type", {}).get("text") or ""
         called_action = infer_called_action(play_type_text)
-        posteam = fix_posteam_for_fg(posteam, home_abbr, away_abbr, play_type_text)
+        # fix_posteam_for_fg compensates for the field-position-text guess's
+        # known defense-side bias on FG plays (see resolve_posteam_id) --
+        # skip it when posteam was already resolved reliably via
+        # start.team.id, which doesn't have that bias and would otherwise
+        # get double-flipped back to the wrong team (confirmed empirically
+        # 2026-09-16, CIN @ TB game 401872925 play 4018729252087).
+        if not (not team_abbr and id_mapped_abbr):
+            posteam = fix_posteam_for_fg(posteam, home_abbr, away_abbr, play_type_text)
         defteam = away_abbr if posteam == home_abbr else home_abbr
 
         yardline_100 = compute_yardline_100(posteam, poss_team, poss_yard)
@@ -275,12 +340,16 @@ def parse_plays_to_fd_rows(game_id: str, plays: List[Dict[str, Any]], team_map: 
     return normalized_rows
 
 
-def parse_plays_to_states(plays: List[Dict[str, Any]], home_abbr: str, away_abbr: str) -> List[Dict[str, Any]]:
+def parse_plays_to_states(plays: List[Dict[str, Any]], home_abbr: str, away_abbr: str, team_id_map: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
     """
     Inputs:
         plays      : list of raw ESPN play dicts (from drives.previous/current[].plays)
         home_abbr  : home team abbreviation (e.g. "KC")
         away_abbr  : away team abbreviation (e.g. "BUF")
+        team_id_map: optional {ESPN numeric team id: abbreviation} (see
+                     `build_team_id_map`) -- resolves possession correctly
+                     on no-snap administrative plays instead of guessing
+                     from field-position text (see `resolve_posteam_id`).
 
     Outputs:
         list of per-play game-state dicts, one per valid scrimmage play, each with:
@@ -334,18 +403,23 @@ def parse_plays_to_states(plays: List[Dict[str, Any]], home_abbr: str, away_abbr
 
         # Possession + field position
         team_abbr = (p.get("team", {}).get("abbreviation") or "").upper()
+        id_mapped_abbr = resolve_posteam_id(start, team_id_map) or ""
         start_poss_text = (
             start.get("possessionText") or
             start.get("possession", {}).get("displayValue") or
             start.get("team", {}).get("abbreviation") or
             team_abbr
         )
-        poss_team, poss_yard = parse_possession_text(start_poss_text, default_team=team_abbr)
-        posteam = (team_abbr or poss_team or "").upper()
+        poss_team, poss_yard = parse_possession_text(start_poss_text, default_team=team_abbr or id_mapped_abbr)
+        posteam = (team_abbr or id_mapped_abbr or poss_team or "").upper()
         if not posteam:
             continue
         play_type_text = p.get("type", {}).get("text") or ""
-        posteam = fix_posteam_for_fg(posteam, home_abbr, away_abbr, play_type_text)
+        # See the matching comment in parse_plays_to_fd_rows: skip the FG
+        # defense-side compensation when posteam already came reliably
+        # from start.team.id, or it gets double-flipped back to wrong.
+        if not (not team_abbr and id_mapped_abbr):
+            posteam = fix_posteam_for_fg(posteam, home_abbr, away_abbr, play_type_text)
         defteam = away_abbr if posteam == home_abbr else home_abbr
 
         yardline_100 = compute_yardline_100(posteam, poss_team, poss_yard)

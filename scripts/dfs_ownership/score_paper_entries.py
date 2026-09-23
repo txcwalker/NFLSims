@@ -258,14 +258,15 @@ def process_slate(folder: str, own_actuals: pd.DataFrame | None) -> list[dict]:
     return rows
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--year", type=int, default=None)
-    ap.add_argument("--week", type=int, default=None)
-    args = ap.parse_args()
-
-    year_glob = str(args.year) if args.year else "*"
-    week_glob = f"week_{args.week:02d}" if args.week else "week_*"
+def run_grading(year: int | None = None, week: int | None = None) -> dict:
+    """Scan paper_entries.json under every (or one) year/week slate folder,
+    match each against any dropped-in standings CSV, and (re)write
+    _processed/paper_results.parquet from scratch. Returns a summary dict
+    rather than just printing, so a caller that isn't a terminal -- see
+    app.py's POST /api/paper/grade, the UI-triggered equivalent of running
+    this script by hand -- can report the outcome without scraping stdout."""
+    year_glob = str(year) if year else "*"
+    week_glob = f"week_{week:02d}" if week else "week_*"
     folders = sorted(glob.glob(os.path.join(ARCHIVE, year_glob, week_glob, "*")))
     folders = [f for f in folders if os.path.isdir(f) and os.path.basename(f) != "_processed"]
 
@@ -281,7 +282,7 @@ def main():
 
     if not all_rows:
         print("\nNo settled paper entries found.")
-        return
+        return {"graded": 0, "wrote_results": False, "folders_scanned": len(folders)}
 
     df = pd.DataFrame(all_rows)
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -291,6 +292,15 @@ def main():
     print(f"\nWrote {len(df)} settled paper-entry result(s) -> {os.path.relpath(out_path, BASE)}")
     print(df[["contest_name", "label", "predicted_score", "actual_score", "actual_rank",
               "field_size", "beat_field_pct"]].to_string(index=False))
+    return {"graded": len(df), "wrote_results": True, "folders_scanned": len(folders)}
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--year", type=int, default=None)
+    ap.add_argument("--week", type=int, default=None)
+    args = ap.parse_args()
+    run_grading(args.year, args.week)
 
 
 if __name__ == "__main__":

@@ -27,6 +27,20 @@ splits field alone) -- matches apply_preseason_overrides_v_0_1_0.py's
 convention. Only writes splits.redzone/goalline -- does not touch
 splits.primary or any flat/top-level field.
 
+ALSO mirrors every write into preseason_projection.splits.{zone}.{field}
+(veterans/promoted rookies only -- i.e. players that already have a
+preseason_projection block; untouched for curve-based rookies, which don't).
+This is not optional bookkeeping: refresh_weekly_dna_v_0_1_0.py rebuilds the
+live splits.redzone/goalline FROM preseason_projection.splits every single
+run (it's the frozen baseline the taper blends against), discarding whatever
+was here before. Before this fix, this script wrote only the live copy, so
+every hand-tuned rz_/gl_ share silently reverted to a stale historical-DNA
+default the next time the weekly refresh ran -- confirmed for real on DET's
+Jahmyr Gibbs (CSV said rz_carry_share=0.75, live splits had drifted to
+0.3609) and on every QB's carry_share zone splits (never set at all, since
+the roster-build defaults never included that field for QB -- see
+build_2026_rosters_v_0_1_0.py).
+
 Safe to re-run: idempotent, only reports/writes fields that actually changed.
 
 Usage: python apply_zone_usage_overrides_v_0_1_0.py <year>
@@ -80,6 +94,11 @@ def apply(year):
             continue
 
         splits = traits.setdefault("splits", {})
+        # Only mirror into preseason_projection for players that already have
+        # one (veterans / promoted rookies) -- creating the key for a
+        # curve-based rookie would wrongly pull them off the ramp curve.
+        pp = traits.get("preseason_projection")
+        pp_splits = pp.setdefault("splits", {}) if pp is not None else None
         for csv_col, (zone, field) in FIELD_MAP.items():
             raw = row.get(csv_col, "")
             if raw is None or str(raw).strip() == "":
@@ -94,6 +113,8 @@ def apply(year):
             if old is None or abs(old - value) >= 1e-9:
                 zdict[field] = value
                 changes.append((team, name, f"splits.{zone}.{field}", old, value))
+            if pp_splits is not None:
+                pp_splits.setdefault(zone, {})[field] = value
 
     for path, data in rosters.values():
         with open(path, "w") as f:

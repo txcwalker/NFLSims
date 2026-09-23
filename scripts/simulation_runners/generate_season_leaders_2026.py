@@ -19,16 +19,33 @@ convention for season-aggregate ADOT reporting).
 Rookie flag comes from data/current_rosters/{TEAM}_traits_2026.json's
 traits[name]["rookie"] -- joined onto the leaders table by (Team, Player).
 
+ADDITIVE REST-OF-SEASON (2026-09-16): games from weeks before the current
+week (get_current_week) are dropped before aggregation, then each player's
+real completed-week totals (real_results_v_0_1_0, keyed by (Team, Player)
+name -- a real name that doesn't exactly match the sim's roster name is
+silently skipped, so it stays purely simulated) are added back as a
+constant offset to pAtt/pCmp/pYds/pTD/int/rAtt/rYds/rTD/targets/rec/
+recYds/recTD, plus dk_score/std_score recomputed from that real subset
+(fumbles=0 -- no real per-play source yet, same gap documented in
+real_results_v_0_1_0). sacks_taken/air_yards stay purely simulated.
+
 Usage: python generate_season_leaders_2026.py
 """
 import os
+import sys
 import glob
 import json
 import pandas as pd
 import numpy as np
 
+sys.path.append(os.getcwd())
+from src.data_pipeline.current_week_v_0_1_0 import get_current_week
+from src.data_pipeline.real_results_v_0_1_0 import import_real_played_games, import_real_player_ngs, real_player_totals_by_name
+from src.nfl_sim.scoring import calculate_fantasy_points
+
 SIM_YEAR = 2026
 PLAYERS_CACHE = f"data/interim/sim_results_{SIM_YEAR}_players.parquet"
+SCHEDULE_CSV = f"data/external/schedule_{SIM_YEAR}.csv"
 ROSTERS_DIR = "data/current_rosters"
 OUTPUT_DIR = "docs/reports"
 
@@ -92,6 +109,38 @@ def skill_table_md(df, title):
     return md + "\n"
 
 
+def apply_real_offsets(df, real_totals, real_fields):
+    """Adds each player's real completed-week total (a constant) to the
+    matching _avg/_med columns -- valid since adding a constant to a
+    distribution shifts its mean/median by that same constant. Also adds a
+    dk_score_avg/std_score_avg/dk_score_med/std_score_med offset recomputed
+    from the real subset (fumbles=0, see module docstring). Players with no
+    real-name match stay purely simulated."""
+    if df.empty or not real_totals:
+        return df
+    df = df.copy()
+
+    def _real(row):
+        return real_totals.get((row['Team'], row['Player']))
+
+    zero_stats = {f: 0 for f in ['pYds', 'pTD', 'int', 'rYds', 'rTD', 'rec', 'recYds', 'recTD', 'fumbles']}
+    reals = df.apply(_real, axis=1)
+    std_offset = reals.apply(lambda r: calculate_fantasy_points({**zero_stats, **r}, 'STD') if r else 0.0)
+    dk_offset = reals.apply(lambda r: calculate_fantasy_points({**zero_stats, **r}, 'DK') if r else 0.0)
+
+    for suffix in ('_avg', '_med'):
+        for field in real_fields:
+            col = f"{field}{suffix}"
+            if col not in df.columns:
+                continue
+            df[col] = df[col] + reals.apply(lambda r, f=field: (r or {}).get(f, 0.0))
+        if f"std_score{suffix}" in df.columns:
+            df[f"std_score{suffix}"] = df[f"std_score{suffix}"] + std_offset
+        if f"dk_score{suffix}" in df.columns:
+            df[f"dk_score{suffix}"] = df[f"dk_score{suffix}"] + dk_offset
+    return df
+
+
 def qb_records(df):
     if df.empty:
         return []
@@ -117,6 +166,21 @@ def generate(top_n=32, rookie_top_n=20):
     print("Loading player simulation cache...")
     df = pd.read_parquet(PLAYERS_CACHE)
 
+    # --- ADDITIVE: drop completed-week games from the simulated
+    # aggregation -- real per-player totals get added back below instead.
+    current_week = get_current_week(SIM_YEAR)
+    print(f"Current week (auto-detected): {current_week}")
+    sched = pd.read_csv(SCHEDULE_CSV)
+    week_by_game_id = dict(zip(sched['game_id'], sched['week']))
+    df = df[df['game_id'].map(week_by_game_id).fillna(999) >= current_week]
+
+    real_totals = {}
+    real_played = import_real_played_games(SIM_YEAR)
+    if not real_played[real_played['week'] < current_week].empty:
+        real_passing, real_rushing, real_receiving = import_real_player_ngs(SIM_YEAR)
+        real_totals = real_player_totals_by_name(real_passing, real_rushing, real_receiving)
+        print(f"Real per-player offsets available for {len(real_totals)} players.")
+
     print("Loading rookie lookup from current_rosters...")
     rookie_lookup = load_rookie_lookup(SIM_YEAR)
 
@@ -125,11 +189,13 @@ def generate(top_n=32, rookie_top_n=20):
 
     print("Building QB leaders...")
     qb_leaders = build_leaders_table(qb_df, QB_METRICS)
+    qb_leaders = apply_real_offsets(qb_leaders, real_totals, ['pAtt', 'pCmp', 'pYds', 'pTD', 'int', 'rAtt', 'rYds', 'rTD'])
     qb_leaders['Rookie'] = qb_leaders.apply(lambda r: rookie_lookup.get((r['Team'], r['Player']), False), axis=1)
     qb_leaders = qb_leaders[qb_leaders['pAtt_avg'] > 0].sort_values('pYds_avg', ascending=False)
 
     print("Building RB/WR/TE leaders...")
     skill_leaders = build_leaders_table(skill_df, SKILL_METRICS)
+    skill_leaders = apply_real_offsets(skill_leaders, real_totals, ['rAtt', 'rYds', 'rTD', 'targets', 'rec', 'recYds', 'recTD'])
     skill_leaders['Rookie'] = skill_leaders.apply(lambda r: rookie_lookup.get((r['Team'], r['Player']), False), axis=1)
     skill_leaders = skill_leaders[(skill_leaders['rAtt_avg'] > 0) | (skill_leaders['targets_avg'] > 0)]
 

@@ -252,6 +252,12 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
       const res = await ApiService.showdownPrep({
         game_id: gameId,
         away_team: activeGame?.away_team, home_team: activeGame?.home_team,
+        // Scope the real optimal-captain/FLEX solve (and the ownership
+        // model, which uses those rates as a feature) to the Game-Read
+        // box-select when one is active, same convention as Optimize/Lab's
+        // own iteration_filter -- so picking a scenario updates Opt FLEX%/
+        // Opt CPT% for that conditioned subset, not the whole season.
+        iteration_filter: scenario?.idx || undefined,
         players: poolForPrep.map(p => ({
           name: p.name, team: p.team, pos: p.pos,
           salary: p.salary ? Math.round(p.salary) : null,
@@ -268,6 +274,13 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
         byId[id] = {
           ownFlexModel: r.ownership_pct ?? null,
           ownCptModel: r.cpt_ownership_pct ?? null,
+          // Real per-iteration optimal rates from _compute_showdown_optimal_rates
+          // (scoped to the active Game-Read scenario, if any) -- overrides the
+          // base pool's static simFlexRate/simCptRate, which came from the bulk
+          // week-prepopulation sim's 2-iteration guess (see showdown_prep's
+          // docstring).
+          simFlexRate: r.optimal_flex_pct ?? null,
+          simCptRate: r.optimal_cpt_pct ?? null,
           ...(r.pos === 'K' ? {
             projection: r.projection ?? undefined,
             ceiling: r.ceiling ?? undefined,
@@ -474,12 +487,33 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
   // (matches the classic optimizer, which comes pre-populated). Runs once per
   // game; the manual "Load DK Salaries" button re-runs it.
   const dkLoadedFor = useRef('');
+  // Tracks the last `${gameId}|${scenario.idx}` key runPrep has actually run
+  // for -- shared with the Game-Read effect below so its first fire (mount,
+  // scenario === null) doesn't duplicate loadDkSalaries' own tail-end
+  // runPrep call for that exact same unconditioned case.
+  const scenarioPrepFor = useRef(null);
   useEffect(() => {
     if (activeGame && gameId && dkLoadedFor.current !== gameId) {
       dkLoadedFor.current = gameId;
+      scenarioPrepFor.current = `${gameId}|`;
       loadDkSalaries();
     }
   }, [gameId, activeGame]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-run prep (real optimal-captain/FLEX rates + the ownership model that
+  // consumes them) whenever the Game-Read scenario changes, so Opt FLEX%/
+  // Opt CPT% reflect the box-selected iterations instead of the whole
+  // season. Guarded to the initial DK/prep load having already happened for
+  // this game (loadDkSalaries' own runPrep call already covers the
+  // unconditioned scenario === null case) and to only fire on a genuine
+  // scenario change, not every render.
+  useEffect(() => {
+    if (!gameId || dkLoadedFor.current !== gameId) return;
+    const key = `${gameId}|${scenario ? scenario.idx?.join(',') : ''}`;
+    if (scenarioPrepFor.current === key) return;
+    scenarioPrepFor.current = key;
+    runPrep([...simPool.map(p => ({ ...p, ...(edits[p.id] || {}) })), ...dkKickers]);
+  }, [scenario, gameId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Game Read: the standalone (no player-projection cost) outcome distribution
   // for this one game, so its box-select always has exact iteration ids ready
@@ -875,7 +909,7 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
 
       {simmedGames.length === 0 && (
         <div style={{ ...cardStyle, textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
-          No simulated games this week. Run a game in the <strong>DFS Simulator</strong> first — the showdown
+          No simulated games this week. Run a game in the <strong>Game Explorer</strong> first — the showdown
           optimizer builds its pool from that game's sim distribution.
         </div>
       )}

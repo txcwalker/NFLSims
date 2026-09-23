@@ -2,9 +2,39 @@ import { useState, useEffect } from 'react'
 import { PAGES } from '../pagesConfig'
 import { ApiService } from '../api'
 
-export default function Navbar({ currentPage, setCurrentPage }) {
+export default function Navbar({ currentPage, setCurrentPage, selectedWeek, selectedDraftGroupId, setGames }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  // idle | loading | done | error
+  const [vegasRefreshState, setVegasRefreshState] = useState('idle');
+  const [vegasRefreshMsg, setVegasRefreshMsg] = useState('');
+
+  const handleRefreshVegasLines = async () => {
+    if (vegasRefreshState === 'loading') return;
+    setVegasRefreshState('loading');
+    try {
+      const result = await ApiService.refreshVegasLines();
+      // Pull the just-refreshed lines back into shared state (games is owned
+      // by App.jsx) so every page reading it -- Simulator, Optimizer,
+      // ShowdownOptimizer, Evaluation -- reflects the new numbers immediately
+      // instead of only on the next natural refetch (week/slate switch).
+      if (setGames && selectedWeek) {
+        const data = await ApiService.getGames(selectedWeek, selectedDraftGroupId);
+        setGames(data.games || []);
+      }
+      setVegasRefreshState('done');
+      setVegasRefreshMsg(
+        result.games_with_line_change > 0
+          ? `${result.games_with_line_change} line${result.games_with_line_change === 1 ? '' : 's'} moved`
+          : 'No change'
+      );
+    } catch (err) {
+      setVegasRefreshState('error');
+      setVegasRefreshMsg(err.message || 'Refresh failed');
+    } finally {
+      setTimeout(() => setVegasRefreshState('idle'), 4000);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -82,6 +112,36 @@ export default function Navbar({ currentPage, setCurrentPage }) {
           }}
         ></div>
       </div>
+
+      {/* Vegas line refresh -- re-pulls nflverse's schedule feed on demand
+          (deliberately manual, not on a timer -- see refresh_vegas_lines
+          endpoint docstring). */}
+      <button
+        onClick={handleRefreshVegasLines}
+        disabled={vegasRefreshState === 'loading'}
+        title="Re-pull spreads/totals/moneylines from the nflverse schedule feed"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid var(--border-glass)',
+          borderRadius: '8px',
+          padding: '6px 12px',
+          color: vegasRefreshState === 'error' ? '#f87171' : 'var(--text-main)',
+          fontWeight: 600,
+          fontSize: '0.82rem',
+          cursor: vegasRefreshState === 'loading' ? 'default' : 'pointer',
+          opacity: vegasRefreshState === 'loading' ? 0.7 : 1,
+          whiteSpace: 'nowrap'
+        }}
+      >
+        <span style={{ display: 'inline-block', animation: vegasRefreshState === 'loading' ? 'spin 0.8s linear infinite' : 'none' }}>🔄</span>
+        {vegasRefreshState === 'loading' && 'Refreshing...'}
+        {vegasRefreshState === 'done' && `✓ ${vegasRefreshMsg}`}
+        {vegasRefreshState === 'error' && `✗ ${vegasRefreshMsg}`}
+        {vegasRefreshState === 'idle' && 'Vegas Lines'}
+      </button>
 
       {/* Nav Menu Links */}
       <div style={{

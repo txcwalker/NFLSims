@@ -251,7 +251,15 @@ export default function App() {
       case 'bankroll':
         return <Bankroll />;
       case 'leverage':
-        return <Leverage weekProjections={weekProjections} allSimResults={allSimResults} />;
+        return (
+          <Leverage
+            weekProjections={weekProjections}
+            allSimResults={allSimResults}
+            dkSlates={dkSlates}
+            selectedDraftGroupId={selectedDraftGroupId}
+            setSelectedDraftGroupId={setSelectedDraftGroupId}
+          />
+        );
       case 'about':
         return <About />;
       case 'roadmap':
@@ -272,7 +280,13 @@ export default function App() {
       boxSizing: 'border-box'
     }}>
       {/* Global Header Navigation */}
-      <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      <Navbar
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        selectedWeek={selectedWeek}
+        selectedDraftGroupId={selectedDraftGroupId}
+        setGames={setGames}
+      />
 
       {/* Page Content viewport */}
       <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>

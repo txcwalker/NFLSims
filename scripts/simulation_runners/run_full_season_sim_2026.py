@@ -16,6 +16,9 @@ import matplotlib.pyplot as plt
 sys.path.append(os.getcwd())
 
 from src.nfl_sim.batch import BatchSimulator
+from src.nfl_sim.scoring import calculate_fantasy_points
+from src.data_pipeline.current_week_v_0_1_0 import get_current_week
+from src.data_pipeline.real_results_v_0_1_0 import import_real_played_games, import_real_player_ngs, real_player_totals_by_name
 
 # --- TEAM AND DIVISION METADATA ---
 TEAM_DIVISIONS = {
@@ -137,6 +140,37 @@ def get_seeding_sort_key(team_stats):
 
     return (win_pct, div_pct, point_diff)
 
+def _apply_real_player_offsets(player_summary_df, real_totals):
+    """ADDITIVE REST-OF-SEASON: adds each player's real completed-week total
+    (a constant) to every p00-p100 percentile column for that field --
+    valid because adding a constant to a distribution shifts every
+    percentile by that same constant. Also offsets std_score/dk_score/
+    fd_score, recomputed from the real subset via calculate_fantasy_points
+    (fumbles=0 -- no real per-play source yet). cmp_pct is left purely
+    simulated (a ratio, not safely offsettable this way) -- a known, minor
+    inaccuracy. Players with no real-name match stay purely simulated."""
+    if not real_totals:
+        return player_summary_df
+    df = player_summary_df.copy()
+    reals = df.apply(lambda r: real_totals.get((r['Team'], r['Player'])), axis=1)
+    zero_stats = {f: 0 for f in ['pYds', 'pTD', 'int', 'rYds', 'rTD', 'rec', 'recYds', 'recTD', 'fumbles']}
+    score_offsets = {
+        'std_score': reals.apply(lambda r: calculate_fantasy_points({**zero_stats, **r}, 'STD') if r else 0.0),
+        'dk_score': reals.apply(lambda r: calculate_fantasy_points({**zero_stats, **r}, 'DK') if r else 0.0),
+        'fd_score': reals.apply(lambda r: calculate_fantasy_points({**zero_stats, **r}, 'FD') if r else 0.0),
+    }
+    for pct in [0, 5, 25, 50, 75, 95, 100]:
+        for field in ['pAtt', 'pCmp', 'pYds', 'pTD', 'int', 'rAtt', 'rYds', 'rTD', 'rec', 'recYds', 'recTD', 'targets']:
+            col = f"{field}_p{pct:02d}"
+            if col in df.columns:
+                df[col] = df[col] + reals.apply(lambda r, f=field: (r or {}).get(f, 0.0))
+        for score_col, offset in score_offsets.items():
+            col = f"{score_col}_p{pct:02d}"
+            if col in df.columns:
+                df[col] = df[col] + offset
+    return df
+
+
 def _team_group_totals(season_player_grouped, team, pos_group, counting_metrics):
     """Team-level total distribution for one position group (e.g. every RB
     on a team) -- built by summing each iteration's real per-player totals
@@ -176,6 +210,33 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
     # 1. LOAD 2026 SCHEDULE
     sched_df = pd.read_csv(f"data/external/schedule_{SIM_YEAR}.csv")
     reg_games = sched_df[sched_df["game_type"] == "REG"]
+    week_by_game_id = dict(zip(reg_games['game_id'], reg_games['week']))
+
+    # --- ADDITIVE REST-OF-SEASON: real results for completed weeks -------
+    # Cam's workflow: once nflverse publishes a completed week's real
+    # results, rosters get refreshed with it (refresh_weekly_dna_v_0_1_0.py)
+    # and this script reruns -- games in weeks before the current one use
+    # their REAL result instead of a simulated one; only current_week+
+    # games get simulated. When current_week == 1 (no completed weeks
+    # yet), this is a no-op and the season sim is exactly as hypothetical
+    # as before.
+    current_week = get_current_week(SIM_YEAR)
+    print(f"Current week (auto-detected): {current_week}")
+    real_played = import_real_played_games(SIM_YEAR)
+    real_result_by_game_id = {}
+    for _, g in real_played.iterrows():
+        gid = g['game_id']
+        if week_by_game_id.get(gid, 999) >= current_week:
+            continue  # only trust "real" for weeks strictly before current_week
+        winner = g['away_team'] if g['away_score'] > g['home_score'] else (
+            g['home_team'] if g['home_score'] > g['away_score'] else 'TIE')
+        real_result_by_game_id[gid] = {
+            'away_score': float(g['away_score']), 'home_score': float(g['home_score']), 'winner': winner,
+        }
+    print(f"Real completed-week results available for {len(real_result_by_game_id)} games.")
+
+    real_passing, real_rushing, real_receiving = import_real_player_ngs(SIM_YEAR)
+    real_player_totals = real_player_totals_by_name(real_passing, real_rushing, real_receiving)
 
     # 2. CACHING OR PRE-SIMULATION PHASE
     games_cache_path = f"data/interim/sim_results_{SIM_YEAR}_games.parquet"
@@ -265,7 +326,11 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
             'away': group['away_team'].iloc[0],
             'home': group['home_team'].iloc[0],
             'div_game': group['div_game'].iloc[0],
-            'outcomes': group[['away_score', 'home_score', 'winner']].to_dict(orient='records')
+            'outcomes': group[['away_score', 'home_score', 'winner']].to_dict(orient='records'),
+            # Real result for a completed-week game (see current_week block
+            # above) -- None for anything not yet played, which keeps the
+            # existing 11-of-1000-sample simulation path below unchanged.
+            'real': real_result_by_game_id.get(game_id),
         }
 
     # 4. INITIALIZE SEASON-LONG STATISTICS TRACKING
@@ -305,18 +370,28 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
             for team in TEAM_DIVISIONS.keys()
         }
 
-        # Simulating regular season via 11-game random sampling
+        # Simulating regular season via 11-game random sampling (future
+        # weeks) or the fixed real result (completed weeks, see 'real'
+        # above -- every season iteration agrees on it exactly).
         for game_id, data in matchup_sim_results.items():
             away = data['away']
             home = data['home']
             div_game = data['div_game']
-            outcomes = data['outcomes']
+            real = data['real']
 
-            # Sample 11 outcomes
-            samples = random.sample(outcomes, 11)
-
-            away_wins = sum(1 for r in samples if r['away_score'] > r['home_score'])
-            home_wins = sum(1 for r in samples if r['home_score'] > r['away_score'])
+            if real is not None:
+                away_score, home_score = real['away_score'], real['home_score']
+                away_wins = 1 if away_score > home_score else 0
+                home_wins = 1 if home_score > away_score else 0
+                avg_away_score, avg_home_score = away_score, home_score
+            else:
+                outcomes = data['outcomes']
+                # Sample 11 outcomes
+                samples = random.sample(outcomes, 11)
+                away_wins = sum(1 for r in samples if r['away_score'] > r['home_score'])
+                home_wins = sum(1 for r in samples if r['home_score'] > r['away_score'])
+                avg_away_score = sum(r['away_score'] for r in samples) / 11.0
+                avg_home_score = sum(r['home_score'] for r in samples) / 11.0
 
             # Determine game winner and update record
             if away_wins > home_wins:
@@ -348,9 +423,6 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
                     season_standings[home]['div_losses'] += 0.5
 
             # Accumulate scores (expected PF/PA for this season iteration)
-            avg_away_score = sum(r['away_score'] for r in samples) / 11.0
-            avg_home_score = sum(r['home_score'] for r in samples) / 11.0
-
             season_standings[away]['pf'] += avg_away_score
             season_standings[away]['pa'] += avg_home_score
             season_standings[home]['pf'] += avg_home_score
@@ -449,8 +521,13 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
     print("\nCalculating player stats cumulative season percentiles...")
     metrics = ['pAtt', 'pCmp', 'pYds', 'pTD', 'int', 'rAtt', 'rYds', 'rTD', 'rec', 'recYds', 'recTD', 'targets', 'fumbles', 'fumbles_lost', 'sacks_taken', 'air_yards', 'dk_score', 'fd_score', 'std_score', 'def_sack', 'def_int', 'def_fumble_rec', 'def_td', 'pts_allowed']
 
+    # ADDITIVE: drop completed-week games from the player-level simulated
+    # aggregation too -- real per-player totals get added back below
+    # (_apply_real_player_offsets), same as the standings loop above.
+    remaining_players_df = all_players_df[all_players_df['game_id'].map(week_by_game_id).fillna(999) >= current_week]
+
     # Sum stats per player, team, slot, pos, and iteration to get season-long totals
-    season_player_grouped = all_players_df.groupby(['Player', 'Team', 'Pos', 'Slot', 'iteration'])[metrics].sum().reset_index()
+    season_player_grouped = remaining_players_df.groupby(['Player', 'Team', 'Pos', 'Slot', 'iteration'])[metrics].sum().reset_index()
 
     # Completion % = season-summed completions / season-summed attempts, NOT
     # the average of per-game rates -- computed here, after the summation
@@ -471,6 +548,7 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
     player_summary_unstacked = player_summary.unstack()
     player_summary_unstacked.columns = [f"{col[0]}_p{int(col[1]*100):02d}" for col in player_summary_unstacked.columns]
     player_summary_df = player_summary_unstacked.reset_index()
+    player_summary_df = _apply_real_player_offsets(player_summary_df, real_player_totals)
 
     # 9. BUILD SYSTEMATIC DIRECTORIES AND GENERATE REPORTS
     # (Team, Player) -> True for anyone with a real target_share or carry_share

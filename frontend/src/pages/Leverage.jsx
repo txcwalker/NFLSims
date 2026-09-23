@@ -39,11 +39,17 @@ const pillBtnBase = {
 
 /** Every player this week's median/ceiling projection, optimal-lineup rate
  * (traditional multi-game slate, from /api/week_projections -- NOT the
- * 2-team showdown-scoped optimal_pct in /api/week_sim_results), and
- * projected ownership (from allSimResults, the only place it's computed --
- * see get_week_sim_results()'s slate-wide _compute_ownership() pass).
- * Leverage = optimal% - own% (this page's whole point). */
-export default function Leverage({ weekProjections, allSimResults }) {
+ * 2-team showdown-scoped optimal_pct in /api/week_sim_results), projected
+ * ownership (from allSimResults, the only place it's computed -- see
+ * get_week_sim_results()'s slate-wide _compute_ownership() pass), and raw
+ * box-score volume stats (attempts/yards/TDs/catches, also straight off
+ * /api/week_projections -- no extra fetch needed). Leverage = optimal% -
+ * own% (this page's original whole point; the stat columns just put the
+ * number behind a projection next to it). */
+export default function Leverage({
+  weekProjections, allSimResults,
+  dkSlates = [], selectedDraftGroupId = null, setSelectedDraftGroupId = () => {},
+}) {
   const [platform, setPlatform] = useState('DK');
   const [posFilter, setPosFilter] = useState('ALL');
   const [search, setSearch] = useState('');
@@ -65,7 +71,11 @@ export default function Leverage({ weekProjections, allSimResults }) {
   const rows = useMemo(() => {
     const wpList = Array.isArray(weekProjections) ? weekProjections : (weekProjections?.players || []);
     return wpList
-      .filter(p => p.name && p.pos && p.is_main !== false) // Main Slate only, same as the Optimizer's player pool
+      // is_main reflects membership in whichever slate is currently
+      // selected (draft_group_id) -- /api/week_projections resolves it
+      // per-request against that slate, so switching slates via the picker
+      // below changes who passes this filter without any change here.
+      .filter(p => p.name && p.pos && p.is_main !== false)
       .map(p => {
         const isFD = platform === 'FD';
         const median = isFD ? (p.fd_p50 ?? p.fd_score ?? 0) : (p.dk_p50 ?? p.dk_score ?? 0);
@@ -77,11 +87,17 @@ export default function Leverage({ weekProjections, allSimResults }) {
         return {
           id: `${p.name}_${p.team}`,
           name: pos === 'DST' ? `${p.team} DST` : p.name, pos, team: p.team,
+          salary: p.salary ?? null,
           median: parseFloat(median.toFixed(1)),
           ceiling: parseFloat(ceiling.toFixed(1)),
           optimalPct,
           ownPct: ownPct != null ? ownPct : null,
           leverage,
+          // Raw box-score volume stats -- already on the week_projections
+          // response, no separate fetch needed.
+          pAtt: p.pAtt ?? 0, pCmp: p.pCmp ?? 0, pYds: p.pYds ?? 0, pTD: p.pTD ?? 0, int: p.int ?? 0,
+          rAtt: p.rAtt ?? 0, rYds: p.rYds ?? 0, rTD: p.rTD ?? 0,
+          targets: p.targets ?? 0, rec: p.rec ?? 0, recYds: p.recYds ?? 0, recTD: p.recTD ?? 0,
         };
       })
       .filter(p => ['QB', 'RB', 'WR', 'TE', 'DST'].includes(p.pos));
@@ -118,9 +134,26 @@ export default function Leverage({ weekProjections, allSimResults }) {
       <div style={{ marginBottom: '16px' }}>
         <h1 style={{ marginBottom: '2px', fontSize: '1.6rem' }}>🎯 Ownership Leverage</h1>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
-          Leverage = optimal-lineup rate − projected ownership. Positive means the field is likely under-rostering a player relative to how often they show up in the slate's own optimal builds; negative means they're probably overowned relative to their true rate.
+          Leverage = optimal-lineup rate − projected ownership. Positive means the field is likely under-rostering a player relative to how often they show up in the slate's own optimal builds; negative means they're probably overowned relative to their true rate. Pick a position to see its box-score volume stats (attempts, yards, TDs, catches) alongside the projection.
         </p>
       </div>
+
+      {dkSlates.length > 0 && (
+        <div style={{ ...cardStyle, marginBottom: '14px', maxWidth: '320px' }}>
+          <label style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>DK Slate</label>
+          <select
+            style={{ ...inputStyle, width: '100%' }}
+            value={selectedDraftGroupId ?? ''}
+            onChange={e => setSelectedDraftGroupId(e.target.value ? Number(e.target.value) : null)}
+          >
+            {dkSlates.map(s => (
+              <option key={s.draft_group_id} value={s.draft_group_id}>
+                {s.label}{s.contest_count != null ? ` (${s.contest_count} contest${s.contest_count === 1 ? '' : 's'})` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div style={{ ...cardStyle, display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '14px' }}>
         <div style={{ display: 'flex', gap: '6px' }}>
@@ -158,11 +191,36 @@ export default function Leverage({ weekProjections, allSimResults }) {
               <th style={thStyle('name')} onClick={() => handleSort('name')}>Player</th>
               <th style={thStyle('pos')} onClick={() => handleSort('pos')}>Pos</th>
               <th style={thStyle('team')} onClick={() => handleSort('team')}>Team</th>
+              <th style={thStyle('salary')} onClick={() => handleSort('salary')}>Salary</th>
               <th style={thStyle('median')} onClick={() => handleSort('median')}>Median</th>
               <th style={thStyle('ceiling')} onClick={() => handleSort('ceiling')}>Ceiling</th>
               <th style={thStyle('optimalPct')} onClick={() => handleSort('optimalPct')}>Optimal%</th>
               <th style={thStyle('ownPct')} onClick={() => handleSort('ownPct')}>Own%</th>
               <th style={thStyle('leverage')} onClick={() => handleSort('leverage')}>Leverage</th>
+              {(posFilter === 'ALL' || posFilter === 'QB') && (
+                <>
+                  <th style={thStyle('pAtt')} onClick={() => handleSort('pAtt')}>P.Att</th>
+                  <th style={thStyle('pCmp')} onClick={() => handleSort('pCmp')}>P.Cmp</th>
+                  <th style={thStyle('pYds')} onClick={() => handleSort('pYds')}>P.Yds</th>
+                  <th style={thStyle('pTD')} onClick={() => handleSort('pTD')}>P.TD</th>
+                  <th style={thStyle('int')} onClick={() => handleSort('int')}>INT</th>
+                </>
+              )}
+              {(posFilter === 'ALL' || ['RB', 'QB', 'WR', 'TE'].includes(posFilter)) && (
+                <>
+                  <th style={thStyle('rAtt')} onClick={() => handleSort('rAtt')}>Carries</th>
+                  <th style={thStyle('rYds')} onClick={() => handleSort('rYds')}>R.Yds</th>
+                  <th style={thStyle('rTD')} onClick={() => handleSort('rTD')}>R.TD</th>
+                </>
+              )}
+              {(posFilter === 'ALL' || ['WR', 'TE', 'RB'].includes(posFilter)) && (
+                <>
+                  <th style={thStyle('targets')} onClick={() => handleSort('targets')}>Targets</th>
+                  <th style={thStyle('rec')} onClick={() => handleSort('rec')}>Catches</th>
+                  <th style={thStyle('recYds')} onClick={() => handleSort('recYds')}>Rec.Yds</th>
+                  <th style={thStyle('recTD')} onClick={() => handleSort('recTD')}>Rec.TD</th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -176,6 +234,7 @@ export default function Leverage({ weekProjections, allSimResults }) {
                   <span style={{ color: POS_COLORS[p.pos] || 'var(--text-muted)', fontWeight: 700, fontSize: '0.75rem' }}>{p.pos}</span>
                 </td>
                 <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.team}</td>
+                <td style={{ padding: '6px 10px', fontWeight: 600 }}>{p.salary != null ? `$${p.salary.toLocaleString()}` : '—'}</td>
                 <td style={{ padding: '6px 10px' }}>{p.median}</td>
                 <td style={{ padding: '6px 10px', color: 'var(--accent-primary)' }}>{p.ceiling}</td>
                 <td style={{ padding: '6px 10px' }}>{p.optimalPct}%</td>
@@ -186,6 +245,30 @@ export default function Leverage({ weekProjections, allSimResults }) {
                 }}>
                   {p.leverage != null ? (p.leverage > 0 ? `+${p.leverage}` : p.leverage) : '—'}
                 </td>
+                {(posFilter === 'ALL' || posFilter === 'QB') && (
+                  <>
+                    <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.pAtt || '—'}</td>
+                    <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.pCmp || '—'}</td>
+                    <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.pYds || '—'}</td>
+                    <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.pTD || '—'}</td>
+                    <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.int || '—'}</td>
+                  </>
+                )}
+                {(posFilter === 'ALL' || ['RB', 'QB', 'WR', 'TE'].includes(posFilter)) && (
+                  <>
+                    <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.rAtt || '—'}</td>
+                    <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.rYds || '—'}</td>
+                    <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.rTD || '—'}</td>
+                  </>
+                )}
+                {(posFilter === 'ALL' || ['WR', 'TE', 'RB'].includes(posFilter)) && (
+                  <>
+                    <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.targets || '—'}</td>
+                    <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.rec || '—'}</td>
+                    <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.recYds || '—'}</td>
+                    <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{p.recTD || '—'}</td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>

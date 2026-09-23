@@ -17,6 +17,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from src.data_pipeline.rolling_stats_v_0_1_0 import PLAYER_RATE_FIELDS, PLAYER_NGS_FIELDS  # noqa: E402
+from src.data_pipeline.week_roster_v_0_1_0 import (  # noqa: E402
+    GONE_SLOTS, RESERVE_SLOTS, parse_return_week,
+)
 from roster_feed_v_0_1_0 import match_key  # noqa: E402
 from build_2026_rosters_v_0_1_0 import enrich_player  # noqa: E402
 
@@ -77,7 +80,57 @@ def _overlay_row(player, row):
         pp.setdefault("splits", {}).setdefault(zone, {})[field] = round(v, 6)
 
 
-def apply_sheet_to_traits(traits, rows, skill_dna):
+def _overlay_status(player, row, week=None, touch_starter=True):
+    """In place: dfs_status/starter_override (week-sheet-only columns, added
+    2026-09-19 for the UI gameday toggle -- absent from season-long sheets,
+    where row.get() below just falls through to the defaults) -> the
+    traits.json status/starter_override fields game_engine.py already reads
+    (_get_starter_static's starter_override check, the status=='active'
+    pool filters). Mirrors set_qb_starter_overrides_v_0_1_0.py's
+    clear-then-set convention for starter_override.
+
+    `week` (only ever passed on the weekly compile path -- season-long has
+    no week context) also folds in the PRE-EXISTING roster_slot/return_week
+    IR-style unavailability, using the exact same predicate
+    resolve_week_rows uses to decide who's "hurt"/"gone". Found 2026-09-19:
+    without this, a player excluded via roster_slot=ir (rather than the new
+    dfs_status column) had their shares correctly zeroed by
+    resolve_week_rows but still compiled to status="active" here -- right
+    answer for the simulation math (0 share ~= 0 selection probability) but
+    wrong for the UI's Active checkbox and any consumer that actually reads
+    status instead of shares.
+
+    `touch_starter` (set by apply_sheet_to_traits, team-wide -- see there):
+    False means no row in this compile has an explicit starter_override
+    this week, so starter_override is left alone entirely rather than
+    cleared. Needed because a week sheet's own starter_override column is
+    blank by default (only ever populated by a real gameday toggle or a
+    hand-edit) -- a genuine, code-set live override (e.g.
+    set_qb_starter_overrides_v_0_1_0.py's `TEN: Cam Ward`) has nothing to do
+    with that column, so a blank cell must never be read as "clear it".
+    Found 2026-09-19: TEN/SF/NYG/NO/SEA's real, hand-confirmed starters were
+    silently losing their live starter_override on every DFS week compile
+    for exactly this reason -- see WORKLOG.md."""
+    dfs_status = (row.get("dfs_status") or "active").strip().lower()
+    unavailable = dfs_status == "out"
+    if week is not None:
+        slot = (row.get("roster_slot") or "active").strip().lower()
+        if slot in GONE_SLOTS:
+            unavailable = True
+        elif (slot in RESERVE_SLOTS and parse_return_week(row.get("return_week")) > week
+              and dfs_status != "force_active"):   # gameday override of a reserve slot
+            unavailable = True
+    player["status"] = "out" if unavailable else "active"
+    if not touch_starter:
+        return
+    so = str(row.get("starter_override") or "").strip().upper()
+    if so in ("TRUE", "1", "YES"):
+        player["starter_override"] = True
+    elif "starter_override" in player:
+        del player["starter_override"]
+
+
+def apply_sheet_to_traits(traits, rows, skill_dna, week=None):
     """Mutates `traits` ({player_name: player_dict}, one team) in place so
     it reflects `rows` (that team's real player rows from a sheet, already
     filtered to non-gone via is_player_row + roster_slot):
@@ -91,6 +144,15 @@ def apply_sheet_to_traits(traits, rows, skill_dna):
     Returns (updated, created, zeroed) name lists, for reporting."""
     row_by_key = {match_key(r["player_name"]): r for r in rows if r.get("player_name")}
     traits_keys = {match_key(n): n for n in traits}
+
+    # Team-wide, not per-row: a blank starter_override cell is this sheet's
+    # default/unedited state, not an instruction to clear anyone's flag --
+    # only treat it as a real toggle when SOME row this compile explicitly
+    # claims the starter slot (see _overlay_status's touch_starter docs).
+    touch_starter = any(
+        str(r.get("starter_override") or "").strip().upper() in ("TRUE", "1", "YES")
+        for r in row_by_key.values()
+    )
 
     zeroed = []
     for key, name in list(traits_keys.items()):
@@ -113,5 +175,6 @@ def apply_sheet_to_traits(traits, rows, skill_dna):
         else:
             updated.append(name)
         _overlay_row(traits[name], row)
+        _overlay_status(traits[name], row, week, touch_starter)
 
     return updated, created, zeroed

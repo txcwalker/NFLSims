@@ -118,6 +118,18 @@ def compute_optimal_pct(week, year=SIM_YEAR):
          f"top: {counts[0]['name']} ({counts[0]['count']}/{n_iterations} = "
          f"{100.0*counts[0]['count']/n_iterations:.1f}%)" if counts else f"Wrote {out_path}")
 
+    # get_week_projections() prefers a "baked full response" JSON cache over
+    # live computation whenever one exists (see _compute_week_projections in
+    # src/api/app.py) -- it bakes in whatever optimal_pct this script had
+    # produced as of its last run, so it must be invalidated here or the app
+    # silently keeps serving pre-rerun optimal%/leverage numbers indefinitely.
+    # Same pattern run_week_sim_2026.py already uses for its own upstream
+    # changes.
+    stale_cache = os.path.join(BASE_DIR, "data", "interim", f"week_{week}_full_projections.json")
+    if os.path.exists(stale_cache):
+        os.remove(stale_cache)
+        print(f"Removed stale baked cache: {stale_cache}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or not sys.argv[1].isdigit():

@@ -247,6 +247,31 @@ export const ApiService = {
     return safeFetch(`${API_BASE}/season2026/teams`, {}, {});
   },
 
+  // -----------------------------------------------------------------------
+  // 2026 CURRENT SEASON (Standings/"Current Season" page) -- real, actual
+  // stats to date, as opposed to the projected/additive Season2026 reports
+  // above. Same no-mock-fallback convention.
+  // -----------------------------------------------------------------------
+  async getSeason2026CurrentStandings() {
+    return safeFetch(`${API_BASE}/season2026/current/standings`, {}, []);
+  },
+
+  async getSeason2026CurrentTeamStats() {
+    return safeFetch(`${API_BASE}/season2026/current/team-stats`, {}, []);
+  },
+
+  async getSeason2026CurrentLeaders() {
+    return safeFetch(`${API_BASE}/season2026/current/leaders`, {}, { overall: {}, rookies: {} });
+  },
+
+  async getSeason2026CurrentMatchups() {
+    return safeFetch(`${API_BASE}/season2026/current/matchups`, {}, { weeks: {} });
+  },
+
+  async getSeason2026CurrentTeams() {
+    return safeFetch(`${API_BASE}/season2026/current/teams`, {}, {});
+  },
+
   async calculate4thDown(params) {
     const successRateGo = Math.max(20, Math.min(95, 85 - (params.distance * 8)));
     const successRateFG = params.yardline > 45 ? 0 : Math.max(5, Math.min(99, 100 - ((60 - params.yardline) * 2.5)));

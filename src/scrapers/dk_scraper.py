@@ -188,6 +188,73 @@ def resolve_dk_salary(name: str, team: str, dk: Dict[str, Any]) -> Tuple[Optiona
     return dk["players"].get(fuzzy_key), dk["player_ids"].get(fuzzy_key)
 
 
+def _resolve_showdown_entry(
+    name: str, team: str, players: Dict[Tuple[str, str], Dict[str, Any]]
+) -> Optional[Tuple[Tuple[str, str], Dict[str, Any]]]:
+    """Same 3-tier matching as resolve_dk_salary (exact normalized name+team,
+    then a persisted data/dna/dk_name_aliases.json alias, then a one-time
+    fuzzy match saved as a new alias) but against a Showdown slate's
+    {(name_norm, team): {salary, cpt_salary, flex_id, cpt_id, ...}} dict.
+    Kept separate from resolve_dk_salary (which returns a (salary, id) tuple)
+    since callers here need the whole entry -- captain price and both ids,
+    not just one salary. Shares the same alias file/key format as the Classic
+    path, so a mismatch already resolved there (e.g. internal "Josh Palmer"
+    vs DK's "Joshua Palmer") is picked up here for free, with no separate
+    fuzzy match needed."""
+    name_norm = normalize_player_name(name)
+    key = (name_norm, team)
+    if key in players:
+        return key, players[key]
+
+    internal_key = f"{name_norm}|{team}"
+    alias = _load_aliases().get(internal_key)
+    if alias:
+        alias_key = (alias["dk_name"], team)
+        if alias_key in players:
+            return alias_key, players[alias_key]
+
+    team_dk_names = [n for (n, t) in players.keys() if t == team]
+    if not team_dk_names:
+        return None
+    best = difflib.get_close_matches(name_norm, team_dk_names, n=1, cutoff=FUZZY_MATCH_THRESHOLD)
+    if not best:
+        return None
+    dk_name = best[0]
+    ratio = difflib.SequenceMatcher(None, name_norm, dk_name).ratio()
+    _save_alias(internal_key, dk_name, ratio)
+    print(f"DK scraper: fuzzy-matched (showdown) '{name}' ({team}) -> DK's '{dk_name}' (ratio={ratio:.3f}), saved as alias.")
+    fuzzy_key = (dk_name, team)
+    return fuzzy_key, players.get(fuzzy_key)
+
+
+def _apply_internal_names(players: Dict[Tuple[str, str], Dict[str, Any]], teams: set, year: int = 2026) -> None:
+    """Renames each DK Showdown player entry's "name" in place to match the
+    internal roster's own display name whenever the two resolve to the same
+    person. Without this, DK's raw displayName (e.g. "Joshua Palmer") can
+    silently defeat a caller's exact-normalized-name join against the
+    internal roster's name (e.g. "Josh Palmer") even when a Classic-side
+    alias for that exact player already exists -- confirmed 2026-09-17 as
+    the actual cause of a real player showing no live Showdown salary in the
+    optimizer despite DK pricing them correctly."""
+    for team in teams:
+        roster_path = os.path.join(BASE_DIR, "data", "current_rosters", f"{team}_traits_{year}.json")
+        if not os.path.exists(roster_path):
+            continue
+        try:
+            with open(roster_path, "r") as f:
+                roster_data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+        matched_keys = set()
+        for name in roster_data.get("traits", {}):
+            match = _resolve_showdown_entry(name, team, players)
+            if match:
+                dk_key, dk_rec = match
+                if dk_key not in matched_keys:
+                    dk_rec["name"] = name
+                    matched_keys.add(dk_key)
+
+
 def _find_main_slate_draft_group_id(contests: List[Dict[str, Any]]) -> Optional[int]:
     """The NFL 'Main Slate' Classic draft group -- DK's flagship Sunday
     contests (Millionaire, etc). Identified as the Classic (non-Showdown,
@@ -431,9 +498,11 @@ def _refresh_slate(draft_group_id: int) -> None:
     draftables = draftables_resp.get("draftables", [])
 
     players: Dict[Tuple[str, str], int] = {}
+    player_pos: Dict[Tuple[str, str], str] = {}
     defense: Dict[str, int] = {}
     player_ids: Dict[Tuple[str, str], int] = {}
     defense_ids: Dict[str, int] = {}
+    defense_names: Dict[str, str] = {}
     teams: set = set()
 
     for d in draftables:
@@ -448,11 +517,27 @@ def _refresh_slate(draft_group_id: int) -> None:
             defense[team] = salary
             if draftable_id is not None:
                 defense_ids[team] = draftable_id
+            # DK's real displayName for a defense (e.g. "Buccaneers"), not the
+            # generic "Defense" label the sim engine uses internally -- needed
+            # to write a lineup-upload CSV cell DK's own upload will accept
+            # (see src/api/app.py's get_week_dk_names()).
+            display_name = d.get("displayName", "")
+            if display_name:
+                defense_names[team] = display_name
         else:
             name = d.get("displayName", "")
             if name:
                 key = (normalize_player_name(name), team)
                 players[key] = salary
+                # `pos` was already read above to route DST vs. everyone else
+                # -- keeping it here too (added 2026-09-22) so callers get a
+                # real position instead of having to re-derive it elsewhere.
+                # Found via the DFS ownership model's ~670-player-per-week
+                # ~ main-slate salary archive silently carrying pos="" for
+                # every non-DST player since week 1 -- get_dk_salaries()'s
+                # `players` dict had nowhere to put it before this.
+                if pos:
+                    player_pos[key] = pos
                 if draftable_id is not None:
                     player_ids[key] = draftable_id
 
@@ -463,9 +548,11 @@ def _refresh_slate(draft_group_id: int) -> None:
     _slate_caches[draft_group_id] = {
         "fetched_at": time.time(),
         "players": players,
+        "player_pos": player_pos,
         "defense": defense,
         "player_ids": player_ids,
         "defense_ids": defense_ids,
+        "defense_names": defense_names,
         "teams": teams,
     }
     print(f"DK scraper: refreshed salaries for draft group {draft_group_id} "
@@ -508,9 +595,11 @@ def get_dk_salaries(draft_group_id: Optional[int] = None, force_refresh: bool = 
           "fetched_at": float | None,   # unix timestamp of last successful fetch
           "is_live": bool,              # False if we've never fetched successfully
           "players": {(normalized_name, team_abbrev): salary},
+          "player_pos": {(normalized_name, team_abbrev): position},  # added 2026-09-22
           "defense": {team_abbrev: salary},
           "player_ids": {(normalized_name, team_abbrev): draftableId},
           "defense_ids": {team_abbrev: draftableId},
+          "defense_names": {team_abbrev: displayName},   # DK's real name, e.g. "Buccaneers"
           "main_slate_teams": {team_abbrev, ...},
         }
 
@@ -527,8 +616,8 @@ def get_dk_salaries(draft_group_id: Optional[int] = None, force_refresh: bool = 
     """
     _maybe_refresh_lobby(force_refresh)
     dg = draft_group_id if draft_group_id is not None else _lobby_cache["default_draft_group_id"]
-    empty = {"draft_group_id": dg, "fetched_at": None, "is_live": False, "players": {}, "defense": {},
-             "player_ids": {}, "defense_ids": {}, "main_slate_teams": set()}
+    empty = {"draft_group_id": dg, "fetched_at": None, "is_live": False, "players": {}, "player_pos": {},
+             "defense": {}, "player_ids": {}, "defense_ids": {}, "defense_names": {}, "main_slate_teams": set()}
     if dg is None:
         return empty
 
@@ -545,9 +634,11 @@ def get_dk_salaries(draft_group_id: Optional[int] = None, force_refresh: bool = 
         "fetched_at": entry["fetched_at"],
         "is_live": True,
         "players": entry["players"],
+        "player_pos": entry.get("player_pos", {}),
         "defense": entry["defense"],
         "player_ids": entry["player_ids"],
         "defense_ids": entry["defense_ids"],
+        "defense_names": entry.get("defense_names", {}),
         "main_slate_teams": entry["teams"],
     }
 
@@ -599,9 +690,11 @@ def load_prelock_salary_snapshot(year: int, week: int) -> Optional[Dict[str, Any
         return cached
 
     players: Dict[Tuple[str, str], int] = {}
+    player_pos: Dict[Tuple[str, str], str] = {}
     player_ids: Dict[Tuple[str, str], int] = {}
     defense: Dict[str, int] = {}
     defense_ids: Dict[str, int] = {}
+    defense_names: Dict[str, str] = {}
     teams: set = set()
     with open(path, "r", encoding="utf-8-sig", newline="") as f:
         for row in csv.DictReader(f):
@@ -614,22 +707,29 @@ def load_prelock_salary_snapshot(year: int, week: int) -> Optional[Dict[str, Any
                 dk_id = int(row["dk_id"]) if row.get("dk_id") else None
             except (KeyError, ValueError):
                 continue
-            if (row.get("pos") or "").strip().upper() == "DST":
+            pos = (row.get("pos") or "").strip().upper()
+            if pos == "DST":
                 defense[team] = salary
                 if dk_id is not None:
                     defense_ids[team] = dk_id
+                raw_name = (row.get("name") or "").strip()
+                if raw_name:
+                    defense_names[team] = raw_name
             else:
                 name_norm = normalize_player_name(row.get("name") or "")
                 if not name_norm:
                     continue
                 players[(name_norm, team)] = salary
+                if pos:
+                    player_pos[(name_norm, team)] = pos
                 if dk_id is not None:
                     player_ids[(name_norm, team)] = dk_id
 
     result = {
         "draft_group_id": None, "fetched_at": mtime, "is_live": True,
-        "players": players, "defense": defense,
+        "players": players, "player_pos": player_pos, "defense": defense,
         "player_ids": player_ids, "defense_ids": defense_ids,
+        "defense_names": defense_names,
         "main_slate_teams": teams, "_mtime": mtime,
     }
     _PRELOCK_CACHE[key] = result
@@ -702,6 +802,8 @@ def _refresh_showdown_slate(draft_group_id: int) -> None:
     if not players:
         print(f"DK scraper: showdown draft group {draft_group_id} returned no usable salaries.")
         return
+
+    _apply_internal_names(players, teams)
 
     _showdown_slate_caches[draft_group_id] = {
         "fetched_at": time.time(),

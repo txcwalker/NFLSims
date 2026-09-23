@@ -76,7 +76,7 @@ export default function Home({ setCurrentPage }) {
             className="btn-primary" 
             style={{ width: 'auto', padding: '14px 32px' }}
           >
-            Launch DFS Simulator
+            Launch Game Explorer
           </button>
           <button 
             onClick={() => handleNav('roadmap')}

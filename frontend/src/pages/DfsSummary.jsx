@@ -137,14 +137,36 @@ export default function DfsSummary({
     if (selectedSlate === 'SHOWDOWN') {
       return simResults ? simResults.projections : [];
     }
-    
+
+    // optimal_pct here must always be the true whole-slate Classic 9-slot
+    // lineup rate from /api/week_projections (precomputed exactly via
+    // compute_optimal_pct_2026.py when available, else a live sample of
+    // solve_optimal_lineup_milp) -- never the per-game optimal_pct a
+    // simulated game's own projections (allSimResults/simResults) carry.
+    // That one is a DIFFERENT, Showdown-scoped statistic (how often a
+    // player is in the best 6-man captain+FLEX lineup drawn from just its
+    // own 2 teams, via run_simulation()'s solve_showdown_iteration), which
+    // runs 70-90%+ for most any decent starter -- a 2-team pool is trivially
+    // easier to dominate than the real ~300-player slate. Without this, any
+    // team that's been simulated (i.e. basically all of them) silently
+    // shadows the correct value with that inflated one (same bug, same fix,
+    // as Optimizer.jsx's buildPlayerPool, 2026-09-19).
+    const optimalPctByKey = new Map();
+    (weekProjections || []).forEach(p => {
+      if (p.name && p.team) optimalPctByKey.set(`${p.name}_${p.team}`, p.optimal_pct ?? null);
+    });
+    const withCorrectOptimalPct = (p) => ({
+      ...p,
+      optimal_pct: optimalPctByKey.get(`${p.name}_${p.team}`) ?? null,
+    });
+
     // Combine projections from all games in allSimResults
     const simulatedProjections = [];
     const simulatedTeams = new Set();
-    
+
     Object.values(allSimResults || {}).forEach(res => {
       if (res && res.projections) {
-        simulatedProjections.push(...res.projections);
+        simulatedProjections.push(...res.projections.map(withCorrectOptimalPct));
         res.projections.forEach(p => {
           if (p.team) simulatedTeams.add(p.team);
         });
@@ -152,7 +174,7 @@ export default function DfsSummary({
         if (res.home_team) simulatedTeams.add(res.home_team);
       }
     });
-    
+
     // If the currently selected game is simulated but not in allSimResults, make sure we include it
     if (simResults) {
       const localSimTeams = new Set();
@@ -170,11 +192,11 @@ export default function DfsSummary({
       });
 
       if (!alreadyIncluded && simResults.projections) {
-        simulatedProjections.push(...simResults.projections);
+        simulatedProjections.push(...simResults.projections.map(withCorrectOptimalPct));
         localSimTeams.forEach(t => simulatedTeams.add(t));
       }
     }
-    
+
     // Fall back to weekProjections for teams not simulated yet
     const finalOtherProjections = (weekProjections || [])
       .filter(p => !simulatedTeams.has(p.team))
@@ -462,7 +484,7 @@ export default function DfsSummary({
               {sortedProjections.length === 0 ? (
                 <tr>
                   <td colSpan={15} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
-                    No simulation results available. Run simulations on the DFS Simulator page to populate summary data.
+                    No simulation results available. Run simulations on the Game Explorer page to populate summary data.
                   </td>
                 </tr>
               ) : (

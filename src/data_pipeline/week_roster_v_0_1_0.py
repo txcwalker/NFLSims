@@ -12,6 +12,21 @@ The model (Cam, 2026-09-02):
     target_share / carry_share is redistributed pro-rata to the remaining
     `active` SAME-POSITION rows (equal split when none holds any share).
     Team share totals are preserved.
+  - Week sheets only (never season_long) also carry `dfs_status` (added
+    2026-09-19 for the UI gameday-inactive toggle): "out" is a one-week-only
+    OUT, independent of `roster_slot`/`return_week` and reset each time
+    build_week_overrides regenerates the sheet from season_long -- a player
+    who is perfectly healthy season-long-wise can still be marked out for
+    just this game. Same pooling/redistribution treatment as an IR player.
+  - 2026-09-22: `dfs_status` gained a third value, "force_active" -- a
+    gameday override that puts a RESERVE-slot player (ir/pup/...) back on
+    the field before their return_week, at their full curated season_long
+    share (no fill-in reverts needed: season_long already holds injured
+    players at full role). GONE slots (cut/left_team/retired) are never
+    overridable. Toggles are now STICKY week to week via the persistent
+    ledger (scripts/roster_management/dfs_status_ledger.py); this module
+    only resolves a ledger entry into a per-week dfs_status value
+    (effective_dfs_status below) -- the week sheet is still where it lands.
 
 Flat schema only (no splits / preseason_projection nesting) -- these sheets
 carry one value per field. No I/O: resolve_week_rows takes parsed rows.
@@ -27,6 +42,8 @@ ACTIVE_SLOTS = {"active"}
 RESERVE_SLOTS = {"ir", "pup", "nfi", "suspended", "exempt"}
 GONE_SLOTS = {"cut", "left_team", "retired"}     # off the roster, never coming back
 _NEVER = 99
+DFS_OUT = "out"
+DFS_FORCE_ACTIVE = "force_active"
 
 
 def is_player_row(row):
@@ -65,6 +82,50 @@ def is_available(row, week):
     return slot == "practice_squad"      # carried, not a recipient
 
 
+def reserve_signature(row, week):
+    """Inputs: row (dict, a season_long sheet row -- needs roster_slot /
+    return_week), week (int).
+    Output: str like "ir|8" if the row is a reserve player still OUT in
+    `week` (i.e. a gameday "active" toggle would be an IR override), else
+    None.
+    Purpose: stamped onto a sticky "active" ledger entry at record time so
+    the override only keeps applying to THAT injury stint -- if Cam later
+    moves the same player to a new IR stint in season_long (different
+    slot/return_week), the old gameday override must not silently cancel
+    the new, real injury move."""
+    slot = (row.get("roster_slot") or "active").strip().lower()
+    rw = parse_return_week(row.get("return_week"))
+    if slot in RESERVE_SLOTS and rw > week:
+        return f"{slot}|{rw}"
+    return None
+
+
+def effective_dfs_status(entries, week, row):
+    """Inputs: entries (list of {"week": int, "status": "out"|"active",
+    optional "reserve_sig": str} -- one player's sticky ledger history, from
+    dfs_status_ledger.json), week (int, the week being built), row (dict, the
+    player's CURRENT season_long row).
+    Output: the dfs_status string to write into week `week`'s sheet --
+    "out", "force_active", "active" -- or None if no ledger entry applies
+    (caller keeps whatever the week sheet already had).
+    Purpose: sticky toggles. The latest entry at or before `week` wins, so a
+    week-3 "out" keeps the player out in weeks 4, 5, ... until an explicit
+    later "active". An "active" only becomes force_active (overriding a
+    reserve slot) while the player is still on the SAME reserve stint it was
+    recorded against (see reserve_signature); otherwise it just means "no
+    gameday override"."""
+    applicable = [e for e in (entries or []) if int(e.get("week", 0)) <= week]
+    if not applicable:
+        return None
+    latest = max(applicable, key=lambda e: int(e["week"]))
+    if latest.get("status") == DFS_OUT:
+        return DFS_OUT
+    sig = latest.get("reserve_sig")
+    if sig and reserve_signature(row, week) == sig:
+        return DFS_FORCE_ACTIVE
+    return "active"
+
+
 def resolve_week_rows(rows, week):
     """rows: list of dicts (one per player) from a season_long/{TEAM}.csv.
     Returns (new_rows, report). new_rows is a fresh list, same schema:
@@ -83,18 +144,29 @@ def resolve_week_rows(rows, week):
             nr[f] = round(_num(nr.get(f)), 6)
         slot = (r.get("roster_slot") or "active").strip().lower()
         gone = slot in GONE_SLOTS
-        hurt = slot in RESERVE_SLOTS and parse_return_week(r.get("return_week")) > week
-        if gone or hurt:
+        dfs = (r.get("dfs_status") or "active").strip().lower()
+        dfs_out = dfs == DFS_OUT
+        forced = dfs == DFS_FORCE_ACTIVE     # gameday override of a reserve slot (never of GONE)
+        hurt = (slot in RESERVE_SLOTS and parse_return_week(r.get("return_week")) > week
+                and not forced)
+        if gone or hurt or dfs_out:
             rec = {"player_name": r.get("player_name"), "pos": r.get("pos"), "slot": slot}
             for f in SHARE_FIELDS:
                 rec[f] = _num(r.get(f))
                 nr[f] = 0.0
             out.append(rec)
-            tag = "GONE" if gone else f"OUT wk{week}"
-            nr["note"] = (f"{tag} ({slot}); "
+            if gone:
+                tag = f"GONE ({slot})"
+            elif hurt:
+                tag = f"OUT wk{week} ({slot})"
+            else:
+                tag = f"OUT wk{week} (dfs_inactive)"
+            nr["note"] = (f"{tag}; "
                           f"{(r.get('note') or '').strip()}").strip("; ").strip()
         out_rows.append(nr)
-        if slot in ACTIVE_SLOTS:
+        # A force-activated reserve player is on the field, so it can also
+        # absorb a same-position teammate's pooled share.
+        if (slot in ACTIVE_SLOTS or (forced and slot in RESERVE_SLOTS)) and not dfs_out:
             recipients_by_pos.setdefault(r.get("pos"), []).append(nr)
 
     report = []

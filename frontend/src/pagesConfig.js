@@ -9,7 +9,7 @@ export const PAGES = [
   },
   {
     id: 'simulator',
-    label: 'DFS Simulator',
+    label: 'Game Explorer',
     showInNavbar: true,
     category: 'core',
     icon: '🏈',
@@ -85,7 +85,7 @@ export const PAGES = [
     showInNavbar: true,
     category: 'tool',
     icon: '🎯',
-    description: 'Median, ceiling, optimal-lineup rate, and projected ownership for every player -- leverage = optimal% - own%.'
+    description: 'Median, ceiling, optimal-lineup rate, projected ownership, and box-score volume stats (attempts/yards/TDs/catches) for every player -- leverage = optimal% - own%.'
   },
   {
     id: 'props',

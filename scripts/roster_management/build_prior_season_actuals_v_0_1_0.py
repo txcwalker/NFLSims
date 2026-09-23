@@ -156,7 +156,7 @@ def build(prior_year, target_year):
         player_id = traits.get("player_id")
         season = {}
         if player_id and len(pbp):
-            season, _ = rolling_stats_for_player(
+            season, _, _, _ = rolling_stats_for_player(
                 pbp, player_id, pos, REGULAR_SEASON_MAX_WEEK, team_totals,
                 ngs_pass_df=ngs_pass, ngs_recv_df=ngs_recv,
             )

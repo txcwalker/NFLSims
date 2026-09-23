@@ -1,112 +1,84 @@
 import { useState, useEffect } from 'react';
 import { ApiService } from '../api';
-import { Award, Trophy } from 'lucide-react';
+import StandingsTab from '../components/season2026/StandingsTab';
+import LeadersTab from '../components/season2026/LeadersTab';
+import TeamStatsTab from '../components/season2026/TeamStatsTab';
+import MatchupsTab from '../components/season2026/MatchupsTab';
+import TeamsTab from '../components/season2026/TeamsTab';
 
+const TEAM_DIVISIONS = {
+  BUF: ['AFC', 'East'], MIA: ['AFC', 'East'], NE: ['AFC', 'East'], NYJ: ['AFC', 'East'],
+  BAL: ['AFC', 'North'], CIN: ['AFC', 'North'], CLE: ['AFC', 'North'], PIT: ['AFC', 'North'],
+  HOU: ['AFC', 'South'], IND: ['AFC', 'South'], JAX: ['AFC', 'South'], TEN: ['AFC', 'South'],
+  DEN: ['AFC', 'West'], KC: ['AFC', 'West'], LV: ['AFC', 'West'], LAC: ['AFC', 'West'],
+  DAL: ['NFC', 'East'], NYG: ['NFC', 'East'], PHI: ['NFC', 'East'], WAS: ['NFC', 'East'],
+  CHI: ['NFC', 'North'], DET: ['NFC', 'North'], GB: ['NFC', 'North'], MIN: ['NFC', 'North'],
+  ATL: ['NFC', 'South'], CAR: ['NFC', 'South'], NO: ['NFC', 'South'], TB: ['NFC', 'South'],
+  ARI: ['NFC', 'West'], LA: ['NFC', 'West'], SF: ['NFC', 'West'], SEA: ['NFC', 'West'],
+};
+
+const SUB_TABS = ['Standings', 'Leaders', 'Team Stats', 'Matchups', 'Teams'];
+
+// Same 5-tab shell as the "2026 Rest of Season" page (Season2026.jsx), but
+// showing real, actual 2026 stats to date instead of a simulated
+// projection -- see ApiService.getSeason2026Current*() and
+// build_actual_season_stats_2026.py. The Matchups tab shows just the
+// current week's game(s), simmed via the same per-week DFS roster tree the
+// DFS site uses (run_week_sim_2026.py), not the season-long file.
 function Standings() {
-  const [standings, setStandings] = useState([]);
+  const [subTab, setSubTab] = useState('Standings');
   const [loading, setLoading] = useState(true);
+  const [standings, setStandings] = useState([]);
+  const [teamStats, setTeamStats] = useState([]);
+  const [leaders, setLeaders] = useState(null);
+  const [matchups, setMatchups] = useState(null);
+  const [teams, setTeams] = useState(null);
 
   useEffect(() => {
-    async function loadStandings() {
-      try {
-        const fullList = await ApiService.getSeason2026Standings();
-        setStandings(fullList || []);
-      } catch (err) {
-        console.error('Failed to load full standings', err);
-      } finally {
-        setLoading(false);
-      }
+    async function loadAll() {
+      const [s, ts, l, m, t] = await Promise.all([
+        ApiService.getSeason2026CurrentStandings(),
+        ApiService.getSeason2026CurrentTeamStats(),
+        ApiService.getSeason2026CurrentLeaders(),
+        ApiService.getSeason2026CurrentMatchups(),
+        ApiService.getSeason2026CurrentTeams(),
+      ]);
+      setStandings((s || []).map(t => ({ ...t, Conference: t.Conference || TEAM_DIVISIONS[t.Team]?.[0], Division: t.Division || TEAM_DIVISIONS[t.Team]?.[1] })));
+      setTeamStats(ts || []);
+      setLeaders(l || { overall: {}, rookies: {} });
+      setMatchups(m || { weeks: {} });
+      setTeams(t || {});
+      setLoading(false);
     }
-    loadStandings();
+    loadAll();
   }, []);
-
-  // Helper to group teams by Conference and Division
-  const getTeamsByDiv = (conf, div) => {
-    return standings
-      .filter(t => t.Conference === conf && t.Division === div)
-      .sort((a, b) => b.Wins_Expected - a.Wins_Expected);
-  };
-
-  const divisions = ['East', 'North', 'South', 'West'];
-
-  const renderConference = (confName) => {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        <h2 style={{ fontSize: '20px', borderBottom: '2px solid var(--border-color)', paddingBottom: '8px', color: 'var(--accent-cyan)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {confName} Conference
-        </h2>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-          {divisions.map(div => {
-            const teams = getTeamsByDiv(confName, div);
-            return (
-              <div key={div} className="panel" style={{ padding: '0' }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)', fontWeight: '700', fontSize: '14px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
-                  {div} Division
-                </div>
-                
-                <table className="tactical-table">
-                  <thead>
-                    <tr>
-                      <th style={{ padding: '8px 12px' }}>Team</th>
-                      <th style={{ padding: '8px 12px' }}>W-L</th>
-                      <th style={{ padding: '8px 12px' }}>Playoffs</th>
-                      <th style={{ padding: '8px 12px' }}>SB</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teams.map((t, idx) => {
-                      const isLeader = idx === 0;
-                      const hasGlow = t['Playoffs_%'] > 75.0;
-                      return (
-                        <tr
-                          key={t.Team}
-                          style={hasGlow ? { backgroundColor: 'rgba(0, 242, 254, 0.02)' } : {}}
-                        >
-                          <td style={{
-                            padding: '10px 12px',
-                            fontWeight: isLeader ? '700' : '400',
-                            color: isLeader ? 'var(--accent-cyan)' : 'var(--text-primary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}>
-                            {t.Team} {isLeader && <Trophy size={10} style={{ color: 'var(--accent-orange)' }} />}
-                          </td>
-                          <td style={{ padding: '10px 12px' }}>{t.Wins_Expected.toFixed(1)}-{t.Losses_Expected.toFixed(1)}</td>
-                          <td style={{ padding: '10px 12px' }}>
-                            <span className={t['Playoffs_%'] > 50.0 ? 'badge badge-green' : 'badge badge-outline'} style={{ fontSize: '10px', padding: '1px 4px' }}>
-                              {t['Playoffs_%'].toFixed(0)}%
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px 12px', color: 'var(--accent-orange)', fontWeight: '600' }}>{t['Champion_%'].toFixed(1)}%</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '24px' }}>Simulated Playoff Standings</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>272 real matchups x 1,000 iterations, 100-season Monte Carlo predicting simulated record ranges, division leadership, and championship rates.</p>
+      <div style={{ marginBottom: '20px' }}>
+        <h1 style={{ fontSize: '24px' }}>Current Season (2026)</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+          Real, actual stats to date -- not a projection. Matchups shows the current week's game(s) from the same
+          per-week sim the DFS site uses.
+        </p>
+      </div>
+
+      <div className="tabs-container">
+        {SUB_TABS.map(t => (
+          <button key={t} className={`tab-btn ${subTab === t ? 'active' : ''}`} onClick={() => setSubTab(t)}>{t}</button>
+        ))}
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--accent-cyan)' }}>COMPILING 32-TEAM STANDINGS GRID...</div>
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--accent-cyan)' }}>COMPILING CURRENT SEASON DATA...</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-          {renderConference('AFC')}
-          {renderConference('NFC')}
-        </div>
+        <>
+          {subTab === 'Standings' && <StandingsTab standings={standings} showProjections={false} />}
+          {subTab === 'Leaders' && <LeadersTab leaders={leaders} />}
+          {subTab === 'Team Stats' && <TeamStatsTab teamStats={teamStats} />}
+          {subTab === 'Matchups' && <MatchupsTab matchups={matchups} />}
+          {subTab === 'Teams' && <TeamsTab teams={teams} showFullSchedule={false} />}
+        </>
       )}
     </div>
   );

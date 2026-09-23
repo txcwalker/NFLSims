@@ -47,7 +47,7 @@ The NFLSims platform has three major release tiers. Each tier builds directly on
 ### Sub-Project 2: 4th Down Decision Bot
 **Status:** ✅ Completed / Operational
 **Goal:** A real-time decision evaluator for 4th down situations, with automatic posting to social media.
-**Sub-Project Roadmap:** [fourth_down_bot_roadmap.md](file:///c:/Users/txcwa/OneDrive/Desktop/Antigravity%20Projects/NFL_Exploration/docs/roadmaps/fourth_down_bot_roadmap.md)
+**Sub-Project Roadmap:** [fourth_down_bot_roadmap.md](docs/roadmaps/fourth_down_bot_roadmap.md)
 
 | Component | Status | Notes |
 | :--- | :--- | :--- |

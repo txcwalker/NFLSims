@@ -115,6 +115,11 @@ data/_snapshots/
 # regeneratable via build_season_week_rosters_v_0_1_0.py
 data/current_rosters/week_*/
 
+# Live-blend sanity-check sheets -- regenerated every refresh_weekly_dna_v_0_1_0.py
+# run (export_live_week_overrides_v_0_1_0.py), mirrors week_NN/{TEAM}.csv but
+# pulled from current_rosters/*_traits_2026.json instead of the frozen baseline.
+data/overrides/2026/week_*/*_live.csv
+
 # DFS ownership archive -- ignore every raw DK standings CSV (a 150-max milly
 # export is 40 MB / 240k rows of contest-entrant data, and re-downloadable),
 # whatever it's named (<name>_<price>_<xmax>max.csv). Keep the manifests, the
@@ -122,3 +127,17 @@ data/current_rosters/week_*/
 # curated model inputs. See data/dfs_ownership/README.md.
 data/dfs_ownership/**/*.csv
 !data/dfs_ownership/**/salaries_prelock.csv
+
+# Local dev-server logs (backend_dfs*.log, frontend_dfs*.log at repo root)
+*.log
+
+# pip install -e build metadata from pyproject.toml
+*.egg-info/
+
+# DFS optimizer run snapshots -- one 100-700 KB JSON per optimizer run, pure
+# history. state.json (the current optimizer state) stays tracked.
+data/optimizer/**/builds/
+
+# Game Explorer workspace save slots -- rewritten on every UI save (3+ MB each),
+# local working state only; nothing in history needs them.
+data/workspace/

@@ -33,6 +33,9 @@ STARTER_OVERRIDES = {
     # career attempts than Tua (2,296), which is exactly the heuristic
     # failure mode this file exists to patch.
     "ATL": "Cooper Rush",
+    # 2026-09-16, Cam: Sam Darnold out ~4 weeks (see season_long/SEA.csv) --
+    # Drew Lock is the real starter in the meantime.
+    "SEA": "Drew Lock",
 }
 
 

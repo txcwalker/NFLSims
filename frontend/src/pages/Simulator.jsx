@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef, Fragment } from 
 import { DFS_RULES, validateLineup } from '../dfsRules';
 import { ApiService } from '../api';
 import { SandboxBadge } from '../components/SandboxBadge';
-import GameDistribution from '../components/GameDistribution';
+import GameDistribution, { DIST_LAYOUT } from '../components/GameDistribution';
 import { fmtSpreadNum, probToAmericanML, fmtML } from '../bettingLines';
 
 const TEAM_COLORS = {
@@ -181,6 +181,130 @@ export default function Simulator({
       setIsSimulating(false);
     }
   };
+
+  // --- SLATE-WIDE GAMEDAY ACTIVE/INACTIVE + QB STARTER TOGGLE (2026-09-19) ---
+  // Lives here (not inside the per-game GameSimulatorWorkspace) so pending
+  // toggles survive switching games and "Apply All" can batch every game's
+  // edits into one pass instead of losing whatever wasn't applied before you
+  // moved on to the next matchup. Keyed by game_id -> player_name ->
+  // {action, team}. Completely separate from Run Engine/runAllSimulations
+  // above -- that recomputes this slate under a custom Vegas/workload
+  // scenario via /api/simulate; this compiles dfs_status/starter_override
+  // into the DFS-week traits tree and re-simulates via resim_games_2026 (see
+  // POST /api/dfs/roster_status), a different code path entirely.
+  const [pendingRosterToggles, setPendingRosterToggles] = useState({});
+  const [rosterJobStatuses, setRosterJobStatuses] = useState({}); // game_id -> 'running' | 'error'
+  const [rosterJobErrors, setRosterJobErrors] = useState({});
+  // game_id -> counter, bumped whenever that game's job completes, so a
+  // possibly-unmounted-at-the-time GameSimulatorWorkspace knows to refetch.
+  const [rosterRefreshTicks, setRosterRefreshTicks] = useState({});
+
+  // action === null un-queues the player (used when a toggle is flipped back
+  // to its saved state, so the pending count doesn't include no-op changes).
+  const queueRosterToggle = (gameId, playerName, team, action) => {
+    setPendingRosterToggles(prev => {
+      const gameToggles = { ...(prev[gameId] || {}) };
+      if (action == null) delete gameToggles[playerName];
+      else gameToggles[playerName] = { action, team };
+      const next = { ...prev };
+      if (Object.keys(gameToggles).length === 0) delete next[gameId];
+      else next[gameId] = gameToggles;
+      return next;
+    });
+  };
+
+  // teamFilter omitted -> applies every pending team for this game in one
+  // job (used by Apply All); passed -> applies just that team's queued
+  // toggles (used by the per-game tab's own Apply button).
+  const applyGameRosterChanges = (gameId, teamFilter = null) => {
+    const gameToggles = pendingRosterToggles[gameId];
+    if (!gameToggles || Object.keys(gameToggles).length === 0) return;
+    if (rosterJobStatuses[gameId] === 'running') return;
+
+    const changesByTeam = {};
+    Object.entries(gameToggles).forEach(([playerName, { action, team }]) => {
+      if (teamFilter && team !== teamFilter) return;
+      (changesByTeam[team] = changesByTeam[team] || []).push({ player_name: playerName, action });
+    });
+    if (Object.keys(changesByTeam).length === 0) return;
+
+    setRosterJobStatuses(prev => ({ ...prev, [gameId]: 'running' }));
+    setRosterJobErrors(prev => { const next = { ...prev }; delete next[gameId]; return next; });
+
+    ApiService.postRosterStatus(gameId, changesByTeam)
+      .then(() => {
+        setPendingRosterToggles(prev => {
+          const remaining = { ...(prev[gameId] || {}) };
+          Object.values(changesByTeam).flat().forEach(c => delete remaining[c.player_name]);
+          const next = { ...prev };
+          if (Object.keys(remaining).length === 0) delete next[gameId];
+          else next[gameId] = remaining;
+          return next;
+        });
+      })
+      .catch(err => {
+        setRosterJobStatuses(prev => ({ ...prev, [gameId]: 'error' }));
+        setRosterJobErrors(prev => ({ ...prev, [gameId]: err.message || String(err) }));
+      });
+  };
+
+  const applyAllRosterChanges = () => {
+    Object.keys(pendingRosterToggles).forEach(gameId => applyGameRosterChanges(gameId));
+  };
+
+  const totalPendingRosterToggles = Object.values(pendingRosterToggles)
+    .reduce((sum, toggles) => sum + Object.keys(toggles).length, 0);
+  const runningRosterJobsCount = Object.values(rosterJobStatuses).filter(s => s === 'running').length;
+
+  // Poll every game with a running roster-toggle job (there can be several
+  // at once -- each is its own background job, server-keyed by game_id).
+  // On completion, fold the fresh result into allSimResults and bump that
+  // game's refresh tick so its workspace (open or not right now) knows to
+  // refetch its roster next time it's mounted/rendered.
+  useEffect(() => {
+    const runningIds = Object.keys(rosterJobStatuses).filter(gid => rosterJobStatuses[gid] === 'running');
+    if (runningIds.length === 0) return;
+    const poll = async () => {
+      const checks = await Promise.all(runningIds.map(async gid => [gid, await ApiService.getRosterStatusJob(gid)]));
+      const doneIds = checks.filter(([, job]) => job.status === 'done').map(([gid]) => gid);
+      const erroredChecks = checks.filter(([, job]) => job.status === 'error');
+
+      if (doneIds.length > 0) {
+        const weekResults = await ApiService.getWeekSimResults(selectedWeek);
+        setAllSimResults(prev => {
+          const next = { ...prev };
+          doneIds.forEach(gid => {
+            if (weekResults?.games?.[gid]) next[gid] = weekResults.games[gid];
+          });
+          return next;
+        });
+        setRosterJobStatuses(prev => {
+          const next = { ...prev };
+          doneIds.forEach(gid => delete next[gid]);
+          return next;
+        });
+        setRosterRefreshTicks(prev => {
+          const next = { ...prev };
+          doneIds.forEach(gid => { next[gid] = (next[gid] || 0) + 1; });
+          return next;
+        });
+      }
+      if (erroredChecks.length > 0) {
+        setRosterJobStatuses(prev => {
+          const next = { ...prev };
+          erroredChecks.forEach(([gid]) => { next[gid] = 'error'; });
+          return next;
+        });
+        setRosterJobErrors(prev => {
+          const next = { ...prev };
+          erroredChecks.forEach(([gid, job]) => { next[gid] = job.message || 'Resim failed.'; });
+          return next;
+        });
+      }
+    };
+    const interval = setInterval(poll, 4000);
+    return () => clearInterval(interval);
+  }, [rosterJobStatuses, selectedWeek]);
 
   // Sync initial state from URL on mount
   useEffect(() => {
@@ -473,6 +597,27 @@ export default function Simulator({
               {isSimulating ? 'Simulating...' : `Run Engine`}
             </button>
           </div>
+
+          {(totalPendingRosterToggles > 0 || runningRosterJobsCount > 0) && (
+            <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '8px 16px', margin: 0, height: '66px', justifyContent: 'center' }}>
+              <button
+                className="btn-primary"
+                onClick={applyAllRosterChanges}
+                disabled={totalPendingRosterToggles === 0}
+                style={{ padding: '8px 16px', fontSize: '0.9rem', fontWeight: '700', width: 'auto', whiteSpace: 'nowrap' }}
+                title="Applies every pending Active/Inactive and Starter toggle across all games, then re-simulates just the affected games"
+              >
+                {runningRosterJobsCount > 0
+                  ? `Resimulating ${runningRosterJobsCount} game${runningRosterJobsCount > 1 ? 's' : ''}... (~2 min each)`
+                  : `Apply All Injury Changes & Resim${totalPendingRosterToggles ? ` (${totalPendingRosterToggles})` : ''}`}
+              </button>
+              {Object.keys(rosterJobErrors).length > 0 && (
+                <span style={{ color: 'var(--accent-red)', fontSize: '0.7rem' }}>
+                  {Object.keys(rosterJobErrors).length} game{Object.keys(rosterJobErrors).length > 1 ? 's' : ''} failed to resim
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -480,6 +625,7 @@ export default function Simulator({
         <GameSimulatorWorkspace
           key={selectedGame.game_id}
           selectedGame={selectedGame}
+          selectedWeek={selectedWeek}
           selectedSlate={selectedSlate}
           weekProjections={weekProjections}
           iterations={iterations}
@@ -512,6 +658,12 @@ export default function Simulator({
           setSimResults={setSimResults}
           generatedLineups={generatedLineups}
           setGeneratedLineups={setGeneratedLineups}
+          pendingRosterToggles={pendingRosterToggles[selectedGame.game_id] || {}}
+          queueRosterToggle={(playerName, team, action) => queueRosterToggle(selectedGame.game_id, playerName, team, action)}
+          rosterJobStatus={rosterJobStatuses[selectedGame.game_id] || 'idle'}
+          rosterJobError={rosterJobErrors[selectedGame.game_id] || null}
+          applyGameRosterChanges={(team) => applyGameRosterChanges(selectedGame.game_id, team)}
+          freshRosterVersion={rosterRefreshTicks[selectedGame.game_id] || 0}
         />
       ) : (
         <div style={{ textAlign: 'center', padding: '40px' }}>Select week/slate matchups to configure Monte Carlo workloads.</div>
@@ -525,6 +677,7 @@ export default function Simulator({
 // ==========================================
 function GameSimulatorWorkspace({
   selectedGame,
+  selectedWeek,
   selectedSlate,
   weekProjections,
   iterations,
@@ -542,7 +695,13 @@ function GameSimulatorWorkspace({
   simResults,
   setSimResults,
   generatedLineups,
-  setGeneratedLineups
+  setGeneratedLineups,
+  pendingRosterToggles,
+  queueRosterToggle,
+  rosterJobStatus,
+  rosterJobError,
+  applyGameRosterChanges,
+  freshRosterVersion
 }) {
   const saved = slateOverrides?.[selectedGame.game_id] || {};
 
@@ -588,6 +747,28 @@ function GameSimulatorWorkspace({
     setBaselineResults(saved.baselineResults || allSimResults?.[selectedGame.game_id] || null);
     setGeneratedLineups([]);
   }, [selectedGame.game_id, allSimResults]);
+
+  // Score Distribution source (2026-09-22). The cached week_sim_results
+  // payload carries only a binned distribution (no per-sim `raw`) and is
+  // expensive to regenerate, so its bins can lag behind
+  // _build_game_distribution's current layout (catch-all end buckets, 1-pt
+  // margins). When `raw` is missing, pull the same game's distribution from
+  // the lightweight GET /api/game_distribution (same DFS-week parquet, always
+  // current, exact). Anything WITH `raw` (a Run Engine result, possibly a
+  // custom Vegas scenario the endpoint doesn't know about) is used as-is:
+  // GameDistribution's normalizeDist rebins it exactly from `raw`. Already-
+  // clamped payloads need nothing.
+  const [freshDist, setFreshDist] = useState(null);
+  useEffect(() => {
+    setFreshDist(null);
+    const d = simResults?.game_distribution;
+    if (!d || d.raw || d.layout === DIST_LAYOUT) return;
+    let cancelled = false;
+    ApiService.getGameDistribution(selectedGame.away_team, selectedGame.home_team, selectedWeek)
+      .then(r => { if (!cancelled && r?.total) setFreshDist(r); });
+    return () => { cancelled = true; };
+  }, [simResults, selectedGame.away_team, selectedGame.home_team, selectedWeek]);
+  const displayDist = freshDist || simResults?.game_distribution;
   const [sortField, setSortField] = useState('dk_points');
   const [sortAsc, setSortAsc] = useState(false);
   const [filterLowProjections, setFilterLowProjections] = useState(false);
@@ -745,7 +926,7 @@ function GameSimulatorWorkspace({
       // Just fetch rosterData for UI if it's already saved locally
       setIsSimulating(true);
       setSimProgress('Loading rosters...');
-      ApiService.getRosters(selectedGame.away_team, selectedGame.home_team)
+      ApiService.getRosters(selectedGame.away_team, selectedGame.home_team, null, selectedWeek)
         .then(data => {
           setRosterData(data);
           setIsSimulating(false);
@@ -766,7 +947,7 @@ function GameSimulatorWorkspace({
     // slider and clicking "Run Engine" still triggers a fresh recompute.
     setIsSimulating(true);
     setSimProgress('Loading rosters & Trench DNA profiles...');
-    ApiService.getRosters(selectedGame.away_team, selectedGame.home_team)
+    ApiService.getRosters(selectedGame.away_team, selectedGame.home_team, null, selectedWeek)
       .then(data => {
         setRosterData(data);
 
@@ -788,6 +969,8 @@ function GameSimulatorWorkspace({
                 name: p.name,
                 pos: p.pos,
                 team: team,
+                status: p.status || 'active',
+                starter_override: !!p.starter_override,
                 target_share: p.target_share,
                 carry_share: p.carry_share,
                 catch_rate: p.catch_rate,
@@ -820,7 +1003,7 @@ function GameSimulatorWorkspace({
         console.error("Error fetching rosters:", err);
         setIsSimulating(false);
       });
-  }, [selectedGame]);
+  }, [selectedGame, selectedWeek]);
 
   // Handle parent-driven simulation trigger signal
   const lastSignalRef = useRef(simTriggerSignal);
@@ -852,6 +1035,69 @@ function GameSimulatorWorkspace({
       prev.map(p => (p.name === playerName ? { ...p, [field]: parseFloat(value) } : p))
     );
   };
+
+  // --- GAMEDAY ACTIVE/INACTIVE + QB STARTER TOGGLE (2026-09-19) ---
+  // The actual toggle queue, job status, and POST/polling all live in the
+  // parent Simulator component (pendingRosterToggles/rosterJobStatuses
+  // there) so pending edits survive switching games and a slate-wide
+  // "Apply All" button can batch every game's toggles into one pass. This
+  // component only reads its own game's slice via props.
+  // Flips the checkbox off what's currently SHOWN (queued state if any, else
+  // the saved status) -- not the saved status alone, which used to make a
+  // second click re-queue the same action so the box could never be flipped
+  // back. Returning to the saved state un-queues instead of queueing a no-op.
+  // Server side, set_active also overrides an IR/PUP slot and every toggle is
+  // sticky into later weeks (see scripts/roster_management/dfs_status_ledger.py).
+  const toggleActive = (p) => {
+    const pending = pendingRosterToggles[p.name]?.action;
+    const savedActive = p.status !== 'out';
+    const shownActive = pending === 'set_active' ? true
+      : pending === 'set_inactive' ? false
+      : savedActive;
+    const wantActive = !shownActive;
+    queueRosterToggle(p.name, p.team,
+      wantActive === savedActive ? null : (wantActive ? 'set_active' : 'set_inactive'));
+  };
+
+  const toggleStarter = (p) => {
+    // Optimistic client-side clear of every other QB on the same team so the
+    // radio feels instant -- the server enforces the same mutual exclusivity
+    // when the batch is applied.
+    setPlayerOverrides(prev => prev.map(pl =>
+      (pl.team === p.team && pl.pos === 'QB') ? { ...pl, starter_override: pl.name === p.name } : pl
+    ));
+    queueRosterToggle(p.name, p.team, 'set_starter');
+  };
+
+  const pendingCountForTeam = (team) =>
+    Object.values(pendingRosterToggles).filter(v => v.team === team).length;
+
+  // Refetch this game's roster (status/starter/shares) once the parent's
+  // polling effect marks a job for this game_id done -- freshRosterVersion
+  // is a per-game counter bumped there specifically to trigger this, since
+  // that polling runs at the slate level and may complete while a different
+  // game is selected.
+  const prevFreshVersionRef = useRef(freshRosterVersion);
+  useEffect(() => {
+    if (freshRosterVersion === prevFreshVersionRef.current) return;
+    prevFreshVersionRef.current = freshRosterVersion;
+    ApiService.getRosters(selectedGame.away_team, selectedGame.home_team, null, selectedWeek)
+      .then(freshRosters => {
+        setRosterData(freshRosters);
+        setPlayerOverrides(prev => prev.map(p => {
+          const fresh = freshRosters?.[p.team]?.roster?.find(fp => fp.name === p.name);
+          return fresh ? {
+            ...p,
+            status: fresh.status,
+            starter_override: !!fresh.starter_override,
+            target_share: fresh.target_share,
+            carry_share: fresh.carry_share,
+            rush_td_share: fresh.rush_td_share || 0.0,
+            rec_td_share: fresh.rec_td_share || 0.0,
+          } : p;
+        }));
+      });
+  }, [freshRosterVersion, selectedGame.away_team, selectedGame.home_team, selectedWeek]);
 
   const resetAllOverrides = () => {
     if (!rosterData || !selectedGame) return;
@@ -1871,8 +2117,8 @@ function GameSimulatorWorkspace({
             </div>
 
             {/* Outcome distribution: total, differential, joint heatmap */}
-            {simResults.game_distribution && (
-              <GameDistribution dist={simResults.game_distribution} />
+            {displayDist && (
+              <GameDistribution dist={displayDist} />
             )}
 
           </div>
@@ -1948,12 +2194,45 @@ function GameSimulatorWorkspace({
                   })()}
                 </div>
 
+                {/* GAMEDAY ACTIVE/INACTIVE + QB STARTER TOGGLE */}
+                {(() => {
+                  const activeTeam = rosterTab === 'away' ? selectedGame.away_team : selectedGame.home_team;
+                  const pendingCount = pendingCountForTeam(activeTeam);
+                  return (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
+                      marginBottom: '12px'
+                    }}>
+                      <button
+                        className="btn-primary"
+                        disabled={pendingCount === 0 || rosterJobStatus === 'running'}
+                        onClick={() => applyGameRosterChanges(activeTeam)}
+                        style={{ padding: '6px 14px', fontSize: '0.85rem', width: 'auto' }}
+                      >
+                        {rosterJobStatus === 'running'
+                          ? 'Resimulating... (~2 min)'
+                          : `Apply Roster Changes & Resim${pendingCount ? ` (${pendingCount})` : ''}`}
+                      </button>
+                      {rosterJobStatus === 'error' && (
+                        <span style={{ color: 'var(--accent-red)', fontSize: '0.82rem' }}>{rosterJobError}</span>
+                      )}
+                      {!selectedWeek && (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                          Select a week to enable gameday roster toggles.
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 <div className="table-container" style={{ maxHeight: '550px' }}>
                   <table>
                     <thead>
                       <tr>
                         <th>Player</th>
                         <th>Pos</th>
+                        <th>Active</th>
+                        <th>Starter</th>
                         <th>Salary</th>
                         <th>Target Share</th>
                         <th>Rushing Share</th>
@@ -1965,10 +2244,36 @@ function GameSimulatorWorkspace({
                     <tbody>
                       {playerOverrides
                         .filter(p => p.team === (rosterTab === 'away' ? selectedGame.away_team : selectedGame.home_team) && p.pos !== 'DST')
-                        .map(p => (
-                          <tr key={p.name}>
+                        .map(p => {
+                          const pendingAction = pendingRosterToggles[p.name]?.action;
+                          const pendingActive = pendingAction === 'set_active' ? true
+                            : pendingAction === 'set_inactive' ? false
+                            : p.status !== 'out';
+                          return (
+                          <tr key={p.name} style={{ opacity: pendingActive ? 1 : 0.55 }}>
                             <td style={{ fontWeight: 700 }}>{p.name}</td>
                             <td>{p.pos.replace(/[0-9]/g, '')}</td>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={pendingActive}
+                                disabled={!selectedWeek}
+                                onChange={() => toggleActive(p)}
+                                title={pendingActive ? 'Active this week' : 'Marked inactive this week'}
+                              />
+                            </td>
+                            <td>
+                              {p.pos === 'QB' ? (
+                                <input
+                                  type="radio"
+                                  name={`starter-${p.team}`}
+                                  checked={!!p.starter_override}
+                                  disabled={!selectedWeek}
+                                  onChange={() => toggleStarter(p)}
+                                  title="Mark as this week's starter"
+                                />
+                              ) : '-'}
+                            </td>
                             <td>{p.salary == null ? '—' : `$${p.salary.toLocaleString()}`}</td>
                             <td>
                               {p.pos !== 'QB' ? (
@@ -1990,7 +2295,8 @@ function GameSimulatorWorkspace({
                               <input type="number" min="0.1" max="99.9" step="0.5" value={p.ownership_proj} onChange={(e) => handlePlayerOverride(p.name, 'ownership_proj', e.target.value)} style={{ width: '50px' }} />
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>

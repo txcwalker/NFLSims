@@ -63,20 +63,35 @@ from scripts.dfs_ownership._shared import (  # noqa: E402
     cash_consensus_frac, n_games_on_slate,
 )
 from scripts.dfs_ownership.calibrate_ownership_model import _stable_seed  # noqa: E402
+from src.ownership.prior_week import prior_week_feature  # noqa: E402
 
 MODEL_DIR = os.path.join(ARCHIVE, "_processed", "models")
 TARGET_SLATES_PER_BUCKET = 4  # data/dfs_ownership/README.md's original (not-yet-met) target -- informational only now
 
+# field_size/stakes_tier/max_entries (segmentation, 2026-09-22) and
+# prior_week_score (same date) are both new -- see docs/implementation_plans/
+# ownership_model_v2_plan.md. field_size/stakes_tier/max_entries come
+# straight off features.parquet (build_ownership_dataset.py already writes
+# all three per contest -- no _enrich() change needed for them).
+# prior_week_score is computed fresh per row instead, in _enrich() below
+# (src.ownership.prior_week), same as projection_median/cash_consensus_frac.
 CLASSIC_FEATURES = [
     "salary", "projection_median", "projection_ceiling", "game_total", "team_implied_total",
     "team_spread", "n_games_on_slate", "cash_consensus_frac", "salary_dispersion_pos",
+    "field_size", "max_entries", "prior_week_score",
 ]
 SHOWDOWN_FEATURES = [
     "salary", "cpt_salary", "projection_median", "projection_ceiling", "game_total", "team_implied_total",
     "team_spread", "optimal_cpt_pct", "optimal_flex_pct", "salary_dispersion_pos",
+    "field_size", "max_entries", "prior_week_score",
 ]
 EXTRA_FEATURE = "salary_rank_pctile"
-CATEGORICAL_COLS = ["pos"]
+# stakes_tier joins "pos" here (categorical, one-hot via pd.get_dummies) --
+# NOT also listed in CLASSIC_FEATURES/SHOWDOWN_FEATURES above, same
+# convention "pos" already followed: _fit_one/_predict concatenate
+# feature_cols + CATEGORICAL_COLS themselves, so listing a column in both
+# would select it twice.
+CATEGORICAL_COLS = ["pos", "stakes_tier"]
 
 
 def _logit(p: pd.Series) -> pd.Series:
@@ -102,9 +117,11 @@ def _enrich(df: pd.DataFrame) -> pd.DataFrame:
     ngames_cache: dict[int, int] = {}
 
     proj_med, proj_ceil, team_spread, team_implied = [], [], [], []
-    opt_cpt, opt_flex, cash_frac, ngames = [], [], [], []
+    opt_cpt, opt_flex, cash_frac, ngames, prior_wk = [], [], [], [], []
     for _, r in df.iterrows():
         wk = int(r["week"])
+        yr = int(r["year"])
+        prior_wk.append(prior_week_feature(r["player"], r["team"], yr, wk))
         if wk not in sim_cache:
             sim_by_gid = load_sim_projections(wk)
             sim_cache[wk] = {k: v for g in sim_by_gid.values() for k, v in g.items()}
@@ -135,6 +152,7 @@ def _enrich(df: pd.DataFrame) -> pd.DataFrame:
     df["optimal_flex_pct"] = opt_flex
     df["cash_consensus_frac"] = cash_frac
     df["n_games_on_slate"] = ngames
+    df["prior_week_score"] = prior_wk
 
     # Slate-relative dispersion / rank -- computed per slate_id, not per row.
     df["salary_dispersion_pos"] = df.groupby(["slate_id", "pos"])["salary"].transform(
@@ -197,7 +215,14 @@ def _heuristic_baseline(df: pd.DataFrame, is_showdown: bool) -> pd.Series:
     duplicated rows inflates the softmax normalization and silently shrinks
     every prediction)."""
     preds = pd.Series(index=df.index, dtype=float)
-    for slate_id, idx in df.groupby("slate_id").groups.items():
+    # Group by (year, week, slate_id), not slate_id alone -- slate_id is just
+    # the archive folder's basename (e.g. "main_slate"), which is IDENTICAL
+    # across different weeks by construction (see build_ownership_dataset.py).
+    # Grouping on slate_id alone would silently merge two different weeks'
+    # main-slate player pools into one before drop_duplicates(["player",
+    # "team"]) -- keeping an arbitrary one of the two weeks' salary/Vegas
+    # values per player and feeding the heuristic a garbage mixed pool.
+    for (_yr, _wk, slate_id), idx in df.groupby(["year", "week", "slate_id"]).groups.items():
         sub = df.loc[idx]
         distinct = sub.drop_duplicates(subset=["player", "team"])
         pool = distinct.rename(columns={"projection_median": "projection"}).to_dict("records")
@@ -212,15 +237,21 @@ def _heuristic_baseline(df: pd.DataFrame, is_showdown: bool) -> pd.Series:
 
 def leave_one_slate_out_cv(df: pd.DataFrame, target_col: str, feature_cols: list[str],
                             label: str, is_showdown: bool) -> None:
-    d = df.dropna(subset=[target_col])
-    slates = d["slate_id"].unique()
+    d = df.dropna(subset=[target_col]).copy()
+    # slate_id alone isn't a valid fold key -- it's just the archive folder's
+    # basename (e.g. "main_slate"), identical across different weeks by
+    # construction (build_ownership_dataset.py). Without (year, week) in the
+    # key, week 1's and week 2's main slate would collapse into a single
+    # fold, silently hiding a real second slate from leave-one-out CV.
+    d["_slate_key"] = d["year"].astype(str) + "_wk" + d["week"].astype(int).astype(str).str.zfill(2) + "_" + d["slate_id"]
+    slates = d["_slate_key"].unique()
     if len(slates) < 2:
         print(f"  {label}: only {len(slates)} slate(s) -- can't hold one out and still train on the rest. Skipped.")
         return
     heuristic_pred = _heuristic_baseline(d, is_showdown)
     rows = []
     for held_out in slates:
-        train_df, test_df = d[d["slate_id"] != held_out], d[d["slate_id"] == held_out]
+        train_df, test_df = d[d["_slate_key"] != held_out], d[d["_slate_key"] == held_out]
         if train_df.empty or test_df.empty:
             continue
         model, cols = _fit_one(train_df, target_col, feature_cols)
