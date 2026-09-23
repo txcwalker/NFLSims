@@ -810,9 +810,13 @@ class OptimizeRequest(BaseModel):
     #                 2026-09-23 week-3 A/B (scripts/eda/compare_optimizer_
     #                 draw_sources.py) had 'sim' at ~100-106% portfolio EV vs.
     #                 ~177-187% for 'gaussian', well outside rep-to-rep noise.
-    # 'sim' silently degrades to 'gaussian' when the week has no sim data;
-    # the response's portfolio.draw_source says which one actually ran.
-    draw_source: Literal['sim', 'gaussian'] = 'gaussian'
+    #   'sim_corr' -- the gaussian draw (same IQR-sized sigmas), but the
+    #                 correlation matrix is MEASURED from the week's sims
+    #                 (every pair, same game or not) instead of the hand-set
+    #                 table. Players with no sim rows keep hand-set entries.
+    # 'sim'/'sim_corr' silently degrade to 'gaussian' when the week has no
+    # sim data; the response's portfolio.draw_source says which one ran.
+    draw_source: Literal['sim', 'gaussian', 'sim_corr'] = 'gaussian'
 
 # -------------------------------------------------------------------------
 # ENDPOINTS
@@ -5258,8 +5262,8 @@ async def optimize_lineups(req: OptimizeRequest):
     sim_dev: Optional[np.ndarray] = None
     sim_missing = np.zeros(n, dtype=bool)
     iter_order = np.arange(0)
-    draw_source = req.draw_source if (req.draw_source == 'sim' and n_sim_iter > 0) else 'gaussian'
-    if draw_source == 'sim':
+    draw_source = req.draw_source if (req.draw_source in ('sim', 'sim_corr') and n_sim_iter > 0) else 'gaussian'
+    if draw_source in ('sim', 'sim_corr'):
         sim_dev = np.zeros((n_index, n), dtype=np.float32)
         for i, p in enumerate(active_players):
             arr = trial_scores_map.get((p['name'], p['team'], p['pos']))
@@ -5276,6 +5280,34 @@ async def optimize_lineups(req: OptimizeRequest):
         # that scenario, not just grades against it.
         iter_pool = np.array(valid_filter) if valid_filter else np.arange(n_index)
         iter_order = np.random.default_rng().permutation(iter_pool)
+
+    if draw_source == 'sim_corr':
+        # Replace the hand-set rho with the sims' own pairwise correlations
+        # (over the box-selected iterations when a filter is set), then
+        # rebuild the Cholesky factor the gaussian loop below draws from.
+        # Sigmas are unchanged, so this isolates "real correlation" from
+        # "real single-world draws" (the 'sim' source, which lost the
+        # 2026-09-23 A/B). Cross-game pairs come out ~0 on their own --
+        # games are simulated independently -- where the hand-set table
+        # gives every DST -0.38 vs. every offensive player on the slate.
+        # Zero-variance columns (a player who never scores) get corr 0.
+        have = np.where(~sim_missing)[0]
+        dev = sim_dev[np.asarray(valid_filter) if valid_filter else slice(None)][:, have].astype(np.float64)
+        sd = dev.std(axis=0)
+        live = sd > 1e-9
+        c = np.zeros((len(have), len(have)))
+        if live.sum() > 1:
+            c_live = np.corrcoef(dev[:, live], rowvar=False)
+            idx = np.where(live)[0]
+            c[np.ix_(idx, idx)] = np.nan_to_num(c_live)
+        np.fill_diagonal(c, 1.0)
+        rho_sim = rho.copy()
+        rho_sim[np.ix_(have, have)] = c
+        cov = _nearest_positive_definite(D @ rho_sim @ D)
+        try:
+            L = np.linalg.cholesky(cov)
+        except np.linalg.LinAlgError:
+            L = np.diag(std_devs)
 
     # Lock/exclude index mapping
     locked_indices = {i for i, p in enumerate(active_players) if p.get('locked', False)}

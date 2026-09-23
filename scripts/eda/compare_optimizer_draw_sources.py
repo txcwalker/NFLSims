@@ -1,5 +1,7 @@
-"""A/B the classic optimizer's ILP draw source: real sim iterations ('sim')
-vs. the original correlated-normal draw ('gaussian').
+"""A/B the classic optimizer's ILP draw sources: the original
+correlated-normal draw ('gaussian', hand-set correlations), the same draw
+with sim-measured correlations ('sim_corr'), and real single sim
+iterations ('sim').
 
 Why: 2026-09-23 the optimizer gained OptimizeRequest.draw_source='sim' --
 each lineup is built for one real slate-wide sim iteration instead of a
@@ -22,8 +24,10 @@ overlap, and stack structure (QB + >=1 / >=2 same-team pass catchers,
 bring-back from the opponent, DST facing a rostered offensive player).
 
 Usage:
-    venv\\Scripts\\python.exe scripts/eda/compare_optimizer_draw_sources.py <week> [n_lineups] [reps]
-Output: prints a table; writes docs/eda_outputs/optimizer_draw_source/week_{week}.json
+    venv\\Scripts\\python.exe scripts/eda/compare_optimizer_draw_sources.py <week> [n_lineups] [reps] [sources]
+    sources: comma list, default "gaussian,sim_corr" (e.g. "gaussian,sim_corr,sim")
+Output: prints a table; writes docs/eda_outputs/optimizer_draw_source/week_{week}_{sources}.json
+(the first run, gaussian vs. sim, is week_3.json)
 """
 import json
 import os
@@ -69,7 +73,10 @@ def build_pool(client, week):
         players.append({"name": p["name"], "team": p["team"], "pos": p["pos"],
                         "salary": p["salary"], "projection": p50,
                         "gpp_projection": round(gpp, 1), "dk_pcts_all": pcts})
-        opp[(p["name"], p["team"])] = p.get("opponent")
+        # /api/week_projections formats opponent as "@WAS" / "vs TEN" --
+        # strip the prefix so it compares against a plain team abbr. (The
+        # first two A/B runs missed this: bring_back/dst_conflict read 0%.)
+        opp[(p["name"], p["team"])] = (p.get("opponent") or "").replace("@", "").replace("vs ", "").strip() or None
     return players, opp
 
 
@@ -116,13 +123,13 @@ def summarize(resp, opp):
     }
 
 
-def main(week, n_lineups=150, reps=2):
+def main(week, n_lineups=150, reps=2, sources=("gaussian", "sim_corr")):
     client = TestClient(api.app)
     players, opp = build_pool(client, week)
     print(f"Week {week}: {len(players)} priced players, {n_lineups} lineups x {reps} reps per source")
     rows = []
     for rep in range(reps):
-        for source in ("gaussian", "sim"):
+        for source in sources:
             t = time.time()
             r = client.post("/api/optimize", json={**DEFAULTS, "players": players, "week": week,
                                                    "n_lineups": n_lineups, "draw_source": source})
@@ -134,14 +141,14 @@ def main(week, n_lineups=150, reps=2):
 
     cols = ["portfolio_ev_pct", "top1_pct", "top01_pct", "itm_pct", "median_proj", "lineup_p50", "lineup_p95",
             "distinct_players", "max_exposure", "avg_overlap", "qb_stack1", "qb_stack2", "bring_back", "dst_conflict"]
-    print(f"\n{'metric':18s}" + "".join(f"{s + ' r' + str(k):>13s}" for k in range(reps) for s in ("gauss", "sim")))
+    print(f"\n{'metric':18s}" + "".join(f"{s[:8] + ' r' + str(k):>13s}" for k in range(reps) for s in sources))
     for c in cols:
-        vals = [next(x[c] for x in rows if x["source"] == s and x["rep"] == k) for k in range(reps) for s in ("gaussian", "sim")]
+        vals = [next(x[c] for x in rows if x["source"] == s and x["rep"] == k) for k in range(reps) for s in sources]
         print(f"{c:18s}" + "".join(f"{v:13.3f}" for v in vals))
 
     out_dir = os.path.join("docs", "eda_outputs", "optimizer_draw_source")
     os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, f"week_{week}.json"), "w") as f:
+    with open(os.path.join(out_dir, f"week_{week}_{'_'.join(sources)}.json"), "w") as f:
         json.dump({"week": week, "settings": DEFAULTS, "n_lineups": n_lineups, "runs": rows}, f, indent=2, default=float)
 
 
@@ -151,4 +158,5 @@ if __name__ == "__main__":
         sys.exit(1)
     main(int(sys.argv[1]),
          int(sys.argv[2]) if len(sys.argv) > 2 else 150,
-         int(sys.argv[3]) if len(sys.argv) > 3 else 2)
+         int(sys.argv[3]) if len(sys.argv) > 3 else 2,
+         tuple(sys.argv[4].split(",")) if len(sys.argv) > 4 else ("gaussian", "sim_corr"))
