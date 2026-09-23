@@ -239,6 +239,70 @@ def _get_dfs_week_players(week: int):
     return df
 
 
+def _build_week_trial_scores(week: Optional[int], teams: set) -> Tuple[Dict[tuple, np.ndarray], int, str]:
+    """Per-player, iteration-aligned dk_score arrays for ONE week's slate --
+    the "real sim draws" the classic optimizer grades lineups (and the field)
+    against.
+
+    Inputs:
+        week  (int|None) -- the slate's week (OptimizeRequest.week).
+        teams (set[str]) -- teams present in the request's player pool; rows
+              for other teams are skipped.
+    Outputs (to /api/optimize's grading block):
+        trial_map  {(name, team, pos): np.ndarray[n_iter]} -- arr[k] is that
+                   player's dk_score in slate-wide sim iteration k. DST rows are
+                   also keyed as ("{team} DST", team, "DST") and
+                   ("Defense", team, "DST"), matching the frontend's payloads.
+        n_iter     (int) -- iterations in the source (10,000 or 1,000 today;
+                   read from the data, never assumed).
+        source     (str) -- 'dfs_week_{N}' | 'season_parquet_week_{N}' | 'none'.
+
+    Purpose: replaces an older inline build that grouped the SEASON-LONG
+    parquet by (Player, Team, Pos) with no week filter -- concatenating a
+    player's 17 games x 1000 iterations and then indexing 0-999 into that
+    17,000-row array, so "iteration k" was really a mix of early iterations
+    against different opponents (found 2026-09-23). Preference order mirrors
+    get_week_projections(): the week's DFS-specific sim (real injury news)
+    first, else the season-long parquet restricted to THIS week's game_ids,
+    else nothing (callers fall back to synthetic draws rather than
+    wrong-week ones).
+
+    Tricky bit: arrays are filled by the iteration column itself
+    (arr[iterations] = scores), not by sorted row order, so array index ==
+    iteration id even if a file ever skipped or reordered iterations -- that
+    is what lets a Game Distribution box-select (which sends raw iteration
+    ids) index straight into these arrays.
+    """
+    if week is None:
+        return {}, 0, 'none'
+    df = _get_dfs_week_players(week)
+    source = f'dfs_week_{week}'
+    if df is None or df.empty:
+        source = f'season_parquet_week_{week}'
+        df = None
+        if ALL_PLAYERS_CACHED is not None and os.path.exists(SCHEDULE_CSV_PATH):
+            sched = pd.read_csv(SCHEDULE_CSV_PATH)
+            week_ids = sched[(sched["week"] == week) & (sched["game_type"] == "REG")]["game_id"].unique()
+            df = ALL_PLAYERS_CACHED[ALL_PLAYERS_CACHED["game_id"].isin(week_ids)]
+    if df is None or df.empty:
+        return {}, 0, 'none'
+
+    df = df[df["Team"].isin(teams)]
+    if df.empty:
+        return {}, 0, 'none'
+    n_iter = int(df["iteration"].max()) + 1
+    trial_map: Dict[tuple, np.ndarray] = {}
+    for (player_name, team_name, pos_name), group in df.groupby(["Player", "Team", "Pos"]):
+        arr = np.zeros(n_iter, dtype=float)
+        arr[group["iteration"].values.astype(int)] = group["dk_score"].values
+        if pos_name == "DST":
+            trial_map[(f"{team_name} DST", team_name, pos_name)] = arr
+            trial_map[("Defense", team_name, pos_name)] = arr
+        else:
+            trial_map[(player_name, team_name, pos_name)] = arr
+    return trial_map, n_iter, source
+
+
 def _dfs_week_input_mtime(week: int, year: int) -> float:
     """Max mtime across this week's DFS-specific sim parquet + every current
     roster file, for staleness-checking an IN-MEMORY response cache (as
@@ -5236,55 +5300,38 @@ async def optimize_lineups(req: OptimizeRequest):
     # ── Precompute simulated field scores once for the entire request ─────────
     n_stat_sims = 10000
 
-    # Load cache data for week reg matchup players to index trial alignment
-    # We want a map: (name, team, pos) -> 1000 trial scores (unsorted)
-    # If not in cache or cached version doesn't have 1000 trials, we fall back to normal approximation.
-    trial_scores_map = {}
+    # Iteration-aligned real sim scores for THIS week's slate (see
+    # _build_week_trial_scores for why this no longer reads the season-long
+    # parquet unfiltered). n_sim_iter comes from the data -- 10,000 for weeks
+    # simmed at full size, 1,000 for older ones -- never a hardcoded 1000.
+    trial_scores_map: Dict[tuple, np.ndarray] = {}
+    n_sim_iter, trial_source = 0, 'none'
     try:
-        if ALL_PLAYERS_CACHED is not None:
-            # Get game IDs for this week's active players
-            active_game_ids = set()
-            for p in active_players:
-                # We need to find this player in ALL_PLAYERS_CACHED
-                # Let's filter players df for the players in our request
-                pass
-            
-            # Group by player/team/pos and select dk_score values per iteration
-            # Note: Parquet contains 1000 iterations (usually 0 to 999) per player per game.
-            # Let's pivot/group by to retrieve iteration-aligned values
-            # To be efficient, we only slice the df for relevant teams/players
-            all_teams = list({p['team'] for p in active_players})
-            subset_df = ALL_PLAYERS_CACHED[ALL_PLAYERS_CACHED["Team"].isin(all_teams)]
-            for (player_name, team_name, pos_name), group in subset_df.groupby(["Player", "Team", "Pos"]):
-                # Sort by iteration to make sure it's aligned (0-999)
-                sorted_group = group.sort_values("iteration")
-                # Format key name: if pos is DST, standard lookup uses '[Team] DST' or 'Defense' depending on payload.
-                # Standard payload name from frontend for defense is 'Defense' but standard pos is 'DST'
-                p_name_key = f"{team_name} DST" if pos_name == "DST" else player_name
-                trial_scores_map[(p_name_key, team_name, pos_name)] = sorted_group["dk_score"].values
-                # Also store under generic "Defense" in case frontend references name: "Defense"
-                if pos_name == "DST":
-                    trial_scores_map[("Defense", team_name, pos_name)] = sorted_group["dk_score"].values
+        trial_scores_map, n_sim_iter, trial_source = _build_week_trial_scores(
+            req.week, {p['team'] for p in active_players})
     except Exception as e:
         print(f"Error loading trial aligned scores: {e}")
+    # Synthetic fallback arrays (players with no sim rows) use the same length
+    # so every player is indexed by the same iteration ids.
+    n_index = n_sim_iter if n_sim_iter > 0 else 1000
 
     rng = np.random.default_rng()
-    # Sample aligned iteration index (10000 times from 0-999). Every game on
-    # the slate was simulated together per iteration (one full-slate scenario
-    # per index), so restricting which indices get drawn from -- see
-    # OptimizeRequest.iteration_filter, fed by GameDistribution.jsx's
-    # box-select on ONE game -- conditions the whole slate's field AND our
-    # lineups on that game landing in the selected total/margin range, same
-    # "cheap" mechanism as the showdown optimizer's iteration_filter.
-    # For players who are missing or custom-added, we can simulate their values
-    # but still use the same iteration index as a seed to allow correlation or simulate
-    # based on projection.
-    valid_filter = sorted({int(i) for i in req.iteration_filter if 0 <= int(i) < 1000}) if req.iteration_filter else None
+    # Sample aligned iteration indices (n_stat_sims draws, with replacement,
+    # from 0..n_index-1). Every game on the slate was simulated together per
+    # iteration (one full-slate scenario per index), so restricting which
+    # indices get drawn from -- see OptimizeRequest.iteration_filter, fed by
+    # GameDistribution.jsx's box-select on ONE game -- conditions the whole
+    # slate's field AND our lineups on that game landing in the selected
+    # total/margin range, same "cheap" mechanism as the showdown optimizer's
+    # iteration_filter. The filter's upper bound is n_index, not 1000: a
+    # 10,000-iteration week sends ids up to 9999, which the old `< 1000` check
+    # silently dropped (~90% of a box-select thrown away).
+    valid_filter = sorted({int(i) for i in req.iteration_filter if 0 <= int(i) < n_index}) if req.iteration_filter else None
     if valid_filter:
         aligned_indices = rng.choice(np.array(valid_filter), size=n_stat_sims, replace=True)
-        iteration_filter_frac = round(len(valid_filter) / 1000.0, 4)
+        iteration_filter_frac = round(len(valid_filter) / float(n_index), 4)
     else:
-        aligned_indices = rng.integers(0, 1000, size=n_stat_sims)
+        aligned_indices = rng.integers(0, n_index, size=n_stat_sims)
         iteration_filter_frac = None
 
     # Both branches below get called once per (field-lineup, slot) pair --
@@ -5301,7 +5348,7 @@ async def optimize_lineups(req: OptimizeRequest):
 
     def get_player_trial_scores(p: dict, indices: np.ndarray) -> np.ndarray:
         key = (p['name'], p['team'], p['pos'])
-        if key in trial_scores_map and len(trial_scores_map[key]) >= 1000:
+        if key in trial_scores_map:
             arr = trial_scores_map[key]
             safe_idxs = np.clip(indices, 0, len(arr) - 1)
             # If the user edited the projection, scale the trials proportionally
@@ -5316,18 +5363,19 @@ async def optimize_lineups(req: OptimizeRequest):
             return arr[safe_idxs]
         else:
             # Fallback: no real parquet trials for this player -- synthesize
-            # a deterministic 1000-length trial array once (same convention
-            # as trial_scores_map, indexed 0-999) instead of a fresh RNG per
-            # iteration per call.
+            # a deterministic n_index-length trial array once (same convention
+            # as trial_scores_map, indexed by iteration id) instead of a fresh
+            # RNG per iteration per call.
             synth = _fallback_cache.get(key)
             if synth is None:
                 proj = p.get('projection', 10.0)
                 std = max(0.5, proj * 0.35)
                 base_seed = hash(p['name']) % 10000
-                synth = np.array([
-                    max(0.0, np.random.default_rng(base_seed + idx).normal(proj, std))
-                    for idx in range(1000)
-                ])
+                # One seeded generator for the whole array (not one per
+                # iteration) -- at 10,000 iterations the per-index RNG
+                # construction was 10x the old 1000-length cost per player.
+                synth = np.maximum(
+                    0.0, np.random.default_rng(base_seed).normal(proj, std, n_index))
                 _fallback_cache[key] = synth
             safe_idxs = np.clip(indices, 0, len(synth) - 1)
             return synth[safe_idxs]
@@ -5559,6 +5607,10 @@ async def optimize_lineups(req: OptimizeRequest):
             'iteration_filter_frac': iteration_filter_frac,
             'iteration_filter_n': len(valid_filter) if valid_filter else None,
             'flex_mix_pct': flex_mix_pct,
+            # Which sim the EV/ITM/Top% grading read, and how many iterations
+            # it had -- same idea as showdown's field_source.
+            'trial_source': trial_source,
+            'n_sim_iterations': n_sim_iter,
         }
     }
 
@@ -6438,12 +6490,16 @@ def optimize_showdown(req: ShowdownOptimizeRequest):
     # resample: each of the base 1000 iterations was equally likely a priori,
     # so restricting to a subset and drawing uniformly from it reproduces
     # exactly the "given the game lands in this box" distribution.
-    valid_filter = sorted({int(i) for i in req.iteration_filter if 0 <= int(i) < 1000}) if req.iteration_filter else None
+    # Iteration count comes from the game's own sim (10,000 or 1,000), not a
+    # hardcoded 1000 -- the old bound drew only from the first 1,000 of a
+    # 10,000-iteration week and silently dropped box-select ids >= 1000.
+    n_index = int(game_df['iteration'].max()) + 1 if game_df is not None and not game_df.empty else 1000
+    valid_filter = sorted({int(i) for i in req.iteration_filter if 0 <= int(i) < n_index}) if req.iteration_filter else None
     if valid_filter:
         aligned = rng.choice(np.array(valid_filter), size=n_stat_sims, replace=True)
-        iteration_filter_frac = round(len(valid_filter) / 1000.0, 4)
+        iteration_filter_frac = round(len(valid_filter) / float(n_index), 4)
     else:
-        aligned = rng.integers(0, 1000, size=n_stat_sims)
+        aligned = rng.integers(0, n_index, size=n_stat_sims)
         iteration_filter_frac = None
 
     def player_draws(p: dict, indices: np.ndarray) -> np.ndarray:
@@ -6459,11 +6515,14 @@ def optimize_showdown(req: ShowdownOptimizeRequest):
             if med > 1.0 and abs(proj - med) > 0.1:
                 return arr[safe] * (proj / med)
             return arr[safe]
+        g = np.random.default_rng(int(hashlib.md5(p['name'].encode()).hexdigest(), 16) % (2**32))
         pcts = p.get('dk_pcts_all')
         if pcts and len(pcts) == 101:
-            return np.array(pcts, dtype=float)[np.clip(indices, 0, 100)]
+            # Independent draw from the player's own percentile curve. (Was
+            # pcts[clip(indices, 0, 100)] -- iteration ids are 0..n_index-1,
+            # not percentiles, so ~90-99% of draws clipped to p100, the max.)
+            return np.array(pcts, dtype=float)[g.integers(0, 101, len(indices))]
         proj = p.get('projection', 10.0)
-        g = np.random.default_rng(int(hashlib.md5(p['name'].encode()).hexdigest(), 16) % (2**32))
         return np.maximum(0.0, g.normal(proj, max(0.5, proj * 0.35), len(indices)))
 
     draw_cache = {i: player_draws(active[i], aligned) for i in range(n)}

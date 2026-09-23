@@ -25,6 +25,11 @@ they'd otherwise keep serving pre-refresh numbers.
 
 Usage:
     venv\\Scripts\\python.exe scripts/simulation_runners/run_week_sim_2026.py <week> [iterations]
+
+iterations defaults to 10,000 (2026-09-23; was 1,000), matching
+resim_games_2026.py's default so a full-week run and a single-game resim
+produce the same-sized distribution. The optimizers read the iteration count
+from the parquet itself, so a smaller one-off run still works, just coarser.
 """
 import os
 import sys
@@ -41,7 +46,10 @@ ROSTERS_DIR = os.path.join("data", "current_rosters", "dfs")
 SCHEDULE_PATH = os.path.join("data", "external", f"schedule_{SIM_YEAR}.csv")
 
 
-def simulate_week(week, iterations=1000):
+DEFAULT_ITERATIONS = 10000
+
+
+def simulate_week(week, iterations=DEFAULT_ITERATIONS):
     print(f"\n{'='*60}\n Simulating NFL {SIM_YEAR} Week {week} (DFS roster tree)\n"
          f" Iterations per game: {iterations}\n{'='*60}\n")
 
@@ -103,5 +111,5 @@ if __name__ == "__main__":
         print(__doc__)
         sys.exit(1)
     wk = int(sys.argv[1])
-    iters = int(sys.argv[2]) if len(sys.argv) > 2 else 1000
+    iters = int(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_ITERATIONS
     simulate_week(wk, iterations=iters)
