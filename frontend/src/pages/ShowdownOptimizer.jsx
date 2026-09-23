@@ -678,7 +678,7 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
     for (const lu of lineups) {
       for (const pl of lu.players) {
         const k = `${pl.name}_${pl.team}`;
-        map[k] = map[k] || { name: pl.name, team: pl.team, pos: pl.pos, flex: 0, cpt: 0 };
+        map[k] = map[k] || { key: k, name: pl.name, team: pl.team, pos: pl.pos, flex: 0, cpt: 0 };
         if (pl.slot === 'CPT') map[k].cpt += 1; else map[k].flex += 1;
       }
     }
@@ -697,6 +697,100 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
     });
     return arr;
   }, [lineups, resSort]);
+
+  // ── Exposure drill-down (ported from Optimizer.jsx's classic version) ─────
+  // Click an exposure row to show only lineups containing that player; click
+  // their CPT% to require them *as captain*. Selection keys:
+  //   `${name}_${team}`      -> player in any slot
+  //   `${name}_${team}|CPT`  -> player in the CPT slot
+  // Multiple selections combine with ALL / ANY (drillMode). Exports keep using
+  // the full sortedLineups.
+  const [drillKeys, setDrillKeys] = useState(() => new Set());
+  const [drillMode, setDrillMode] = useState('all'); // 'all' | 'any'
+  const [pairPosFilter, setPairPosFilter] = useState('ALL');
+  const baseKey = (pl) => `${pl.name}_${pl.team}`;
+
+  const toggleDrill = (key) => setDrillKeys(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key);
+    else {
+      // any-slot and CPT-only for the same player are mutually exclusive
+      const base = key.replace(/\|CPT$/, '');
+      next.delete(base); next.delete(`${base}|CPT`);
+      next.add(key);
+    }
+    return next;
+  });
+
+  // Drop selections for players no longer in the portfolio (new optimize / lab run).
+  useEffect(() => {
+    setDrillKeys(prev => {
+      if (prev.size === 0) return prev;
+      const live = new Set(exposures.map(e => e.key));
+      const next = new Set([...prev].filter(k => live.has(k.replace(/\|CPT$/, ''))));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [exposures]);
+  useEffect(() => { setExpanded(null); }, [drillKeys, drillMode]);
+
+  /** Does lineup `lu` satisfy one selection key? Input: lineup, key string. Output: bool. */
+  const lineupHas = (lu, key) => {
+    const cptOnly = key.endsWith('|CPT');
+    const base = cptOnly ? key.slice(0, -4) : key;
+    return lu.players.some(pl => baseKey(pl) === base && (!cptOnly || pl.slot === 'CPT'));
+  };
+
+  /** Lineups shown in the results table -- all of sortedLineups when nothing is
+   * selected, else those matching ALL/ANY of drillKeys. */
+  const displayedLineups = useMemo(() => {
+    if (drillKeys.size === 0) return sortedLineups;
+    const keys = [...drillKeys];
+    return sortedLineups.filter(lu => (drillMode === 'all' ? keys.every(k => lineupHas(lu, k)) : keys.some(k => lineupHas(lu, k))));
+  }, [sortedLineups, drillKeys, drillMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Mean per-lineup metrics over a lineup set (subset vs whole-portfolio compare).
+   * Input: lineup array. Output: { n, ev_pct, portfolio_score, itm_pct, top1_pct,
+   *   top01_pct, first_pct, total_ownership, projected_score, total_salary } (null if absent).
+   * Salary stays here (unlike classic) -- showdown builds vary a lot in cap usage. */
+  const summarizeLineups = (ls) => {
+    const avg = (f) => {
+      const vals = ls.map(l => l[f]).filter(v => v != null && isFinite(v));
+      return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+    };
+    const out = { n: ls.length };
+    ['ev_pct', 'portfolio_score', 'itm_pct', 'top1_pct', 'top01_pct', 'first_pct', 'total_ownership', 'projected_score', 'total_salary']
+      .forEach(f => { out[f] = avg(f); });
+    return out;
+  };
+  const portfolioAvg = useMemo(() => summarizeLineups(sortedLineups), [sortedLineups]); // eslint-disable-line react-hooks/exhaustive-deps
+  const selectionAvg = useMemo(
+    () => (drillKeys.size ? summarizeLineups(displayedLineups) : null),
+    [displayedLineups, drillKeys] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  /** "Most paired with": every non-selected player in the filtered lineups.
+   * Output: [{ key, name, pos, team, count, cptCount, pairPct, exposure, lift }],
+   *   count desc. pairPct = % of filtered lineups they're in (any slot);
+   *   exposure = their Tot% across all lineups; lift = pairPct - exposure (pp). */
+  const pairedPlayers = useMemo(() => {
+    if (drillKeys.size === 0 || displayedLineups.length === 0) return [];
+    const selectedBases = new Set([...drillKeys].map(k => k.replace(/\|CPT$/, '')));
+    const expByKey = new Map(exposures.map(e => [e.key, e]));
+    const counts = new Map();
+    displayedLineups.forEach(lu => lu.players.forEach(pl => {
+      const k = baseKey(pl);
+      if (selectedBases.has(k)) return;
+      const c = counts.get(k) || { count: 0, cptCount: 0 };
+      c.count += 1; if (pl.slot === 'CPT') c.cptCount += 1;
+      counts.set(k, c);
+    }));
+    const n = displayedLineups.length;
+    return [...counts.entries()].map(([k, c]) => {
+      const e = expByKey.get(k) || {};
+      const pairPct = (c.count / n) * 100;
+      return { key: k, name: e.pos === 'DST' ? `${e.team} DST` : e.name, pos: e.pos, team: e.team, ...c, pairPct, exposure: e.totalPct ?? 0, lift: pairPct - (e.totalPct ?? 0) };
+    }).sort((a, b) => b.count - a.count || b.lift - a.lift);
+  }, [displayedLineups, drillKeys, exposures]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleResSort = (field) =>
     setResSort(s => (s.field === field ? { field, asc: !s.asc } : { field, asc: field === 'total_ownership' || field === 'dupe_est' }));
@@ -1301,7 +1395,131 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '14px', alignItems: 'start' }}>
             <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 10px 0', fontSize: '1rem' }}>Generated Lineups ({sortedLineups.length})</h2>
+              <h2 style={{ margin: '0 0 10px 0', fontSize: '1rem' }}>
+                Generated Lineups ({selectionAvg ? `${displayedLineups.length} of ${sortedLineups.length}` : sortedLineups.length})
+              </h2>
+
+              {/* Exposure drill-down: selected players, subset-vs-portfolio averages, top pairings */}
+              {selectionAvg && (() => {
+                const pill = (active) => ({
+                  padding: '1px 7px', borderRadius: '20px', cursor: 'pointer', fontSize: '0.66rem', fontWeight: 600, border: '1px solid',
+                  background: active ? 'rgba(0,242,254,0.15)' : 'rgba(255,255,255,0.03)',
+                  color: active ? 'var(--accent-primary)' : 'var(--text-muted)',
+                  borderColor: active ? 'rgba(0,242,254,0.4)' : 'rgba(255,255,255,0.08)',
+                });
+                const expByKey = new Map(exposures.map(e => [e.key, e]));
+                const chips = [...drillKeys].map(k => {
+                  const cptOnly = k.endsWith('|CPT');
+                  const e = expByKey.get(cptOnly ? k.slice(0, -4) : k) || {};
+                  return { k, cptOnly, e };
+                });
+                const POS_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'].filter(pos => pairedPlayers.some(p => p.pos === pos));
+                const leaders = POS_ORDER.map(pos => pairedPlayers.find(p => p.pos === pos)).filter(Boolean);
+                const list = (pairPosFilter === 'ALL' ? pairedPlayers : pairedPlayers.filter(p => p.pos === pairPosFilter)).slice(0, 8);
+                const stats = [
+                  { label: 'Lineups', v: selectionAvg.n, base: portfolioAvg.n, fmt: v => `${v}`, baseFmt: v => `of ${v}` },
+                  { label: 'Avg EV%', v: selectionAvg.ev_pct, base: portfolioAvg.ev_pct, fmt: v => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`, color: evColor },
+                  { label: 'Avg Port.Score', v: selectionAvg.portfolio_score, base: portfolioAvg.portfolio_score, fmt: v => v.toFixed(2) },
+                  { label: 'Avg ITM%', v: selectionAvg.itm_pct, base: portfolioAvg.itm_pct, fmt: v => `${v.toFixed(2)}%` },
+                  { label: 'Avg Top1%', v: selectionAvg.top1_pct, base: portfolioAvg.top1_pct, fmt: v => `${v.toFixed(2)}%` },
+                  { label: 'Avg Top.1%', v: selectionAvg.top01_pct, base: portfolioAvg.top01_pct, fmt: v => `${v.toFixed(2)}%` },
+                  { label: 'Avg 1st%', v: selectionAvg.first_pct, base: portfolioAvg.first_pct, fmt: v => `${v.toFixed(2)}%` },
+                  { label: 'Avg Own%', v: selectionAvg.total_ownership, base: portfolioAvg.total_ownership, fmt: v => `${v.toFixed(1)}%`, color: ownColor },
+                  { label: 'Avg Proj', v: selectionAvg.projected_score, base: portfolioAvg.projected_score, fmt: v => v.toFixed(1) },
+                  { label: 'Avg Salary', v: selectionAvg.total_salary, base: portfolioAvg.total_salary, fmt: v => `$${Math.round(v).toLocaleString()}` },
+                ].filter(s => s.v != null);
+                return (
+                  <div style={{ background: 'rgba(0,242,254,0.04)', border: '1px solid rgba(0,242,254,0.18)', borderRadius: '8px', padding: '10px', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Lineups with</span>
+                      {drillKeys.size > 1 && ['all', 'any'].map(m => (
+                        <button key={m} onClick={() => setDrillMode(m)} style={pill(drillMode === m)}>{m.toUpperCase()} of</button>
+                      ))}
+                      {chips.map(({ k, cptOnly, e }) => (
+                        <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.74rem', fontWeight: 600, padding: '2px 4px 2px 8px', borderRadius: '20px', background: (POS_COLORS[e.pos] || '#888') + '1f', border: `1px solid ${(POS_COLORS[e.pos] || '#888')}55` }}>
+                          {cptOnly && <span style={{ color: '#00f2fe', fontSize: '0.64rem', fontWeight: 800 }}>CPT</span>}
+                          {e.pos === 'DST' ? `${e.team} DST` : e.name}
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{(cptOnly ? e.cptPct : e.totalPct)?.toFixed(0)}%</span>
+                          <button onClick={() => toggleDrill(k)} title="Remove"
+                            style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.72rem', padding: '0 3px' }}>✕</button>
+                        </span>
+                      ))}
+                      <button onClick={() => setDrillKeys(new Set())} style={{ ...pill(false), marginLeft: 'auto', padding: '2px 9px', fontSize: '0.7rem' }}>Clear filter</button>
+                    </div>
+
+                    {selectionAvg.n === 0 ? (
+                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>No lineups match this combination.</div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))', gap: '6px' }}>
+                        {stats.map(s => (
+                          <div key={s.label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '6px', padding: '6px 8px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</div>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: s.color ? s.color(s.v) : 'var(--text-white)' }}>{s.fmt(s.v)}</div>
+                            {s.base != null && (
+                              <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }} title="Whole-portfolio average">
+                                {s.baseFmt ? s.baseFmt(s.base) : `port. ${s.fmt(s.base)}`}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {pairedPlayers.length > 0 && (
+                      <div style={{ marginTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Most paired with</span>
+                          <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>· click to add to filter</span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '8px' }}>
+                          {leaders.map(p => (
+                            <button key={p.key} onClick={() => toggleDrill(p.key)}
+                              title={`${p.name}: in ${p.count}/${displayedLineups.length} of these lineups${p.cptCount ? ` (${p.cptCount} as CPT)` : ''}, ${p.exposure.toFixed(1)}% across the whole portfolio`}
+                              style={{ display: 'inline-flex', gap: '5px', alignItems: 'center', padding: '2px 8px', borderRadius: '20px', cursor: 'pointer', fontSize: '0.72rem', background: 'rgba(255,255,255,0.03)', color: 'var(--text-white)', border: `1px solid ${(POS_COLORS[p.pos] || '#888')}55` }}>
+                              <span style={{ color: POS_COLORS[p.pos] || '#888', fontWeight: 700, fontSize: '0.64rem' }}>{p.pos}</span>
+                              <span style={{ fontWeight: 600 }}>{p.name}</span>
+                              <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{p.pairPct.toFixed(0)}%</span>
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: '3px', marginBottom: '6px' }}>
+                          {['ALL', ...POS_ORDER].map(pos => (
+                            <button key={pos} onClick={() => setPairPosFilter(pos)} style={pill(pairPosFilter === pos)}>{pos}</button>
+                          ))}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '4px 12px' }}>
+                          {list.map(p => (
+                            <div key={p.key} onClick={() => toggleDrill(p.key)}
+                              title={`In ${p.count}/${displayedLineups.length} of these lineups vs ${p.exposure.toFixed(1)}% of all lineups. Click to add to filter.`}
+                              style={{ display: 'grid', gridTemplateColumns: '30px 1fr 90px 44px 30px', alignItems: 'center', gap: '6px', fontSize: '0.74rem', cursor: 'pointer', padding: '2px 0' }}>
+                              <span style={{ fontSize: '0.62rem', fontWeight: 700, color: POS_COLORS[p.pos] || '#888' }}>{p.pos}</span>
+                              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--text-white)' }}>{p.name}</span>{' '}
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.66rem' }}>{p.team}</span>
+                              </span>
+                              {/* Bar = share of the filtered lineups; white tick = whole-portfolio Tot% */}
+                              <div style={{ position: 'relative', height: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${p.pairPct}%`, background: (POS_COLORS[p.pos] || '#888') + 'aa', borderRadius: '3px' }} />
+                                <div style={{ position: 'absolute', left: `${Math.min(p.exposure, 99.5)}%`, top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.75)' }} />
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.64rem', fontWeight: 700, color: 'var(--text-white)', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+                                  {p.pairPct.toFixed(0)}% ({p.count})
+                                </div>
+                              </div>
+                              <span title="How many of those pairings had this player at captain" style={{ fontSize: '0.64rem', color: p.cptCount ? '#00f2fe' : 'rgba(255,255,255,0.2)' }}>
+                                CPT {p.cptCount}
+                              </span>
+                              <span title="Percentage points above/below their whole-portfolio exposure"
+                                style={{ fontSize: '0.68rem', fontWeight: 700, textAlign: 'right', color: p.lift > 0 ? '#22c55e' : p.lift < 0 ? '#ef4444' : 'var(--text-muted)' }}>
+                                {p.lift > 0 ? '+' : ''}{p.lift.toFixed(0)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="table-container" style={{ maxHeight: '72vh', overflowY: 'auto' }}>
                 <table style={{ fontSize: '0.78rem', width: '100%' }}>
                   <thead>
@@ -1326,10 +1544,18 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedLineups.map((lu, idx) => {
+                    {selectionAvg && displayedLineups.length === 0 && (
+                      <tr><td colSpan={13} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>No lineups match the selected players.</td></tr>
+                    )}
+                    {displayedLineups.map((lu, idx) => {
                       const cpt = lu.players.find(p => p.slot === 'CPT');
                       const flex = lu.players.filter(p => p.slot === 'FLEX');
-                      const nm = p => (p.pos === 'DST' ? `${p.team} DST` : p.name.split(' ').slice(-1)[0]);
+                      // Selected players get an underline so the drill-down is visible in each row
+                      const hit = p => drillKeys.has(baseKey(p)) || (p.slot === 'CPT' && drillKeys.has(`${baseKey(p)}|CPT`));
+                      const nmText = p => (p.pos === 'DST' ? `${p.team} DST` : p.name.split(' ').slice(-1)[0]);
+                      const nm = (p, i) => (hit(p)
+                        ? <span key={i} style={{ textDecoration: 'underline', textDecorationColor: 'var(--accent-primary)', textUnderlineOffset: '3px' }}>{nmText(p)}</span>
+                        : <span key={i}>{nmText(p)}</span>);
                       const isOpen = expanded === idx;
                       return (
                         <Fragment key={idx}>
@@ -1344,7 +1570,7 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                               {nm(cpt)}
                             </td>
                             <td style={{ padding: '6px 5px', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
-                              {flex.map(nm).join(', ')}
+                              {flex.map((p, i) => <Fragment key={i}>{i > 0 && ', '}{nm(p, i)}</Fragment>)}
                             </td>
                             <td style={{ padding: '6px 5px', fontWeight: 700, color: ownColor(lu.total_ownership) }}>{lu.total_ownership}%</td>
                             <td style={{ padding: '6px 5px', color: 'var(--accent-green)', fontWeight: 600 }}>{lu.projected_score}</td>
@@ -1431,16 +1657,27 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                     <th style={{ padding: '5px' }}>Player</th><th style={{ padding: '5px' }}>Tot%</th><th style={{ padding: '5px' }}>CPT%</th>
                   </tr></thead>
                   <tbody>
-                    {exposures.map(e => (
-                      <tr key={`${e.name}_${e.team}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                        <td style={{ padding: '4px 5px', whiteSpace: 'nowrap' }}>
-                          <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: TEAM_COLORS[e.team] || '#888', marginRight: '5px' }} />
-                          {e.pos === 'DST' ? `${e.team} DST` : e.name}
-                        </td>
-                        <td style={{ padding: '4px 5px', fontWeight: 600 }}>{e.totalPct.toFixed(0)}%</td>
-                        <td style={{ padding: '4px 5px', color: 'var(--accent-primary)' }}>{e.cptPct.toFixed(0)}%</td>
-                      </tr>
-                    ))}
+                    {exposures.map(e => {
+                      const anySel = drillKeys.has(e.key);
+                      const cptSel = drillKeys.has(`${e.key}|CPT`);
+                      return (
+                        <tr key={e.key} onClick={() => toggleDrill(e.key)}
+                          title={anySel ? 'Click to remove from the lineup filter' : 'Click to show only lineups with this player (click CPT% to require them at captain)'}
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', background: anySel || cptSel ? 'rgba(0,242,254,0.08)' : undefined }}>
+                          <td style={{ padding: '4px 5px', whiteSpace: 'nowrap', fontWeight: anySel || cptSel ? 700 : undefined }}>
+                            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: TEAM_COLORS[e.team] || '#888', marginRight: '5px' }} />
+                            {e.pos === 'DST' ? `${e.team} DST` : e.name}
+                          </td>
+                          <td style={{ padding: '4px 5px', fontWeight: 600, color: anySel ? 'var(--accent-primary)' : undefined }}>{e.totalPct.toFixed(0)}%</td>
+                          <td onClick={ev => { ev.stopPropagation(); if (e.cpt > 0) toggleDrill(`${e.key}|CPT`); }}
+                            title={e.cpt > 0 ? (cptSel ? 'Click to remove the CPT filter' : 'Click to show only lineups with this player at captain') : 'Never captained in this portfolio'}
+                            style={{ padding: '4px 5px', color: 'var(--accent-primary)', cursor: e.cpt > 0 ? 'pointer' : 'default',
+                              ...(cptSel ? { background: 'rgba(0,242,254,0.2)', fontWeight: 800, borderRadius: '4px' } : {}) }}>
+                            {e.cptPct.toFixed(0)}%
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -4,6 +4,37 @@
 
 ---
 
+### [2026-09-23] Handoff from Claude Opus 5.5 (exposure drill-down: "Most paired with" + showdown port)
+
+- **Active Task:** Follow-ups to the previous entry's exposure drill-down, per Cam: drop Avg Salary on
+  classic (every classic lineup sits near the cap -- uninformative), add "top players selected with him"
+  (by position + overall), and port the whole drill-down to showdown *with* Avg Salary kept. Done and
+  live-tested; frontend-only.
+- **Files Modified:**
+  - [frontend/src/pages/Optimizer.jsx](frontend/src/pages/Optimizer.jsx): removed Avg Salary from
+    `summarizeLineups` / the stats strip. New `pairedPlayers` memo -- for the filtered lineups, every
+    non-selected player with `count`, `pairPct` (% of filtered lineups), `exposure` (whole-portfolio %)
+    and `lift` (pairPct - exposure, pp). UI under the stats strip: one leader chip per position + a
+    top-8 list with ALL/QB/RB/WR/TE/DST tabs (`pairPosFilter`); bar = pairPct, white tick = exposure.
+    Clicking a pairing adds it to the filter. Live check (150-lineup build): Gibbs -> 60/150; top
+    pairings Jones/McLaurin 27%, LaPorta 23%; QB tab Prescott +8; clicking Prescott -> 9/150.
+  - [frontend/src/pages/ShowdownOptimizer.jsx](frontend/src/pages/ShowdownOptimizer.jsx): full port.
+    Showdown-specific: selection keys are `name_team` (any slot) or `name_team|CPT` (captain only) --
+    click an Exposure row for any-slot, click its **CPT%** cell for captain-only (the two are mutually
+    exclusive per player, `toggleDrill`). `displayedLineups` feeds the table (exports still use
+    `sortedLineups`); stats strip adds 1st%, Own%, Proj and **Avg Salary**; pairings carry a `cptCount`
+    ("CPT n") and include K. `exposures` rows gained a `key` field. Live check (ATL@GB, fresh 20-lineup
+    optimize): Love 60% Tot -> 12/20, CPT 10% -> 2/20 (both Love-CPT); Kraft paired 8/12, 6 as CPT, +22.
+- **Observations (not changed):** showdown Port.Score per lineup spans roughly -477..+518 on that build,
+  so subset averages swing hard (Love subset 185.65 vs portfolio 1.72 -- real, verified row-by-row).
+  Showdown EV% reads >+1000% on that build -- pre-existing EV math, not from this work; may merit a look.
+- **Commit note:** same split as last entry -- both .jsx files and WORKLOG.md also carry another
+  session's uncommitted work; only this session's hunks were staged, the rest left untouched.
+- **Immediate Next Steps:** Cam to sanity-check the classic threshold-while-editing behavior with a real
+  threshold set (still outstanding from the previous entry).
+
+---
+
 ### [2026-09-22] Handoff from Claude Opus 5.5 (DFS optimizer UX: pool team/game filter, edit-safe projection threshold, exposure drill-down)
 
 - **Active Task:** Three DFS Optimizer UI requests from Cam, all frontend-only, all in

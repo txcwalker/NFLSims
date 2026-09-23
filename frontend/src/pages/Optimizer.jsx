@@ -1573,7 +1573,8 @@ export default function Optimizer({
 
   /** Average per-lineup metrics over a lineup set.
    * Input: array of lineup objects. Output: { n, ev_pct, portfolio_score,
-   *   itm_pct, top1_pct, top01_pct, p95, salary } (means; null if unavailable).
+   *   itm_pct, top1_pct, top01_pct, p95 } (means; null if unavailable).
+   *   (No salary on classic -- every lineup sits near the cap, so it says nothing.)
    * Used to compare the drilled-down subset against the whole portfolio. */
   const summarizeLineups = (ls) => {
     const avg = (f) => {
@@ -1588,7 +1589,6 @@ export default function Optimizer({
       top1_pct: avg(l => l.top1_pct),
       top01_pct: avg(l => l.top01_pct),
       p95: avg(l => l.lineup_p95 ?? l.projected_score),
-      salary: avg(l => l.total_salary),
     };
   };
   const portfolioAvg = useMemo(() => summarizeLineups(sortedLineups), [sortedLineups]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1600,6 +1600,33 @@ export default function Optimizer({
     () => playerExposures.filter(p => selectedExposureKeys.has(p.key)),
     [playerExposures, selectedExposureKeys]
   );
+
+  /** "Most paired with" for the exposure drill-down.
+   * Inputs: displayedLineups (the filtered subset), selectedExposureKeys,
+   *   playerExposures (for each partner's whole-portfolio exposure).
+   * Output: array of { key, name, pos, team, count, pairPct, exposure, lift }
+   *   for every player (other than the selected ones) appearing in the subset,
+   *   sorted by count desc. pairPct = % of the subset's lineups they're in;
+   *   exposure = their % across ALL lineups; lift = pairPct - exposure, i.e.
+   *   how much more (or less) they show up alongside the selection than usual.
+   * The UI slices this per position / overall. */
+  const pairedPlayers = useMemo(() => {
+    if (selectedExposureKeys.size === 0 || displayedLineups.length === 0) return [];
+    const expByKey = new Map(playerExposures.map(p => [p.key, p]));
+    const counts = new Map();
+    displayedLineups.forEach(lu => lu.players.forEach(pl => {
+      const k = lineupKey(pl);
+      if (selectedExposureKeys.has(k)) return;
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }));
+    const n = displayedLineups.length;
+    return [...counts.entries()].map(([k, count]) => {
+      const e = expByKey.get(k) || {};
+      const pairPct = (count / n) * 100;
+      return { key: k, name: e.name, pos: e.pos, team: e.team, count, pairPct, exposure: e.exposure ?? 0, lift: pairPct - (e.exposure ?? 0) };
+    }).sort((a, b) => b.count - a.count || b.lift - a.lift);
+  }, [displayedLineups, selectedExposureKeys, playerExposures]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [pairPosFilter, setPairPosFilter] = useState('ALL');
 
   const evColor = (v) => v > 0 ? '#22c55e' : v < 0 ? '#ef4444' : 'var(--text-muted)';
 
@@ -2452,7 +2479,6 @@ export default function Optimizer({
                         { label: 'Avg Top1%', v: selectionAvg.top1_pct, base: portfolioAvg.top1_pct, fmt: v => `${v.toFixed(2)}%` },
                         { label: 'Avg Top.1%', v: selectionAvg.top01_pct, base: portfolioAvg.top01_pct, fmt: v => `${v.toFixed(2)}%` },
                         { label: 'Avg P95', v: selectionAvg.p95, base: portfolioAvg.p95, fmt: v => v.toFixed(1) },
-                        { label: 'Avg Salary', v: selectionAvg.salary, base: portfolioAvg.salary, fmt: v => `$${Math.round(v).toLocaleString()}` },
                       ].filter(s => s.v != null).map(s => (
                         <div key={s.label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '6px', padding: '6px 8px', textAlign: 'center' }}>
                           <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</div>
@@ -2466,6 +2492,75 @@ export default function Optimizer({
                       ))}
                     </div>
                   )}
+
+                  {/* Most paired with -- who the optimizer stacks alongside the selection */}
+                  {pairedPlayers.length > 0 && (() => {
+                    const POS_ORDER = ['QB', 'RB', 'WR', 'TE', 'DST'];
+                    const leaders = POS_ORDER.map(pos => pairedPlayers.find(p => p.pos === pos)).filter(Boolean);
+                    const list = (pairPosFilter === 'ALL' ? pairedPlayers : pairedPlayers.filter(p => p.pos === pairPosFilter)).slice(0, 8);
+                    const liftText = (v) => `${v > 0 ? '+' : ''}${v.toFixed(0)}`;
+                    return (
+                      <div style={{ marginTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Most paired with</span>
+                          <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>· click to add to filter</span>
+                        </div>
+
+                        {/* Top at each position */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '8px' }}>
+                          {leaders.map(p => (
+                            <button key={p.key} onClick={() => toggleExposureSelect(p.key)}
+                              title={`${p.name}: in ${p.count}/${displayedLineups.length} of these lineups (${p.exposure.toFixed(1)}% across the whole portfolio)`}
+                              style={{ ...pillBtnBase, display: 'inline-flex', gap: '5px', alignItems: 'center', padding: '2px 8px', fontSize: '0.72rem', background: 'rgba(255,255,255,0.03)', color: 'var(--text-white)', borderColor: (POS_COLORS[p.pos] || '#888') + '55' }}>
+                              <span style={{ color: POS_COLORS[p.pos] || '#888', fontWeight: 700, fontSize: '0.64rem' }}>{p.pos}</span>
+                              <span style={{ fontWeight: 600 }}>{p.name}</span>
+                              <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{p.pairPct.toFixed(0)}%</span>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Position tabs + top-8 list */}
+                        <div style={{ display: 'flex', gap: '3px', marginBottom: '6px' }}>
+                          {['ALL', ...POS_ORDER].map(pos => {
+                            const active = pairPosFilter === pos;
+                            return (
+                              <button key={pos} onClick={() => setPairPosFilter(pos)} style={{
+                                ...pillBtnBase, padding: '1px 7px', fontSize: '0.66rem',
+                                background: active ? 'rgba(0,242,254,0.15)' : 'rgba(255,255,255,0.03)',
+                                color: active ? 'var(--accent-primary)' : 'var(--text-muted)',
+                                borderColor: active ? 'rgba(0,242,254,0.4)' : 'rgba(255,255,255,0.08)',
+                              }}>{pos}</button>
+                            );
+                          })}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '4px 12px' }}>
+                          {list.map(p => (
+                            <div key={p.key} onClick={() => toggleExposureSelect(p.key)}
+                              title={`In ${p.count}/${displayedLineups.length} of these lineups vs ${p.exposure.toFixed(1)}% of all lineups. Click to add to filter.`}
+                              style={{ display: 'grid', gridTemplateColumns: '30px 1fr 90px 34px', alignItems: 'center', gap: '6px', fontSize: '0.74rem', cursor: 'pointer', padding: '2px 0' }}>
+                              <span style={{ fontSize: '0.62rem', fontWeight: 700, color: POS_COLORS[p.pos] || '#888' }}>{p.pos}</span>
+                              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--text-white)' }}>{p.name}</span>{' '}
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.66rem' }}>{p.team}</span>
+                              </span>
+                              {/* Bar = share of the filtered lineups; white tick = whole-portfolio exposure */}
+                              <div style={{ position: 'relative', height: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${p.pairPct}%`, background: (POS_COLORS[p.pos] || '#888') + 'aa', borderRadius: '3px' }} />
+                                <div style={{ position: 'absolute', left: `${Math.min(p.exposure, 99.5)}%`, top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.75)' }} />
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.64rem', fontWeight: 700, color: 'var(--text-white)', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+                                  {p.pairPct.toFixed(0)}% ({p.count})
+                                </div>
+                              </div>
+                              <span title="Percentage points above/below their whole-portfolio exposure"
+                                style={{ fontSize: '0.68rem', fontWeight: 700, textAlign: 'right', color: p.lift > 0 ? 'var(--accent-green)' : p.lift < 0 ? 'var(--accent-red)' : 'var(--text-muted)' }}>
+                                {liftText(p.lift)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
               <div className="table-container" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
