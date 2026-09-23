@@ -1,6 +1,6 @@
 {
-  "trained_at": "2026-09-14T21:34:03.966015+00:00",
-  "n_rows": 1506,
+  "trained_at": "2026-09-22T17:27:59.616026+00:00",
+  "n_rows": 3794,
   "n_slates": 1,
   "slate_ids": [
     "main_slate"
@@ -15,8 +15,17 @@
     "n_games_on_slate",
     "cash_consensus_frac",
     "salary_dispersion_pos",
+    "field_size",
+    "max_entries",
+    "prior_week_score",
     "salary_rank_pctile",
-    "pos_NAN"
+    "pos_QB",
+    "pos_RB",
+    "pos_TE",
+    "pos_WR",
+    "stakes_tier_casual",
+    "stakes_tier_mid",
+    "stakes_tier_sharp"
   ],
   "raw_feature_columns": [
     "salary",
@@ -28,10 +37,14 @@
     "n_games_on_slate",
     "cash_consensus_frac",
     "salary_dispersion_pos",
+    "field_size",
+    "max_entries",
+    "prior_week_score",
     "salary_rank_pctile"
   ],
   "categorical_columns": [
-    "pos"
+    "pos",
+    "stakes_tier"
   ],
   "data_maturity_warning": "Trained on very limited data (see README's ~4-6-slates-per-bucket target). Re-train as more slates are archived.",
   "target": "total_own_pct"

@@ -1,8 +1,12 @@
 {
-  "trained_at": "2026-09-14T21:34:04.393718+00:00",
-  "n_rows": 288,
-  "n_slates": 2,
+  "trained_at": "2026-09-22T17:28:00.722249+00:00",
+  "n_rows": 1000,
+  "n_slates": 6,
   "slate_ids": [
+    "showdown_BUF_DET",
+    "showdown_DEN_KC",
+    "showdown_IND_KC",
+    "showdown_LAR_NYG",
     "showdown_NE_SEA",
     "showdown_SF_LA"
   ],
@@ -17,11 +21,17 @@
     "optimal_cpt_pct",
     "optimal_flex_pct",
     "salary_dispersion_pos",
+    "field_size",
+    "max_entries",
+    "prior_week_score",
     "salary_rank_pctile",
     "pos_QB",
     "pos_RB",
     "pos_TE",
-    "pos_WR"
+    "pos_WR",
+    "stakes_tier_casual",
+    "stakes_tier_mid",
+    "stakes_tier_sharp"
   ],
   "raw_feature_columns": [
     "salary",
@@ -34,10 +44,14 @@
     "optimal_cpt_pct",
     "optimal_flex_pct",
     "salary_dispersion_pos",
+    "field_size",
+    "max_entries",
+    "prior_week_score",
     "salary_rank_pctile"
   ],
   "categorical_columns": [
-    "pos"
+    "pos",
+    "stakes_tier"
   ],
   "data_maturity_warning": "Trained on very limited data (see README's ~4-6-slates-per-bucket target). Re-train as more slates are archived.",
   "target": "cpt_own_pct"

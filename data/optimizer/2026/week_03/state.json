@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "season": 2026,
+  "week": 3,
+  "updated_at": "2026-09-22T22:19:50.603Z",
+  "slate": {
+    "draft_group_id": 153769,
+    "platform": "DK"
+  },
+  "settings": {
+    "platform": "DK",
+    "contestType": "top_heavy",
+    "contestSize": 416171,
+    "entryFee": 0.5,
+    "payingPositions": 87395,
+    "payoutStructure": [
+      {
+        "rank_start": 1,
+        "rank_end": 1,
+        "payout": 20000
+      },
+      {
+        "rank_start": 2,
+        "rank_end": 2,
+        "payout": 7500
+      },
+      {
+        "rank_start": 3,
+        "rank_end": 3,
+        "payout": 3000
+      },
+      {
+        "rank_start": 4,
+        "rank_end": 4,
+        "payout": 2000
+      },
+      {
+        "rank_start": 5,
+        "rank_end": 5,
+        "payout": 1500
+      },
+      {
+        "rank_start": 6,
+        "rank_end": 6,
+        "payout": 1000
+      },
+      {
+        "rank_start": 7,
+        "rank_end": 8,
+        "payout": 750
+      },
+      {
+        "rank_start": 9,
+        "rank_end": 10,
+        "payout": 600
+      },
+      {
+        "rank_start": 11,
+        "rank_end": 12,
+        "payout": 500
+      },
+      {
+        "rank_start": 13,
+        "rank_end": 15,
+        "payout": 400
+      },
+      {
+        "rank_start": 16,
+        "rank_end": 19,
+        "payout": 300
+      },
+      {
+        "rank_start": 20,
+        "rank_end": 24,
+        "payout": 250
+      },
+      {
+        "rank_start": 25,
+        "rank_end": 30,
+        "payout": 200
+      },
+      {
+        "rank_start": 31,
+        "rank_end": 40,
+        "payout": 150
+      },
+      {
+        "rank_start": 41,
+        "rank_end": 50,
+        "payout": 100
+      },
+      {
+        "rank_start": 51,
+        "rank_end": 65,
+        "payout": 75
+      },
+      {
+        "rank_start": 66,
+        "rank_end": 85,
+        "payout": 60
+      },
+      {
+        "rank_start": 86,
+        "rank_end": 110,
+        "payout": 50
+      },
+      {
+        "rank_start": 111,
+        "rank_end": 140,
+        "payout": 40
+      },
+      {
+        "rank_start": 141,
+        "rank_end": 180,
+        "payout": 30
+      },
+      {
+        "rank_start": 181,
+        "rank_end": 230,
+        "payout": 25
+      },
+      {
+        "rank_start": 231,
+        "rank_end": 290,
+        "payout": 20
+      },
+      {
+        "rank_start": 291,
+        "rank_end": 370,
+        "payout": 15
+      },
+      {
+        "rank_start": 371,
+        "rank_end": 490,
+        "payout": 10
+      },
+      {
+        "rank_start": 491,
+        "rank_end": 640,
+        "payout": 8
+      },
+      {
+        "rank_start": 641,
+        "rank_end": 840,
+        "payout": 6
+      },
+      {
+        "rank_start": 841,
+        "rank_end": 1615,
+        "payout": 5
+      },
+      {
+        "rank_start": 1616,
+        "rank_end": 3120,
+        "payout": 4
+      },
+      {
+        "rank_start": 3121,
+        "rank_end": 6270,
+        "payout": 3
+      },
+      {
+        "rank_start": 6271,
+        "rank_end": 14035,
+        "payout": 2
+      },
+      {
+        "rank_start": 14036,
+        "rank_end": 29015,
+        "payout": 1.5
+      },
+      {
+        "rank_start": 29016,
+        "rank_end": 87395,
+        "payout": 1
+      }
+    ],
+    "nLineups": 150,
+    "minUnique": 2,
+    "includeDstUnique": false,
+    "projThreshold": 3,
+    "flexRB": 0,
+    "flexWR": 0,
+    "flexTE": 0,
+    "flexAny": 100,
+    "maxExposureQB": 40,
+    "maxExposureRB": 40,
+    "maxExposureWR": 40,
+    "maxExposureTE": 40,
+    "maxExposureDST": 40,
+    "contest": {
+      "dk_contest_id": "195921959",
+      "name": "NFL $175K mini-MAX [150 Entry Max]",
+      "entry_fee": 0.5,
+      "field_size": 416171,
+      "prize_pool": 175000,
+      "paying_positions": 87395
+    }
+  },
+  "prefs": {
+    "autosaveBuilds": true
+  },
+  "overlay": {
+    "players": {},
+    "excludedTeams": [],
+    "excludedGames": [],
+    "gameExclusions": {
+      "LAC@BUF": 1,
+      "CAR@CLE": 2,
+      "NE@JAX": 1,
+      "KC@MIA": 2,
+      "TEN@NYG": 3,
+      "CIN@PIT": 2,
+      "LV@NO": 1
+    },
+    "ownershipFrozen": false,
+    "ownershipFrozenAt": null
+  }
+}
