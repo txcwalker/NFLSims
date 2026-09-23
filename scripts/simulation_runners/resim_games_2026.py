@@ -27,6 +27,8 @@ sys.path.append(os.getcwd())
 import pandas as pd  # noqa: E402
 
 from src.nfl_sim.batch import BatchSimulator  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sim_run_status import run_marker, atomic_to_parquet  # noqa: E402
 
 SIM_YEAR = 2026
 ROSTERS_DIR = os.path.join("data", "current_rosters", "dfs")
@@ -34,6 +36,15 @@ SCHEDULE_PATH = os.path.join("data", "external", f"schedule_{SIM_YEAR}.csv")
 
 
 def resim_games(week, matchups, iterations=10000):
+    """Inputs: week (int), matchups (list of (away, home)), iterations (int per game).
+    Output: none -- merges fresh sims for just those games into the week's
+    dfs_week_{week}_*.parquet caches. Wrapped in sim_run_status.run_marker
+    (2026-09-23) so the site shows "sims running" and auto-refreshes after."""
+    with run_marker(week, iterations=iterations, games=[f"{a}@{h}" for a, h in matchups]):
+        return _resim_games(week, matchups, iterations)
+
+
+def _resim_games(week, matchups, iterations):
     games_cache_path = os.path.join("data", "interim", f"dfs_week_{week}_games.parquet")
     players_cache_path = os.path.join("data", "interim", f"dfs_week_{week}_players.parquet")
     if not os.path.exists(games_cache_path) or not os.path.exists(players_cache_path):
@@ -83,8 +94,9 @@ def resim_games(week, matchups, iterations=10000):
     merged_games = pd.concat([kept_games, fresh_games_df], ignore_index=True)
     merged_players = pd.concat([kept_players, fresh_players_df], ignore_index=True)
 
-    merged_games.to_parquet(games_cache_path, index=False)
-    merged_players.to_parquet(players_cache_path, index=False)
+    # atomic (tmp + rename) so the API never reads a half-written parquet
+    atomic_to_parquet(merged_players, players_cache_path)
+    atomic_to_parquet(merged_games, games_cache_path)
     print(f"Saved {games_cache_path}\nSaved {players_cache_path}")
     print(f"Re-simmed: {resimmed_game_ids} -- all other games in the week left untouched.")
 

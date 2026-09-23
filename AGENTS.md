@@ -52,6 +52,7 @@ src/
         metadata.json                 ← Version, features, training metrics
 
 scripts/
+  simulation_runners/sim_run_status.py         ← 2026-09-23: "sims running" marker (data/interim/dfs_week_N_running.json, via run_marker()) + atomic_to_parquet() used by run_week_sim_2026.py / resim_games_2026.py / app.py's roster-toggle job. Read by GET /api/sim_status, which App.jsx polls every 20s to auto-refresh the DFS site (week results, projections, score charts) when a new run lands. Any NEW writer of dfs_week_N_*.parquet should use both helpers.
   simulation_runners/run_weeks_1_to_4_2025.py  ← Full batch audit driver. Writes docs/audit/v_0_2_0_audit/sim_post_cal_metrics.json + docs/boxscores/week_N/. THE way to measure any game_engine.py change at scale.
   eda/run_historical_eda.py                    ← Real 2021-2025 comparison metrics → historical_eda_metrics.json (the "ground truth" the sim is compared against)
   eda/analyze_clock_pace_grid.py                ← Rebuilds src/nfl_sim/models/clock_pace_v_0_1_0/pace_pools.json from real pbp data

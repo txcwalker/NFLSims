@@ -40,6 +40,8 @@ sys.path.append(os.getcwd())
 import pandas as pd  # noqa: E402
 
 from src.nfl_sim.batch import BatchSimulator  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sim_run_status import run_marker, atomic_to_parquet  # noqa: E402
 
 SIM_YEAR = 2026
 ROSTERS_DIR = os.path.join("data", "current_rosters", "dfs")
@@ -50,6 +52,15 @@ DEFAULT_ITERATIONS = 10000
 
 
 def simulate_week(week, iterations=DEFAULT_ITERATIONS):
+    """Inputs: week (int), iterations (int per game).
+    Output: (games_df, players_df), also written to the dfs_week_{week}_*.parquet caches.
+    Wrapped in sim_run_status.run_marker (2026-09-23) so the site can show
+    "sims running" and auto-refresh the moment the new run lands."""
+    with run_marker(week, iterations=iterations):
+        return _simulate_week(week, iterations)
+
+
+def _simulate_week(week, iterations):
     print(f"\n{'='*60}\n Simulating NFL {SIM_YEAR} Week {week} (DFS roster tree)\n"
          f" Iterations per game: {iterations}\n{'='*60}\n")
 
@@ -91,8 +102,9 @@ def simulate_week(week, iterations=DEFAULT_ITERATIONS):
     all_games_df = pd.concat(all_games_list, ignore_index=True)
     all_players_df = pd.concat(all_players_list, ignore_index=True)
     os.makedirs(os.path.dirname(games_cache_path), exist_ok=True)
-    all_games_df.to_parquet(games_cache_path, index=False)
-    all_players_df.to_parquet(players_cache_path, index=False)
+    # atomic (tmp + rename) so the API never reads a half-written parquet
+    atomic_to_parquet(all_players_df, players_cache_path)
+    atomic_to_parquet(all_games_df, games_cache_path)
     print(f"Saved {games_cache_path}\nSaved {players_cache_path}")
 
     # invalidate stale baked full-response caches app.py would otherwise

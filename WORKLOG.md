@@ -4,6 +4,60 @@
 
 ---
 
+### [2026-09-23] Handoff from Claude Opus 5.5 (Game Explorer: sticky toggles, score explorer, cross-filter, auto-refresh)
+
+- **Active Task:** Cam's Game Explorer (ex-"DFS Simulator") UI requests, 2026-09-22/23: rename; fix + make
+  Active/Inactive toggles sticky (and allow overriding IR); catch-all buckets on the score charts;
+  clickable/multi-select score exploration with raw game counts, per-chart resets, cross-filtering; and
+  pages auto-refreshing whenever a new 10K sim run lands. All done and verified live.
+- **Files Modified:**
+  - [frontend/src/pagesConfig.js](frontend/src/pagesConfig.js) + Home/DfsSummary/Optimizer/ShowdownOptimizer
+    copy: "DFS Simulator" -> "Game Explorer" (route id `simulator` kept for bookmarks).
+  - [frontend/src/pages/Simulator.jsx](frontend/src/pages/Simulator.jsx): `toggleActive` flips the *shown*
+    (pending) state and un-queues when back at saved state (was re-queuing the same action forever);
+    Score Distribution reads live `/api/game_distribution` for baseline results and refetches on `simVersion`.
+  - [scripts/roster_management/dfs_status_ledger.py](scripts/roster_management/dfs_status_ledger.py) (new):
+    sticky toggle ledger `data/overrides/2026/dfs_status_ledger.json`; latest entry at/before a week wins.
+  - [src/data_pipeline/week_roster_v_0_1_0.py](src/data_pipeline/week_roster_v_0_1_0.py): `dfs_status=force_active`
+    overrides a reserve slot (never cut/left_team); `effective_dfs_status` / `reserve_signature` (override only
+    applies to the same IR stint). [apply_sheet_helpers_v_0_1_0.py](scripts/roster_management/apply_sheet_helpers_v_0_1_0.py)
+    honors it; [build_week_overrides_v_0_1_0.py](scripts/roster_management/build_week_overrides_v_0_1_0.py)
+    applies the ledger (`ledger=`, `team=`).
+  - [src/api/app.py](src/api/app.py): roster-toggle POST records to the ledger + rebuilds later existing week
+    sheets; toggle job wrapped in the run marker; `_build_game_distribution` fixed layout (`layout: 2`:
+    total "<10"/2-pt/"80+", margin "≤−28"/1-pt/"≥+28", joint 5x5); new `GET /api/sim_status`.
+  - [scripts/simulation_runners/sim_run_status.py](scripts/simulation_runners/sim_run_status.py) (new):
+    `run_marker` ("sims running" file) + `atomic_to_parquet`; used by
+    [run_week_sim_2026.py](scripts/simulation_runners/run_week_sim_2026.py) and
+    [resim_games_2026.py](scripts/simulation_runners/resim_games_2026.py).
+  - [frontend/src/components/GameDistribution.jsx](frontend/src/components/GameDistribution.jsx): rewrite --
+    `normalizeDist` rebins old payloads from `raw`; bar click/drag/Ctrl/Shift multi-select; selections
+    combine; per-chart reset + reset all; "Most common final scores" + "When X scores N" cards; raw game
+    counts everywhere; cross-filtering (each chart drawn from the OTHER charts' selections, ghost outline).
+  - [frontend/src/App.jsx](frontend/src/App.jsx) + [frontend/src/api.js](frontend/src/api.js): 20s
+    `sim_status` poll -> refetch + REPLACE week results/projections (clears saved per-game results) when the
+    version changes and no run is in progress; `SimStatusBanner`; `simVersion` to Simulator/Showdown.
+  - [frontend/src/pages/ShowdownOptimizer.jsx](frontend/src/pages/ShowdownOptimizer.jsx): Game Read refetches on `simVersion`.
+  - Tests (new): [tests/test_dfs_status_ledger.py](tests/test_dfs_status_ledger.py) (13),
+    [tests/test_sim_run_status.py](tests/test_sim_run_status.py) (5). AGENTS.md §1 entries added.
+- **Verification Performed:** `pytest tests/ -q` -> 139 passed. `vite build` clean. Every score-explorer number
+  (bins, top scores, conditional, combined/cross filters) cross-checked against the dfs_week_3 parquet in
+  Python -- all exact. Auto-refresh verified end to end in the browser: rebuilding banner -> quiet line + game
+  cards fill; hand-made marker -> "in progress" banner; parquet mtime bump + marker removed -> "finished"
+  banner in ~6s, distribution/games/projections/week results refetched, back to quiet at rebuild end, no
+  console errors. Toggle checkbox round-trip verified (nothing applied to real data).
+- **Current System Status:** Tests green. Backend 8002 (`--reload`) and frontend 5173 started from this
+  session -- they die with it; restart with `start_backend_api.bat`. dfs_week_3 parquets had their mtime
+  bumped for the refresh test (contents unchanged).
+- **Immediate Next Steps for the Next Agent:**
+  1. Ask Cam whether to run `python scripts/roster_management/dfs_status_ledger.py seed 2` -- week 2's 16
+     gameday outs predate the ledger and did NOT carry into week 3.
+  2. Blowout rate looks high: ~8.7% of week-3 sims end with |margin| >= 28 (ATL@GB "GB by 28+" 12%);
+     check vs real history (`historical_eda_metrics.json`) before trusting tails.
+  3. Week-results rebuild at 10K sims took ~12 min once (2 min warm) -- profile `_compute_week_sim_results`
+     if it stays slow; page shows old data + banner meanwhile.
+  4. Minor: App loads `week_sim_results?week=1` on mount before defaulting to the latest week (wasted call).
+
 ### [2026-09-23] Handoff from Claude Opus 5.5 (exposure drill-down: "Most paired with" + showdown port)
 
 - **Active Task:** Follow-ups to the previous entry's exposure drill-down, per Cam: drop Avg Salary on

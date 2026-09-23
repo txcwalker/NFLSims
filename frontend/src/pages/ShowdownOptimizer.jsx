@@ -163,7 +163,7 @@ const DEFAULT_SETTINGS = {
   contest: null,           // { dk_contest_id, name, entry_fee, field_size, prize_pool }
 };
 
-export default function ShowdownOptimizer({ allSimResults = {}, games = [], selectedWeek, weeks = [], setSelectedWeek }) {
+export default function ShowdownOptimizer({ allSimResults = {}, games = [], selectedWeek, weeks = [], setSelectedWeek, simVersion = null }) {
   // Games that have a sim result with player projections (this tool requires it).
   const simmedGames = useMemo(() => {
     return (games || [])
@@ -518,14 +518,19 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
   // Game Read: the standalone (no player-projection cost) outcome distribution
   // for this one game, so its box-select always has exact iteration ids ready
   // -- no separate "run a fresh sim" step, unlike the Simulator's week-wide view.
+  // Also refetches when a new sim run lands (simVersion = GET /api/sim_status
+  // sims_updated_at, 2026-09-23). The new distribution resets GameDistribution's
+  // box selection, which clears `scenario` -- correct, since its iteration ids
+  // pointed into the previous run.
   const gameDistLoadedFor = useRef('');
   useEffect(() => {
-    if (!activeGame || !gameId || gameDistLoadedFor.current === gameId) return;
-    gameDistLoadedFor.current = gameId;
+    const loadKey = `${gameId}|${simVersion ?? ''}`;
+    if (!activeGame || !gameId || gameDistLoadedFor.current === loadKey) return;
+    gameDistLoadedFor.current = loadKey;
     ApiService.getGameDistribution(activeGame.away_team, activeGame.home_team, selectedWeek)
       .then(setGameDist)
       .catch(() => setGameDist(null));
-  }, [gameId, activeGame, selectedWeek]);
+  }, [gameId, activeGame, selectedWeek, simVersion]);
 
   // ── Save slots: 3 switchable, autosaved workspace snapshots for this game
   // (see useWorkspaceSlots) -- pool edits, settings, lineups, and the Game

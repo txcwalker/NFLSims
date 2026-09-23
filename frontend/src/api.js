@@ -411,7 +411,19 @@ export const ApiService = {
 
   async getWeekSimResults(week) {
     const fallback = { week: week, games: {} };
-    return safeFetch(`${API_BASE}/week_sim_results?week=${week}`, {}, fallback);
+    const res = await safeFetch(`${API_BASE}/week_sim_results?week=${week}`, {}, fallback);
+    // Tag every game as the week's BASELINE result (vs. a custom Run Engine
+    // result) -- the Game Explorer uses this to know it may swap in the live
+    // /api/game_distribution for the score charts (2026-09-23).
+    Object.values(res?.games || {}).forEach(g => { if (g) g._source = 'week'; });
+    return res;
+  },
+
+  // Cheap poll target (GET /api/sim_status): version token, sims per game,
+  // whether a run is in progress, whether rebuilt week results are ready.
+  // App.jsx polls this to auto-refresh when a new sim run lands. null on error.
+  async getSimStatus(week) {
+    return safeFetch(`${API_BASE}/sim_status?week=${week}`, {}, null);
   },
 
   async getWeekCashLineups(week) {

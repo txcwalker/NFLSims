@@ -46,7 +46,8 @@ export default function Simulator({
   setSimResults,
   generatedLineups,
   setGeneratedLineups,
-  setCurrentPage
+  setCurrentPage,
+  simVersion            // GET /api/sim_status sims_updated_at -- changes when a new sim run lands
 }) {
   // --- SLATE & MATCHUP STATE ---
   const [slateFilter, setSlateFilter] = useState('ALL'); // 'ALL', 'DK_MAIN', 'FD_MAIN'
@@ -664,6 +665,7 @@ export default function Simulator({
           rosterJobError={rosterJobErrors[selectedGame.game_id] || null}
           applyGameRosterChanges={(team) => applyGameRosterChanges(selectedGame.game_id, team)}
           freshRosterVersion={rosterRefreshTicks[selectedGame.game_id] || 0}
+          simVersion={simVersion}
         />
       ) : (
         <div style={{ textAlign: 'center', padding: '40px' }}>Select week/slate matchups to configure Monte Carlo workloads.</div>
@@ -701,7 +703,8 @@ function GameSimulatorWorkspace({
   rosterJobStatus,
   rosterJobError,
   applyGameRosterChanges,
-  freshRosterVersion
+  freshRosterVersion,
+  simVersion
 }) {
   const saved = slateOverrides?.[selectedGame.game_id] || {};
 
@@ -748,26 +751,26 @@ function GameSimulatorWorkspace({
     setGeneratedLineups([]);
   }, [selectedGame.game_id, allSimResults]);
 
-  // Score Distribution source (2026-09-22). The cached week_sim_results
-  // payload carries only a binned distribution (no per-sim `raw`) and is
-  // expensive to regenerate, so its bins can lag behind
-  // _build_game_distribution's current layout (catch-all end buckets, 1-pt
-  // margins). When `raw` is missing, pull the same game's distribution from
-  // the lightweight GET /api/game_distribution (same DFS-week parquet, always
-  // current, exact). Anything WITH `raw` (a Run Engine result, possibly a
-  // custom Vegas scenario the endpoint doesn't know about) is used as-is:
-  // GameDistribution's normalizeDist rebins it exactly from `raw`. Already-
-  // clamped payloads need nothing.
+  // Score Distribution source. For the week's BASELINE result (tagged
+  // _source='week' by ApiService.getWeekSimResults), or any payload without
+  // per-sim `raw`, the charts read the live GET /api/game_distribution
+  // instead: same DFS-week parquet, exact, always the LATEST run -- and it
+  // refetches on simVersion (2026-09-23), so the charts switch to a new 10K
+  // run within one sim-status poll of it landing, without waiting for the
+  // multi-minute week_sim_results rebuild. A custom Run Engine result (untagged,
+  // with raw -- possibly a custom Vegas scenario the endpoint doesn't know
+  // about) is used as-is; GameDistribution's normalizeDist rebins it if old.
   const [freshDist, setFreshDist] = useState(null);
   useEffect(() => {
     setFreshDist(null);
     const d = simResults?.game_distribution;
-    if (!d || d.raw || d.layout === DIST_LAYOUT) return;
+    const isBaseline = simResults?._source === 'week';
+    if (!d || (!isBaseline && (d.raw || d.layout === DIST_LAYOUT))) return;
     let cancelled = false;
     ApiService.getGameDistribution(selectedGame.away_team, selectedGame.home_team, selectedWeek)
       .then(r => { if (!cancelled && r?.total) setFreshDist(r); });
     return () => { cancelled = true; };
-  }, [simResults, selectedGame.away_team, selectedGame.home_team, selectedWeek]);
+  }, [simResults, selectedGame.away_team, selectedGame.home_team, selectedWeek, simVersion]);
   const displayDist = freshDist || simResults?.game_distribution;
   const [sortField, setSortField] = useState('dk_points');
   const [sortAsc, setSortAsc] = useState(false);

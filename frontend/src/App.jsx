@@ -31,6 +31,7 @@ export default function App() {
   const [selectedGame, setSelectedGame] = useState(null);
   const [hasSimResults, setHasSimResults] = useState(false);
   const [allSimResults, setAllSimResults] = useState({});
+  const [slateOverrides, setSlateOverrides] = useState({});
   const [simResults, setSimResults] = useState(null);
   const [generatedLineups, setGeneratedLineups] = useState([]);
   const [optimizerLineups, setOptimizerLineups] = useState([]);
@@ -42,6 +43,12 @@ export default function App() {
   // whichever slate is selected as this grows beyond just the Optimizer.
   const [dkSlates, setDkSlates] = useState([]);
   const [selectedDraftGroupId, setSelectedDraftGroupId] = useState(null);
+
+  // Sim-run auto-refresh state (see the sim-status poll below).
+  const [simStatus, setSimStatus] = useState(null);         // latest GET /api/sim_status
+  const [loadedVersion, setLoadedVersion] = useState(null); // status.version the on-screen data came from
+  const [refreshing, setRefreshing] = useState(false);      // refetch after a new run is in flight
+  const [dataNonce, setDataNonce] = useState(0);            // bumped to refetch week data
 
   useEffect(() => {
     // Passing selectedWeek lets the backend apply its sticky per-week
@@ -108,25 +115,70 @@ export default function App() {
       })
       .catch(err => console.error("Error fetching week projections:", err));
     return () => { cancelled = true; };
-  }, [selectedWeek, selectedDraftGroupId]);
+  }, [selectedWeek, selectedDraftGroupId, dataNonce]);
 
   useEffect(() => {
     // Prepopulate every game's baseline sim results from the parquet cache so
     // the Simulator doesn't need a per-game "Run Engine" click to show data.
     // Unrelated to DK salaries/slate -- must not re-fire on a slate switch.
+    //
+    // Also re-fires on dataNonce (2026-09-23 auto-refresh, see the sim-status
+    // poll below). The sim-status version is read BEFORE the (possibly
+    // minutes-long) results request, so if another run lands mid-request the
+    // recorded version is already stale and the poll triggers one more refresh.
     let cancelled = false;
-    ApiService.getWeekSimResults(selectedWeek)
-      .then(data => {
-        if (cancelled) return;
-        const gameResults = data.games || {};
-        if (Object.keys(gameResults).length > 0) {
+    const isRefresh = dataNonce > 0;
+    (async () => {
+      const status = await ApiService.getSimStatus(selectedWeek);
+      const data = await ApiService.getWeekSimResults(selectedWeek);
+      if (cancelled) return;
+      const gameResults = data.games || {};
+      if (Object.keys(gameResults).length > 0) {
+        if (isRefresh) {
+          // A new run replaces everything: the baseline for every game AND any
+          // per-game results the Game Explorer saved (custom Run Engine
+          // results were computed from the previous run, so they go too).
+          setAllSimResults(gameResults);
+          setSlateOverrides(prev => Object.fromEntries(Object.entries(prev).map(
+            ([gid, o]) => [gid, { ...o, simResults: null, baselineResults: null }])));
+        } else {
           setAllSimResults(prev => ({ ...gameResults, ...prev }));
-          setHasSimResults(true);
         }
-      })
-      .catch(err => console.error("Error fetching week sim results:", err));
+        setHasSimResults(true);
+      }
+      setLoadedVersion(status?.version ?? null);
+      setRefreshing(false);
+    })().catch(err => { console.error("Error fetching week sim results:", err); setRefreshing(false); });
     return () => { cancelled = true; };
+  }, [selectedWeek, dataNonce]);
+
+  // --- AUTO-REFRESH ON NEW SIM RUNS (2026-09-23) ---
+  // Poll the cheap GET /api/sim_status every 20s. When its version moves past
+  // the one the loaded data was built from, and no run is still writing,
+  // bump dataNonce -> the two effects above refetch (week results can take
+  // minutes to rebuild at 10K sims; the old data stays on screen meanwhile).
+  // simStatus.sims_updated_at is also passed down as `simVersion` so the
+  // score-distribution charts refetch from the fast /api/game_distribution
+  // the moment the parquet lands, without waiting for that rebuild.
+  useEffect(() => {
+    setSimStatus(null);
+    setLoadedVersion(null);
+    let alive = true;
+    const poll = () => ApiService.getSimStatus(selectedWeek)
+      .then(st => { if (alive && st) setSimStatus(st); });
+    poll();
+    const id = setInterval(poll, 20000);
+    return () => { alive = false; clearInterval(id); };
   }, [selectedWeek]);
+
+  useEffect(() => {
+    if (!simStatus || simStatus.week !== selectedWeek || simStatus.running) return;
+    if (loadedVersion == null || refreshing) return;
+    if (simStatus.version !== loadedVersion) {
+      setRefreshing(true);
+      setDataNonce(n => n + 1);
+    }
+  }, [simStatus, loadedVersion, refreshing, selectedWeek]);
 
   // Handle URL location hash sync for navigation bookmarks and browser history support
   useEffect(() => {
@@ -147,8 +199,6 @@ export default function App() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
-
-  const [slateOverrides, setSlateOverrides] = useState({});
 
   // Determine active component to render
   const renderPageContent = () => {
@@ -188,6 +238,7 @@ export default function App() {
             generatedLineups={generatedLineups}
             setGeneratedLineups={setGeneratedLineups}
             setCurrentPage={setCurrentPage}
+            simVersion={simStatus?.sims_updated_at ?? null}
           />
         );
       case 'dfs_summary':
@@ -225,6 +276,7 @@ export default function App() {
       case 'showdown_optimizer':
         return (
           <ShowdownOptimizer
+            simVersion={simStatus?.sims_updated_at ?? null}
             allSimResults={allSimResults}
             games={games}
             weeks={weeks}
@@ -290,6 +342,8 @@ export default function App() {
 
       {/* Page Content viewport */}
       <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+        <SimStatusBanner status={simStatus} week={selectedWeek}
+                         rebuilding={refreshing || (loadedVersion == null && simStatus && !simStatus.results_ready)} />
         {renderPageContent()}
       </main>
 
@@ -297,4 +351,42 @@ export default function App() {
       <ProgressFooter setCurrentPage={setCurrentPage} />
     </div>
   )
+}
+
+/**
+ * One-line sim-run status strip (2026-09-23), shown on every page.
+ * Inputs: status (GET /api/sim_status payload | null), week (selected week),
+ * rebuilding (bool -- a finished run's projections are still being rebuilt).
+ * Renders: "running" while a sim run is writing, "rebuilding" after it lands,
+ * otherwise a quiet "N sims/game · updated <time>" line. Nothing when unknown.
+ */
+function SimStatusBanner({ status, week, rebuilding }) {
+  if (!status || status.week !== week) return null;
+  const t = (unix) => new Date(unix * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const iters = status.iterations ? `${status.iterations.toLocaleString()} sims/game` : null;
+  const base = { margin: '8px 16px 0', padding: '6px 12px', borderRadius: '8px', fontSize: '0.78rem' };
+  if (status.running) {
+    const r = status.running;
+    const what = r.games?.length ? `re-simming ${r.games.join(', ')}` : `running all Week ${week} games`;
+    return (
+      <div style={{ ...base, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', color: 'var(--accent-gold)' }}>
+        ⏳ New sims in progress — {what}{r.iterations ? ` at ${r.iterations.toLocaleString()} sims/game` : ''}, started {t(r.started_at)}.
+        Pages will update automatically when it finishes.
+      </div>
+    );
+  }
+  if (rebuilding) {
+    return (
+      <div style={{ ...base, background: 'rgba(56,189,248,0.10)', border: '1px solid rgba(56,189,248,0.35)', color: 'var(--accent-primary)' }}>
+        ✓ New sims finished{status.sims_updated_at ? ` at ${t(status.sims_updated_at)}` : ''}{iters ? ` (${iters})` : ''} — rebuilding projections, which can take several minutes.
+        Score charts already show the new run; tables update when the rebuild finishes.
+      </div>
+    );
+  }
+  if (!status.sims_updated_at) return null;
+  return (
+    <div style={{ ...base, padding: '2px 12px', color: 'var(--text-muted)', fontSize: '0.72rem', textAlign: 'right' }}>
+      Week {week} sims{iters ? `: ${iters}` : ''} · updated {t(status.sims_updated_at)}
+    </div>
+  );
 }

@@ -143,6 +143,7 @@ for _scripts_dir in (os.path.join(BASE_DIR, "scripts", "roster_management"),
 from apply_team_week_overrides_v_0_1_0 import apply_team_week_overrides  # noqa: E402
 from roster_feed_v_0_1_0 import read_rows as roster_read_rows, write_rows as roster_write_rows, match_key as roster_match_key  # noqa: E402
 from resim_games_2026 import resim_games  # noqa: E402
+from sim_run_status import read_run_marker as read_sim_run_marker, run_marker as sim_run_marker  # noqa: E402
 from build_week_overrides_v_0_1_0 import build_team_week_rows  # noqa: E402
 from dfs_status_ledger import load_ledger as load_dfs_ledger, save_ledger as save_dfs_ledger, record_toggle as record_dfs_toggle  # noqa: E402
 
@@ -1478,6 +1479,64 @@ def _compute_week_projections(week: int, year: int, draft_group_id: Optional[int
     WEEK_PROJECTIONS_CACHE[cache_key] = result
     WEEK_PROJECTIONS_CACHE_FRESHNESS[cache_key] = fresh_token
     return result
+
+# Parquet mtime -> sims-per-game, so /api/sim_status stays cheap (read only
+# the parquet footer, once per new run).
+_SIM_ITERATIONS_BY_MTIME: Dict[tuple, int] = {}
+
+
+@app.get("/api/sim_status")
+def get_sim_status(week: int, year: int = 2026):
+    """Cheap poll target (2026-09-23) so the Game Explorer / Showdown pages can
+    auto-refresh when a new sim run lands, instead of serving whatever they
+    loaded at page open until a manual reload.
+
+    Inputs: week (int), year (int).
+    Output: {
+      week, version      -- _dfs_week_input_mtime: changes whenever the DFS
+                            parquet, a roster file, or optimal_pct changes
+                            (the same token week_sim_results' cache keys on)
+      sims_updated_at    -- mtime of dfs_week_{week}_games.parquet (null if none)
+      iterations         -- sims per game in that parquet (footer row count / week's games)
+      running            -- sim_run_status marker dict while run_week_sim_2026 /
+                            resim_games is writing a new run, else null
+      results_ready      -- week_sim_results already computed for `version`
+                            (false = the next /api/week_sim_results call rebuilds,
+                            which takes minutes at 10K sims)
+    }
+    Reads no parquet data -- file mtimes, the parquet footer, and in-memory
+    cache state only."""
+    g_path = os.path.join(BASE_DIR, "data", "interim", f"dfs_week_{week}_games.parquet")
+    sims_updated_at, iterations = None, None
+    if os.path.exists(g_path):
+        sims_updated_at = os.path.getmtime(g_path)
+        key = (week, sims_updated_at)
+        if key not in _SIM_ITERATIONS_BY_MTIME:
+            try:
+                import pyarrow.parquet as pq
+                rows = pq.read_metadata(g_path).num_rows
+                n_games = 0
+                if os.path.exists(SCHEDULE_CSV_PATH):
+                    sched = pd.read_csv(SCHEDULE_CSV_PATH, usecols=["season", "week", "game_type"])
+                    n_games = int(((sched["season"] == year) & (sched["week"] == week)
+                                   & (sched["game_type"] == "REG")).sum())
+                _SIM_ITERATIONS_BY_MTIME[key] = int(round(rows / n_games)) if n_games else None
+            except Exception as e:  # noqa: BLE001 -- status is best-effort, never fail the poll
+                print(f"sim_status: couldn't read {g_path} footer: {e}")
+                _SIM_ITERATIONS_BY_MTIME[key] = None
+        iterations = _SIM_ITERATIONS_BY_MTIME[key]
+    version = _dfs_week_input_mtime(week, year)
+    cache_key = (week, year)
+    return {
+        "week": week,
+        "version": version,
+        "sims_updated_at": sims_updated_at,
+        "iterations": iterations,
+        "running": read_sim_run_marker(week, BASE_DIR),
+        "results_ready": bool(cache_key in WEEK_SIM_RESULTS_CACHE
+                              and WEEK_SIM_RESULTS_CACHE_FRESHNESS.get(cache_key) == version),
+    }
+
 
 @app.get("/api/week_sim_results")
 def get_week_sim_results(week: int = 1, year: int = 2026):
@@ -2878,9 +2937,14 @@ def _apply_roster_toggle_changes(week: int, team: str, changes: List[RosterStatu
 
 def _run_roster_toggle_job(week: int, teams: List[str], away: str, home: str, game_id: str):
     try:
-        for team in teams:
-            apply_team_week_overrides(week, team)
-        resim_games(week, [(away, home)], iterations=10000)
+        # The whole job runs under the sim-run marker (2026-09-23), not just
+        # resim_games' own: the roster compile below bumps the week's version
+        # token first, and without the marker the site's sim-status poll would
+        # start a multi-minute week_sim_results rebuild on half-updated inputs.
+        with sim_run_marker(week, iterations=10000, games=[f"{away}@{home}"], base_dir=BASE_DIR):
+            for team in teams:
+                apply_team_week_overrides(week, team)
+            resim_games(week, [(away, home)], iterations=10000)
         DFS_ROSTER_TOGGLE_JOBS[game_id] = {
             "status": "done",
             "finished_at": time.time(),
