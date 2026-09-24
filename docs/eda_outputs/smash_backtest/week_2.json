@@ -1,0 +1,939 @@
+{
+  "week": 2,
+  "calibration": {
+    "4.5": {
+      "n": 306,
+      "expected_hits": 18.151699999999998,
+      "real_hits": 17,
+      "by_prob": [
+        {
+          "p_bin": "(-0.001, 0.01]",
+          "n": 80.0,
+          "predicted": 0.0029625,
+          "actual": 0.025,
+          "exp_hits": 0.237,
+          "real_hits": 2.0
+        },
+        {
+          "p_bin": "(0.01, 0.03]",
+          "n": 58.0,
+          "predicted": 0.01820344827586207,
+          "actual": 0.017241379310344827,
+          "exp_hits": 1.0558,
+          "real_hits": 1.0
+        },
+        {
+          "p_bin": "(0.03, 0.06]",
+          "n": 70.0,
+          "predicted": 0.044698571428571435,
+          "actual": 0.05714285714285714,
+          "exp_hits": 3.1289000000000002,
+          "real_hits": 4.0
+        },
+        {
+          "p_bin": "(0.06, 0.1]",
+          "n": 35.0,
+          "predicted": 0.07838285714285714,
+          "actual": 0.08571428571428572,
+          "exp_hits": 2.7434,
+          "real_hits": 3.0
+        },
+        {
+          "p_bin": "(0.1, 0.15]",
+          "n": 30.0,
+          "predicted": 0.12255,
+          "actual": 0.16666666666666666,
+          "exp_hits": 3.6765000000000003,
+          "real_hits": 5.0
+        },
+        {
+          "p_bin": "(0.15, 0.25]",
+          "n": 25.0,
+          "predicted": 0.19165200000000002,
+          "actual": 0.04,
+          "exp_hits": 4.791300000000001,
+          "real_hits": 1.0
+        },
+        {
+          "p_bin": "(0.25, 1.0]",
+          "n": 8.0,
+          "predicted": 0.31484999999999996,
+          "actual": 0.125,
+          "exp_hits": 2.5187999999999997,
+          "real_hits": 1.0
+        }
+      ],
+      "by_salary": [
+        {
+          "sal_bin": "<4K",
+          "n": 143.0,
+          "predicted": 0.04623426573426573,
+          "actual": 0.06293706293706294,
+          "exp_hits": 6.6114999999999995,
+          "real_hits": 9.0
+        },
+        {
+          "sal_bin": "4-5.4K",
+          "n": 108.0,
+          "predicted": 0.06435092592592594,
+          "actual": 0.027777777777777776,
+          "exp_hits": 6.9499,
+          "real_hits": 3.0
+        },
+        {
+          "sal_bin": "5.5-6.9K",
+          "n": 45.0,
+          "predicted": 0.08350222222222223,
+          "actual": 0.06666666666666667,
+          "exp_hits": 3.7576000000000005,
+          "real_hits": 3.0
+        },
+        {
+          "sal_bin": "7K+",
+          "n": 10.0,
+          "predicted": 0.08327,
+          "actual": 0.2,
+          "exp_hits": 0.8327,
+          "real_hits": 2.0
+        }
+      ]
+    },
+    "5.0": {
+      "n": 306,
+      "expected_hits": 12.2419,
+      "real_hits": 10,
+      "by_prob": [
+        {
+          "p_bin": "(-0.001, 0.01]",
+          "n": 113.0,
+          "predicted": 0.003302654867256637,
+          "actual": 0.008849557522123894,
+          "exp_hits": 0.3732,
+          "real_hits": 1.0
+        },
+        {
+          "p_bin": "(0.01, 0.03]",
+          "n": 72.0,
+          "predicted": 0.019923611111111114,
+          "actual": 0.05555555555555555,
+          "exp_hits": 1.4345,
+          "real_hits": 4.0
+        },
+        {
+          "p_bin": "(0.03, 0.06]",
+          "n": 55.0,
+          "predicted": 0.04310363636363636,
+          "actual": 0.01818181818181818,
+          "exp_hits": 2.3707,
+          "real_hits": 1.0
+        },
+        {
+          "p_bin": "(0.06, 0.1]",
+          "n": 32.0,
+          "predicted": 0.080015625,
+          "actual": 0.09375,
+          "exp_hits": 2.5605,
+          "real_hits": 3.0
+        },
+        {
+          "p_bin": "(0.1, 0.15]",
+          "n": 17.0,
+          "predicted": 0.1169470588235294,
+          "actual": 0.058823529411764705,
+          "exp_hits": 1.9880999999999998,
+          "real_hits": 1.0
+        },
+        {
+          "p_bin": "(0.15, 0.25]",
+          "n": 15.0,
+          "predicted": 0.18948666666666666,
+          "actual": 0.0,
+          "exp_hits": 2.8423,
+          "real_hits": 0.0
+        },
+        {
+          "p_bin": "(0.25, 1.0]",
+          "n": 2.0,
+          "predicted": 0.3363,
+          "actual": 0.0,
+          "exp_hits": 0.6726,
+          "real_hits": 0.0
+        }
+      ],
+      "by_salary": [
+        {
+          "sal_bin": "<4K",
+          "n": 143.0,
+          "predicted": 0.033213286713286716,
+          "actual": 0.04895104895104895,
+          "exp_hits": 4.7495,
+          "real_hits": 7.0
+        },
+        {
+          "sal_bin": "4-5.4K",
+          "n": 108.0,
+          "predicted": 0.044248148148148155,
+          "actual": 0.009259259259259259,
+          "exp_hits": 4.7788,
+          "real_hits": 1.0
+        },
+        {
+          "sal_bin": "5.5-6.9K",
+          "n": 45.0,
+          "predicted": 0.05018222222222223,
+          "actual": 0.0,
+          "exp_hits": 2.2582000000000004,
+          "real_hits": 0.0
+        },
+        {
+          "sal_bin": "7K+",
+          "n": 10.0,
+          "predicted": 0.045540000000000004,
+          "actual": 0.2,
+          "exp_hits": 0.4554,
+          "real_hits": 2.0
+        }
+      ]
+    }
+  },
+  "strategies": [
+    {
+      "strategy": "gaussian",
+      "rep": 0,
+      "n": 150,
+      "mean_score": 109.79826666666668,
+      "max_score": 181.86,
+      "missing_players": 0,
+      "contests": {
+        "firstdown": {
+          "field": 148443,
+          "fee": 1.0,
+          "mean_pctile": 0.5600284284203364,
+          "top20": 0.1,
+          "top1": 0.006666666666666667,
+          "top01": 0.0,
+          "best_rank": 1202
+        },
+        "minimax": {
+          "field": 415164,
+          "fee": 0.5,
+          "mean_pctile": 0.6037989003542374,
+          "top20": 0.08,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 4349
+        },
+        "playaction": {
+          "field": 316828,
+          "fee": 3.0,
+          "mean_pctile": 0.5356371911573473,
+          "top20": 0.10666666666666667,
+          "top1": 0.006666666666666667,
+          "top01": 0.0,
+          "best_rank": 2009
+        },
+        "pocket": {
+          "field": 141394,
+          "fee": 0.01,
+          "mean_pctile": 0.5842037615929012,
+          "top20": 0.09333333333333334,
+          "top1": 0.006666666666666667,
+          "top01": 0.0,
+          "best_rank": 1271
+        },
+        "powersweep": {
+          "field": 3703,
+          "fee": 150.0,
+          "mean_pctile": 0.6148114141686921,
+          "top20": 0.04666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 47
+        },
+        "screenpass": {
+          "field": 5881,
+          "fee": 15.0,
+          "mean_pctile": 0.6130794082639007,
+          "top20": 0.05333333333333334,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 69
+        },
+        "slant": {
+          "field": 13070,
+          "fee": 9.0,
+          "mean_pctile": 0.6382121907676613,
+          "top20": 0.04,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 195
+        },
+        "threepointstance": {
+          "field": 5299,
+          "fee": 33.0,
+          "mean_pctile": 0.15553249040699502,
+          "top20": 0.7,
+          "top1": 0.1,
+          "top01": 0.02,
+          "best_rank": 1
+        }
+      }
+    },
+    {
+      "strategy": "gaussian",
+      "rep": 1,
+      "n": 150,
+      "mean_score": 108.52360000000002,
+      "max_score": 163.68,
+      "missing_players": 0,
+      "contests": {
+        "firstdown": {
+          "field": 148443,
+          "fee": 1.0,
+          "mean_pctile": 0.5731943798854331,
+          "top20": 0.05333333333333334,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 6158
+        },
+        "minimax": {
+          "field": 415164,
+          "fee": 0.5,
+          "mean_pctile": 0.617627026106952,
+          "top20": 0.04,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 21783
+        },
+        "playaction": {
+          "field": 316828,
+          "fee": 3.0,
+          "mean_pctile": 0.5486587254493499,
+          "top20": 0.08666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 10883
+        },
+        "pocket": {
+          "field": 141394,
+          "fee": 0.01,
+          "mean_pctile": 0.5978612482377847,
+          "top20": 0.05333333333333334,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 6515
+        },
+        "powersweep": {
+          "field": 3703,
+          "fee": 150.0,
+          "mean_pctile": 0.6283895940228643,
+          "top20": 0.03333333333333333,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 239
+        },
+        "screenpass": {
+          "field": 5881,
+          "fee": 15.0,
+          "mean_pctile": 0.6265227002210508,
+          "top20": 0.03333333333333333,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 338
+        },
+        "slant": {
+          "field": 13070,
+          "fee": 9.0,
+          "mean_pctile": 0.6516837541443511,
+          "top20": 0.02666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 942
+        },
+        "threepointstance": {
+          "field": 5299,
+          "fee": 33.0,
+          "mean_pctile": 0.15973076681134807,
+          "top20": 0.6866666666666666,
+          "top1": 0.06666666666666667,
+          "top01": 0.013333333333333334,
+          "best_rank": 2
+        }
+      }
+    },
+    {
+      "strategy": "sim_corr",
+      "rep": 0,
+      "n": 150,
+      "mean_score": 109.95560000000002,
+      "max_score": 176.5,
+      "missing_players": 0,
+      "contests": {
+        "firstdown": {
+          "field": 148443,
+          "fee": 1.0,
+          "mean_pctile": 0.5642985298509641,
+          "top20": 0.1,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 2070
+        },
+        "minimax": {
+          "field": 415164,
+          "fee": 0.5,
+          "mean_pctile": 0.608964987330308,
+          "top20": 0.08,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 7138
+        },
+        "playaction": {
+          "field": 316828,
+          "fee": 3.0,
+          "mean_pctile": 0.5398476776042522,
+          "top20": 0.12666666666666668,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 3381
+        },
+        "pocket": {
+          "field": 141394,
+          "fee": 0.01,
+          "mean_pctile": 0.589197514274533,
+          "top20": 0.08666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 2265
+        },
+        "powersweep": {
+          "field": 3703,
+          "fee": 150.0,
+          "mean_pctile": 0.62001080205239,
+          "top20": 0.06666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 74
+        },
+        "screenpass": {
+          "field": 5881,
+          "fee": 15.0,
+          "mean_pctile": 0.6179663322564191,
+          "top20": 0.06666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 114
+        },
+        "slant": {
+          "field": 13070,
+          "fee": 9.0,
+          "mean_pctile": 0.6426569752614129,
+          "top20": 0.05333333333333334,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 316
+        },
+        "threepointstance": {
+          "field": 5299,
+          "fee": 33.0,
+          "mean_pctile": 0.14947096936528903,
+          "top20": 0.7266666666666667,
+          "top1": 0.11333333333333333,
+          "top01": 0.03333333333333333,
+          "best_rank": 1
+        }
+      }
+    },
+    {
+      "strategy": "sim_corr",
+      "rep": 1,
+      "n": 150,
+      "mean_score": 110.91,
+      "max_score": 173.62,
+      "missing_players": 0,
+      "contests": {
+        "firstdown": {
+          "field": 148443,
+          "fee": 1.0,
+          "mean_pctile": 0.5484838400373655,
+          "top20": 0.08666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 2645
+        },
+        "minimax": {
+          "field": 415164,
+          "fee": 0.5,
+          "mean_pctile": 0.593588509601025,
+          "top20": 0.05333333333333334,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 9232
+        },
+        "playaction": {
+          "field": 316828,
+          "fee": 3.0,
+          "mean_pctile": 0.5234523463835267,
+          "top20": 0.10666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 4427
+        },
+        "pocket": {
+          "field": 141394,
+          "fee": 0.01,
+          "mean_pctile": 0.573602368794527,
+          "top20": 0.07333333333333333,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 2950
+        },
+        "powersweep": {
+          "field": 3703,
+          "fee": 150.0,
+          "mean_pctile": 0.6051309748852282,
+          "top20": 0.05333333333333334,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 95
+        },
+        "screenpass": {
+          "field": 5881,
+          "fee": 15.0,
+          "mean_pctile": 0.6033180298135238,
+          "top20": 0.05333333333333334,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 140
+        },
+        "slant": {
+          "field": 13070,
+          "fee": 9.0,
+          "mean_pctile": 0.6288023463402194,
+          "top20": 0.05333333333333334,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 410
+        },
+        "threepointstance": {
+          "field": 5299,
+          "fee": 33.0,
+          "mean_pctile": 0.14423601937472477,
+          "top20": 0.7533333333333333,
+          "top1": 0.09333333333333334,
+          "top01": 0.04,
+          "best_rank": 1
+        }
+      }
+    },
+    {
+      "strategy": "smash45",
+      "rep": 0,
+      "n": 150,
+      "mean_score": 108.81693333333331,
+      "max_score": 165.79999999999998,
+      "missing_players": 0,
+      "contests": {
+        "firstdown": {
+          "field": 148443,
+          "fee": 1.0,
+          "mean_pctile": 0.5750917636174603,
+          "top20": 0.1,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 5172
+        },
+        "minimax": {
+          "field": 415164,
+          "fee": 0.5,
+          "mean_pctile": 0.6181646610335514,
+          "top20": 0.07333333333333333,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 17949
+        },
+        "playaction": {
+          "field": 316828,
+          "fee": 3.0,
+          "mean_pctile": 0.5513792131166857,
+          "top20": 0.10666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 9196
+        },
+        "pocket": {
+          "field": 141394,
+          "fee": 0.01,
+          "mean_pctile": 0.5990148568303229,
+          "top20": 0.08666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 5553
+        },
+        "powersweep": {
+          "field": 3703,
+          "fee": 150.0,
+          "mean_pctile": 0.6281753533171303,
+          "top20": 0.06666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 196
+        },
+        "screenpass": {
+          "field": 5881,
+          "fee": 15.0,
+          "mean_pctile": 0.626685937765686,
+          "top20": 0.07333333333333333,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 289
+        },
+        "slant": {
+          "field": 13070,
+          "fee": 9.0,
+          "mean_pctile": 0.6505437388421321,
+          "top20": 0.06666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 790
+        },
+        "threepointstance": {
+          "field": 5299,
+          "fee": 33.0,
+          "mean_pctile": 0.16195886016229477,
+          "top20": 0.68,
+          "top1": 0.1,
+          "top01": 0.02,
+          "best_rank": 2
+        }
+      }
+    },
+    {
+      "strategy": "smash45",
+      "rep": 1,
+      "n": 150,
+      "mean_score": 112.00786666666667,
+      "max_score": 162.48,
+      "missing_players": 1,
+      "contests": {
+        "firstdown": {
+          "field": 148443,
+          "fee": 1.0,
+          "mean_pctile": 0.5368234271740668,
+          "top20": 0.13333333333333333,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 6833
+        },
+        "minimax": {
+          "field": 415164,
+          "fee": 0.5,
+          "mean_pctile": 0.5798429215121415,
+          "top20": 0.10666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 23763
+        },
+        "playaction": {
+          "field": 316828,
+          "fee": 3.0,
+          "mean_pctile": 0.5128048026058303,
+          "top20": 0.16,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 12009
+        },
+        "pocket": {
+          "field": 141394,
+          "fee": 0.01,
+          "mean_pctile": 0.5604499012216454,
+          "top20": 0.12,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 7132
+        },
+        "powersweep": {
+          "field": 3703,
+          "fee": 150.0,
+          "mean_pctile": 0.5908830677828788,
+          "top20": 0.08666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 252
+        },
+        "screenpass": {
+          "field": 5881,
+          "fee": 15.0,
+          "mean_pctile": 0.5888647055489429,
+          "top20": 0.09333333333333334,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 376
+        },
+        "slant": {
+          "field": 13070,
+          "fee": 9.0,
+          "mean_pctile": 0.6139280795715379,
+          "top20": 0.08666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 1011
+        },
+        "threepointstance": {
+          "field": 5299,
+          "fee": 33.0,
+          "mean_pctile": 0.14426369755299742,
+          "top20": 0.72,
+          "top1": 0.14,
+          "top01": 0.04666666666666667,
+          "best_rank": 3
+        }
+      }
+    },
+    {
+      "strategy": "smash50",
+      "rep": 0,
+      "n": 150,
+      "mean_score": 107.84706666666668,
+      "max_score": 163.32000000000002,
+      "missing_players": 0,
+      "contests": {
+        "firstdown": {
+          "field": 148443,
+          "fee": 1.0,
+          "mean_pctile": 0.5783164357138205,
+          "top20": 0.06,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 6345
+        },
+        "minimax": {
+          "field": 415164,
+          "fee": 0.5,
+          "mean_pctile": 0.6209870155729624,
+          "top20": 0.04,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 22321
+        },
+        "playaction": {
+          "field": 316828,
+          "fee": 3.0,
+          "mean_pctile": 0.5546132917545166,
+          "top20": 0.08666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 11177
+        },
+        "pocket": {
+          "field": 141394,
+          "fee": 0.01,
+          "mean_pctile": 0.6020361071426887,
+          "top20": 0.04666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 6703
+        },
+        "powersweep": {
+          "field": 3703,
+          "fee": 150.0,
+          "mean_pctile": 0.6312467368800072,
+          "top20": 0.02666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 243
+        },
+        "screenpass": {
+          "field": 5881,
+          "fee": 15.0,
+          "mean_pctile": 0.6301762738763248,
+          "top20": 0.03333333333333333,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 345
+        },
+        "slant": {
+          "field": 13070,
+          "fee": 9.0,
+          "mean_pctile": 0.6540183626625862,
+          "top20": 0.02666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 967
+        },
+        "threepointstance": {
+          "field": 5299,
+          "fee": 33.0,
+          "mean_pctile": 0.17137824746807573,
+          "top20": 0.6733333333333333,
+          "top1": 0.06666666666666667,
+          "top01": 0.013333333333333334,
+          "best_rank": 2
+        }
+      }
+    },
+    {
+      "strategy": "smash50",
+      "rep": 1,
+      "n": 150,
+      "mean_score": 113.59906666666667,
+      "max_score": 180.18,
+      "missing_players": 1,
+      "contests": {
+        "firstdown": {
+          "field": 148443,
+          "fee": 1.0,
+          "mean_pctile": 0.5209772101075834,
+          "top20": 0.16666666666666666,
+          "top1": 0.006666666666666667,
+          "top01": 0.0,
+          "best_rank": 1448
+        },
+        "minimax": {
+          "field": 415164,
+          "fee": 0.5,
+          "mean_pctile": 0.562766408776612,
+          "top20": 0.12666666666666668,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 5087
+        },
+        "playaction": {
+          "field": 316828,
+          "fee": 3.0,
+          "mean_pctile": 0.4975443458280203,
+          "top20": 0.18666666666666668,
+          "top1": 0.006666666666666667,
+          "top01": 0.0,
+          "best_rank": 2364
+        },
+        "pocket": {
+          "field": 141394,
+          "fee": 0.01,
+          "mean_pctile": 0.543998613802566,
+          "top20": 0.14666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 1643
+        },
+        "powersweep": {
+          "field": 3703,
+          "fee": 150.0,
+          "mean_pctile": 0.5736825996939418,
+          "top20": 0.10666666666666667,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 55
+        },
+        "screenpass": {
+          "field": 5881,
+          "fee": 15.0,
+          "mean_pctile": 0.5719344782633339,
+          "top20": 0.12666666666666668,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 89
+        },
+        "slant": {
+          "field": 13070,
+          "fee": 9.0,
+          "mean_pctile": 0.5965687324662077,
+          "top20": 0.1,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 229
+        },
+        "threepointstance": {
+          "field": 5299,
+          "fee": 33.0,
+          "mean_pctile": 0.14156633327042836,
+          "top20": 0.74,
+          "top1": 0.17333333333333334,
+          "top01": 0.08,
+          "best_rank": 1
+        }
+      }
+    },
+    {
+      "strategy": "your_paper_entries",
+      "rep": 0,
+      "n": 20,
+      "mean_score": 105.51700000000001,
+      "max_score": 147.28,
+      "missing_players": 0,
+      "contests": {
+        "firstdown": {
+          "field": 148443,
+          "fee": 1.0,
+          "mean_pctile": 0.6124370970675613,
+          "top20": 0.05,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 18650
+        },
+        "minimax": {
+          "field": 415164,
+          "fee": 0.5,
+          "mean_pctile": 0.6552396161516896,
+          "top20": 0.05,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 63136
+        },
+        "playaction": {
+          "field": 316828,
+          "fee": 3.0,
+          "mean_pctile": 0.5892850379385661,
+          "top20": 0.05,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 33973
+        },
+        "pocket": {
+          "field": 141394,
+          "fee": 0.01,
+          "mean_pctile": 0.6364117289276774,
+          "top20": 0.05,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 19179
+        },
+        "powersweep": {
+          "field": 3703,
+          "fee": 150.0,
+          "mean_pctile": 0.6648798271671618,
+          "top20": 0.05,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 653
+        },
+        "screenpass": {
+          "field": 5881,
+          "fee": 15.0,
+          "mean_pctile": 0.6627614351300799,
+          "top20": 0.05,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 963
+        },
+        "slant": {
+          "field": 13070,
+          "fee": 9.0,
+          "mean_pctile": 0.6865493496557,
+          "top20": 0.05,
+          "top1": 0.0,
+          "top01": 0.0,
+          "best_rank": 2512
+        },
+        "threepointstance": {
+          "field": 5299,
+          "fee": 33.0,
+          "mean_pctile": 0.18087374976410642,
+          "top20": 0.65,
+          "top1": 0.05,
+          "top01": 0.0,
+          "best_rank": 13
+        }
+      }
+    }
+  ]
+}
