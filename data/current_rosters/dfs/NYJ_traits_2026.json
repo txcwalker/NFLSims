@@ -516,7 +516,7 @@
             "pos": "RB",
             "target_share": 0.0,
             "carry_share": 0.0,
-            "status": "active",
+            "status": "out",
             "player_id": "00-0036842",
             "adot": -6.0,
             "yac_per_rec": 6.667,
@@ -1876,9 +1876,9 @@
         },
         "Mason Taylor": {
             "pos": "TE",
-            "target_share": 0.095,
+            "target_share": 0.0,
             "carry_share": 0.0,
-            "status": "active",
+            "status": "out",
             "player_id": "00-0040736",
             "adot": 6.0061,
             "yac_per_rec": 2.3422,
@@ -1894,23 +1894,23 @@
             "contested_catch_rate": 0.4347,
             "splits": {
                 "primary": {
-                    "target_share": 0.095,
+                    "target_share": 0.0,
                     "carry_share": 0.0,
                     "catch_rate": 0.6929
                 },
                 "redzone": {
-                    "target_share": 0.115,
+                    "target_share": 0.0,
                     "carry_share": 0.0,
                     "catch_rate": 0.9021
                 },
                 "goalline": {
-                    "target_share": 0.155,
+                    "target_share": 0.0,
                     "carry_share": 0.0,
                     "catch_rate": 0.545
                 }
             },
             "preseason_projection": {
-                "target_share": 0.095,
+                "target_share": 0.0,
                 "carry_share": 0.0,
                 "catch_rate": 0.6941,
                 "ypc": 4.0,
@@ -1921,17 +1921,17 @@
                 "broken_tackle_rate": 0.0718,
                 "splits": {
                     "primary": {
-                        "target_share": 0.095,
+                        "target_share": 0.0,
                         "carry_share": 0.0,
                         "catch_rate": 0.6929
                     },
                     "redzone": {
-                        "target_share": 0.115,
+                        "target_share": 0.0,
                         "carry_share": 0.0,
                         "catch_rate": 0.9021
                     },
                     "goalline": {
-                        "target_share": 0.155,
+                        "target_share": 0.0,
                         "carry_share": 0.0,
                         "catch_rate": 0.545
                     }
@@ -2100,7 +2100,7 @@
         },
         "Kenyon Sadiq": {
             "pos": "TE",
-            "target_share": 0.105,
+            "target_share": 0.2,
             "carry_share": 0.0,
             "status": "active",
             "player_id": "00-0041032",
@@ -2123,23 +2123,23 @@
             "contested_catch_rate": 0.52,
             "splits": {
                 "primary": {
-                    "target_share": 0.105,
+                    "target_share": 0.2,
                     "carry_share": 0.0,
                     "catch_rate": 0.8333
                 },
                 "redzone": {
-                    "target_share": 0.125,
+                    "target_share": 0.24,
                     "carry_share": 0.0,
                     "catch_rate": 0.7658
                 },
                 "goalline": {
-                    "target_share": 0.145,
+                    "target_share": 0.3,
                     "carry_share": 0.0,
                     "catch_rate": 0.7658
                 }
             },
             "preseason_projection": {
-                "target_share": 0.105,
+                "target_share": 0.2,
                 "carry_share": 0.0,
                 "catch_rate": 0.7658,
                 "ypc": 4.2,
@@ -2151,17 +2151,17 @@
                 "avg_separation_yds": 2.8,
                 "splits": {
                     "primary": {
-                        "target_share": 0.105,
+                        "target_share": 0.2,
                         "carry_share": 0.0,
                         "catch_rate": 0.8333
                     },
                     "redzone": {
-                        "target_share": 0.125,
+                        "target_share": 0.24,
                         "carry_share": 0.0,
                         "catch_rate": 0.7658
                     },
                     "goalline": {
-                        "target_share": 0.145,
+                        "target_share": 0.3,
                         "carry_share": 0.0,
                         "catch_rate": 0.7658
                     }

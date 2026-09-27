@@ -6,8 +6,8 @@
         "Jayden Daniels": {
             "pos": "QB",
             "target_share": 0.0,
-            "carry_share": 0.12,
-            "status": "active",
+            "carry_share": 0.0,
+            "status": "out",
             "player_id": "00-0039910",
             "cpoe": 2.0491,
             "avg_air_yards_per_att": 7.2085,
@@ -23,22 +23,22 @@
                 "primary": {
                     "cpoe": 2.0491,
                     "target_share": 0.0,
-                    "carry_share": 0.12
+                    "carry_share": 0.0
                 },
                 "redzone": {
                     "cpoe": 13.1906,
                     "target_share": 0.0,
-                    "carry_share": 0.2
+                    "carry_share": 0.0
                 },
                 "goalline": {
                     "cpoe": 3.8337,
                     "target_share": 0.0,
-                    "carry_share": 0.16
+                    "carry_share": 0.0
                 }
             },
             "preseason_projection": {
                 "target_share": 0.0,
-                "carry_share": 0.12,
+                "carry_share": 0.0,
                 "cpoe": 2.1955,
                 "sack_rate": 0.0768,
                 "scramble_rate": 0.08,
@@ -47,17 +47,17 @@
                     "primary": {
                         "cpoe": 2.0491,
                         "target_share": 0.0,
-                        "carry_share": 0.12
+                        "carry_share": 0.0
                     },
                     "redzone": {
                         "cpoe": 13.1906,
                         "target_share": 0.0,
-                        "carry_share": 0.2
+                        "carry_share": 0.0
                     },
                     "goalline": {
                         "cpoe": 3.8337,
                         "target_share": 0.0,
-                        "carry_share": 0.16
+                        "carry_share": 0.0
                     }
                 },
                 "avg_time_to_throw_sec": 2.7181
@@ -77,7 +77,7 @@
         "Marcus Mariota": {
             "pos": "QB",
             "target_share": 0.0,
-            "carry_share": 0.1,
+            "carry_share": 0.22,
             "status": "active",
             "player_id": "00-0032268",
             "cpoe": 1.6273,
@@ -94,22 +94,22 @@
                 "primary": {
                     "cpoe": 1.6273,
                     "target_share": 0.0,
-                    "carry_share": 0.1
+                    "carry_share": 0.22
                 },
                 "redzone": {
                     "cpoe": 6.2878,
                     "target_share": 0.0,
-                    "carry_share": 0.1
+                    "carry_share": 0.3
                 },
                 "goalline": {
                     "cpoe": 6.305,
                     "target_share": 0.0,
-                    "carry_share": 0.1
+                    "carry_share": 0.26
                 }
             },
             "preseason_projection": {
                 "target_share": 0.0,
-                "carry_share": 0.1,
+                "carry_share": 0.22,
                 "cpoe": 1.2765,
                 "sack_rate": 0.0693,
                 "scramble_rate": 0.0,
@@ -118,17 +118,17 @@
                     "primary": {
                         "cpoe": 1.6273,
                         "target_share": 0.0,
-                        "carry_share": 0.1
+                        "carry_share": 0.22
                     },
                     "redzone": {
                         "cpoe": 6.2878,
                         "target_share": 0.0,
-                        "carry_share": 0.1
+                        "carry_share": 0.3
                     },
                     "goalline": {
                         "cpoe": 6.305,
                         "target_share": 0.0,
-                        "carry_share": 0.1
+                        "carry_share": 0.26
                     }
                 },
                 "avg_time_to_throw_sec": 2.7862
@@ -143,7 +143,8 @@
                 "avg_air_yards_per_att": 291,
                 "avg_time_to_throw_sec": 240
             },
-            "ypc": 3.0
+            "ypc": 3.0,
+            "starter_override": true
         },
         "Sam Hartman": {
             "pos": "QB",
@@ -1416,7 +1417,7 @@
         },
         "Antonio Williams": {
             "pos": "WR",
-            "target_share": 0.0,
+            "target_share": 0.09,
             "carry_share": 0.0,
             "status": "active",
             "player_id": "00-0041040",
@@ -1439,23 +1440,23 @@
             "contested_catch_rate": 0.48,
             "splits": {
                 "primary": {
-                    "target_share": 0.0,
+                    "target_share": 0.09,
                     "carry_share": 0.0,
                     "catch_rate": 1.0
                 },
                 "redzone": {
-                    "target_share": 0.0,
+                    "target_share": 0.09,
                     "carry_share": 0.0,
                     "catch_rate": 0.62
                 },
                 "goalline": {
-                    "target_share": 0.0,
+                    "target_share": 0.05,
                     "carry_share": 0.0,
                     "catch_rate": 0.62
                 }
             },
             "preseason_projection": {
-                "target_share": 0.0,
+                "target_share": 0.09,
                 "carry_share": 0.0,
                 "catch_rate": 0.62,
                 "ypc": 4.2,
@@ -1467,17 +1468,17 @@
                 "avg_separation_yds": 2.8,
                 "splits": {
                     "primary": {
-                        "target_share": 0.0,
+                        "target_share": 0.09,
                         "carry_share": 0.0,
                         "catch_rate": 1.0
                     },
                     "redzone": {
-                        "target_share": 0.0,
+                        "target_share": 0.09,
                         "carry_share": 0.0,
                         "catch_rate": 0.62
                     },
                     "goalline": {
-                        "target_share": 0.0,
+                        "target_share": 0.05,
                         "carry_share": 0.0,
                         "catch_rate": 0.62
                     }
@@ -1698,9 +1699,9 @@
         },
         "Chig Okonkwo": {
             "pos": "TE",
-            "target_share": 0.115,
-            "carry_share": 0.01,
-            "status": "active",
+            "target_share": 0.0,
+            "carry_share": 0.0,
+            "status": "out",
             "player_id": "00-0037809",
             "adot": 5.5069,
             "yac_per_rec": 6.5586,
@@ -1716,24 +1717,24 @@
             "contested_catch_rate": 0.52,
             "splits": {
                 "primary": {
-                    "target_share": 0.115,
-                    "carry_share": 0.01,
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
                     "catch_rate": 0.7402
                 },
                 "redzone": {
-                    "target_share": 0.115,
-                    "carry_share": 0.01,
+                    "target_share": 0.0,
+                    "carry_share": 0.0,
                     "catch_rate": 0.7417
                 },
                 "goalline": {
-                    "target_share": 0.135,
+                    "target_share": 0.0,
                     "carry_share": 0.0,
                     "catch_rate": 0.7417
                 }
             },
             "preseason_projection": {
-                "target_share": 0.115,
-                "carry_share": 0.01,
+                "target_share": 0.0,
+                "carry_share": 0.0,
                 "catch_rate": 0.7417,
                 "ypc": 17.0,
                 "yac_per_rec": 6.6615,
@@ -1743,17 +1744,17 @@
                 "broken_tackle_rate": 0.2266,
                 "splits": {
                     "primary": {
-                        "target_share": 0.115,
-                        "carry_share": 0.01,
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
                         "catch_rate": 0.7402
                     },
                     "redzone": {
-                        "target_share": 0.115,
-                        "carry_share": 0.01,
+                        "target_share": 0.0,
+                        "carry_share": 0.0,
                         "catch_rate": 0.7417
                     },
                     "goalline": {
-                        "target_share": 0.135,
+                        "target_share": 0.0,
                         "carry_share": 0.0,
                         "catch_rate": 0.7417
                     }
@@ -1849,8 +1850,8 @@
         },
         "John Bates": {
             "pos": "TE",
-            "target_share": 0.03,
-            "carry_share": 0.0,
+            "target_share": 0.145,
+            "carry_share": 0.003333,
             "status": "active",
             "player_id": "00-0036628",
             "adot": 4.621,
@@ -1867,24 +1868,24 @@
             "contested_catch_rate": 0.5078,
             "splits": {
                 "primary": {
-                    "target_share": 0.03,
-                    "carry_share": 0.0,
+                    "target_share": 0.145,
+                    "carry_share": 0.003333,
                     "catch_rate": 0.6465
                 },
                 "redzone": {
-                    "target_share": 0.03,
-                    "carry_share": 0.0,
+                    "target_share": 0.145,
+                    "carry_share": 0.003333,
                     "catch_rate": 0.5
                 },
                 "goalline": {
-                    "target_share": 0.055,
+                    "target_share": 0.19,
                     "carry_share": 0.0,
                     "catch_rate": 0.2857
                 }
             },
             "preseason_projection": {
-                "target_share": 0.03,
-                "carry_share": 0.0,
+                "target_share": 0.145,
+                "carry_share": 0.003333,
                 "catch_rate": 0.6667,
                 "ypc": 4.0,
                 "yac_per_rec": 6.1667,
@@ -1894,17 +1895,17 @@
                 "broken_tackle_rate": 0.2333,
                 "splits": {
                     "primary": {
-                        "target_share": 0.03,
-                        "carry_share": 0.0,
+                        "target_share": 0.145,
+                        "carry_share": 0.003333,
                         "catch_rate": 0.6465
                     },
                     "redzone": {
-                        "target_share": 0.03,
-                        "carry_share": 0.0,
+                        "target_share": 0.145,
+                        "carry_share": 0.003333,
                         "catch_rate": 0.5
                     },
                     "goalline": {
-                        "target_share": 0.055,
+                        "target_share": 0.19,
                         "carry_share": 0.0,
                         "catch_rate": 0.2857
                     }
@@ -1990,7 +1991,7 @@
         "Ben Sinnott": {
             "pos": "TE",
             "target_share": 0.0,
-            "carry_share": 0.0,
+            "carry_share": 0.003333,
             "status": "active",
             "player_id": "00-0039912",
             "adot": 5.4803,
@@ -2008,12 +2009,12 @@
             "splits": {
                 "primary": {
                     "target_share": 0.0,
-                    "carry_share": 0.0,
+                    "carry_share": 0.003333,
                     "catch_rate": 0.9408
                 },
                 "redzone": {
                     "target_share": 0.0,
-                    "carry_share": 0.0,
+                    "carry_share": 0.003333,
                     "catch_rate": 0.68
                 },
                 "goalline": {
@@ -2024,7 +2025,7 @@
             },
             "preseason_projection": {
                 "target_share": 0.0,
-                "carry_share": 0.0,
+                "carry_share": 0.003333,
                 "catch_rate": 0.9375,
                 "ypc": 4.2,
                 "yac_per_rec": 5.7917,
@@ -2035,12 +2036,12 @@
                 "splits": {
                     "primary": {
                         "target_share": 0.0,
-                        "carry_share": 0.0,
+                        "carry_share": 0.003333,
                         "catch_rate": 0.9408
                     },
                     "redzone": {
                         "target_share": 0.0,
-                        "carry_share": 0.0,
+                        "carry_share": 0.003333,
                         "catch_rate": 0.68
                     },
                     "goalline": {
@@ -2064,7 +2065,7 @@
         "Colson Yankoff": {
             "pos": "TE",
             "target_share": 0.0,
-            "carry_share": 0.0,
+            "carry_share": 0.003333,
             "status": "active",
             "player_id": "00-0039686",
             "adot": 5.5,
@@ -2082,12 +2083,12 @@
             "splits": {
                 "primary": {
                     "target_share": 0.0,
-                    "carry_share": 0.0,
+                    "carry_share": 0.003333,
                     "catch_rate": 0.75
                 },
                 "redzone": {
                     "target_share": 0.0,
-                    "carry_share": 0.0,
+                    "carry_share": 0.003333,
                     "catch_rate": 0.68
                 },
                 "goalline": {
@@ -2098,7 +2099,7 @@
             },
             "preseason_projection": {
                 "target_share": 0.0,
-                "carry_share": 0.0,
+                "carry_share": 0.003333,
                 "catch_rate": 0.6667,
                 "ypc": 4.2,
                 "yac_per_rec": 2.0,
@@ -2109,12 +2110,12 @@
                 "splits": {
                     "primary": {
                         "target_share": 0.0,
-                        "carry_share": 0.0,
+                        "carry_share": 0.003333,
                         "catch_rate": 0.75
                     },
                     "redzone": {
                         "target_share": 0.0,
-                        "carry_share": 0.0,
+                        "carry_share": 0.003333,
                         "catch_rate": 0.68
                     },
                     "goalline": {

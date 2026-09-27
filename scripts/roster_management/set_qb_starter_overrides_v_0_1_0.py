@@ -35,7 +35,10 @@ STARTER_OVERRIDES = {
     "ATL": "Cooper Rush",
     # 2026-09-16, Cam: Sam Darnold out ~4 weeks (see season_long/SEA.csv) --
     # Drew Lock is the real starter in the meantime.
-    "SEA": "Drew Lock",
+    # 2026-09-26, Cam: Darnold returns early -- starting Week 3 (was Drew
+    # Lock since 2026-09-16). Darnold also wins the default heuristic, but
+    # the entry must stay to replace Lock's flag on the season-long file.
+    "SEA": "Sam Darnold",
 }
 
 

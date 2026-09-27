@@ -6,7 +6,7 @@
         "Jameis Winston": {
             "pos": "QB",
             "target_share": 0.0,
-            "carry_share": 0.0,
+            "carry_share": 0.14,
             "status": "active",
             "player_id": "00-0031503",
             "cpoe": -4.862,
@@ -23,22 +23,22 @@
                 "primary": {
                     "cpoe": -4.862,
                     "target_share": 0.0,
-                    "carry_share": 0.0
+                    "carry_share": 0.14
                 },
                 "redzone": {
                     "cpoe": 5.8604,
                     "target_share": 0.0,
-                    "carry_share": 0.0
+                    "carry_share": 0.18
                 },
                 "goalline": {
                     "cpoe": -8.7602,
                     "target_share": 0.0,
-                    "carry_share": 0.0
+                    "carry_share": 0.18
                 }
             },
             "preseason_projection": {
                 "target_share": 0.0,
-                "carry_share": 0.0,
+                "carry_share": 0.14,
                 "cpoe": -3.3591,
                 "sack_rate": 0.0539,
                 "scramble_rate": 0.015,
@@ -47,17 +47,17 @@
                     "primary": {
                         "cpoe": -4.862,
                         "target_share": 0.0,
-                        "carry_share": 0.0
+                        "carry_share": 0.14
                     },
                     "redzone": {
                         "cpoe": 5.8604,
                         "target_share": 0.0,
-                        "carry_share": 0.0
+                        "carry_share": 0.18
                     },
                     "goalline": {
                         "cpoe": -8.7602,
                         "target_share": 0.0,
-                        "carry_share": 0.0
+                        "carry_share": 0.18
                     }
                 },
                 "avg_time_to_throw_sec": 2.8352
@@ -72,7 +72,8 @@
                 "avg_air_yards_per_att": 395,
                 "avg_time_to_throw_sec": 349
             },
-            "ypc": 0.5
+            "ypc": 0.5,
+            "starter_override": true
         },
         "Brandon Allen": {
             "pos": "QB",
@@ -139,8 +140,8 @@
         "Jaxson Dart": {
             "pos": "QB",
             "target_share": 0.0,
-            "carry_share": 0.14,
-            "status": "active",
+            "carry_share": 0.0,
+            "status": "out",
             "player_id": "00-0040691",
             "cpoe": -0.1569,
             "avg_air_yards_per_att": 8.1261,
@@ -155,23 +156,23 @@
             "splits": {
                 "primary": {
                     "cpoe": -0.1569,
-                    "carry_share": 0.14,
+                    "carry_share": 0.0,
                     "target_share": 0.0
                 },
                 "redzone": {
                     "cpoe": 26.2513,
                     "target_share": 0.0,
-                    "carry_share": 0.18
+                    "carry_share": 0.0
                 },
                 "goalline": {
                     "cpoe": -0.1931,
                     "target_share": 0.0,
-                    "carry_share": 0.18
+                    "carry_share": 0.0
                 }
             },
             "preseason_projection": {
                 "target_share": 0.0,
-                "carry_share": 0.14,
+                "carry_share": 0.0,
                 "cpoe": -0.558,
                 "sack_rate": 0.0907,
                 "scramble_rate": 0.077,
@@ -179,24 +180,23 @@
                 "splits": {
                     "primary": {
                         "cpoe": -0.1569,
-                        "carry_share": 0.14,
+                        "carry_share": 0.0,
                         "target_share": 0.0
                     },
                     "redzone": {
                         "cpoe": 26.2513,
                         "target_share": 0.0,
-                        "carry_share": 0.18
+                        "carry_share": 0.0
                     },
                     "goalline": {
                         "cpoe": -0.1931,
                         "target_share": 0.0,
-                        "carry_share": 0.18
+                        "carry_share": 0.0
                     }
                 },
                 "avg_time_to_throw_sec": 2.8851
             },
             "ypc": 7.375,
-            "starter_override": true,
             "preseason_projection_volume": {
                 "target_share": 0,
                 "carry_share": 79,
