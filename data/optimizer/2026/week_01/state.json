@@ -2,23 +2,32 @@
   "schema_version": 1,
   "season": 2026,
   "week": 1,
-  "updated_at": "2026-09-16T05:51:29.066Z",
+  "updated_at": "2026-09-27T16:42:47.366Z",
   "slate": {
-    "draft_group_id": 151307,
+    "draft_group_id": null,
     "platform": "DK"
   },
   "settings": {
     "platform": "DK",
-    "contestType": "extreme_top_heavy",
-    "contestSize": 3703,
-    "entryFee": 150,
-    "payingPositions": 835,
+    "contestType": "top_heavy",
+    "contestSize": 11000,
+    "entryFee": 18,
+    "payingPositions": 2200,
     "payoutStructure": null,
-    "nLineups": 5,
+    "nLineups": 20,
     "minUnique": 2,
     "includeDstUnique": false,
-    "maxExposure": 60,
-    "projThreshold": 0
+    "projThreshold": 0,
+    "flexRB": 0,
+    "flexWR": 0,
+    "flexTE": 0,
+    "flexAny": 100,
+    "maxExposureQB": 40,
+    "maxExposureRB": 40,
+    "maxExposureWR": 40,
+    "maxExposureTE": 40,
+    "maxExposureDST": 40,
+    "maxExposure": 40
   },
   "prefs": {
     "autosaveBuilds": true
