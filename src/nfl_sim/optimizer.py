@@ -1,22 +1,31 @@
 import pulp
 
-def solve_showdown_iteration(names, salaries, scores, salary_cap=50000):
+def solve_showdown_iteration(names, salaries, scores, salary_cap=50000, teams=None):
     """
     Finds the optimal Showdown lineup for a single trial iteration.
     Lineup structure: 1 CPT (1.5x salary, 1.5x score), 5 FLEX.
     names: list of player names
     salaries: numpy array of actual player salaries
     scores: numpy array of scores
+    teams: optional list of team abbrevs aligned with `names`. When given,
+        enforces DK's Showdown rule that the 6 players include at least one
+        from EACH team (2026-09-28 -- unenforced before, so blowout
+        iterations could count an illegal one-team lineup as "optimal").
+        Zero/negative-score players are then kept as FLEX candidates too, so
+        an iteration where one team scored nothing still gets a legal
+        lineup (the cheapest-damage filler from that team) instead of none.
+    Returns [cpt_name, flex_name x5], or [] if no legal lineup exists.
     """
     n = len(names)
     if n < 6:
         return []
-        
-    best_score = -1.0
+
+    best_score = -1e18
     best_lineup = []
-    
-    # Prune players with 0 or negative scores to speed up Flex selection
-    valid_indices = [i for i in range(n) if scores[i] > 0]
+
+    # Prune players with 0 or negative scores to speed up Flex selection --
+    # unless the two-team rule is on (see docstring).
+    valid_indices = [i for i in range(n) if teams is not None or scores[i] > 0]
     valid_indices.sort(key=lambda idx: scores[idx], reverse=True)
     
     # Try each player as captain
@@ -38,24 +47,29 @@ def solve_showdown_iteration(names, salaries, scores, salary_cap=50000):
         for i in range(num_flex - 1, -1, -1):
             suffix_sums[i] = suffix_sums[i+1] + scores[flex_candidates[i]]
             
-        best_flex_score = -1.0
+        best_flex_score = -1e18
         best_flex_set = []
-        
+
         def dfs_flex(idx, count, current_sal, current_score, selected):
             nonlocal best_flex_score, best_flex_set
             if count == 5:
+                if teams is not None and all(teams[j] == teams[cpt] for j in selected):
+                    return  # one-team lineup -- illegal on DK
                 if current_score > best_flex_score:
                     best_flex_score = current_score
                     best_flex_set = list(selected)
                 return
-                
+
             if idx >= num_flex or count + (num_flex - idx) < 5:
                 return
-                
-            # Suffix sum pruning
+
+            # Suffix sum pruning: upper bound = the best `rem_needed` scores
+            # still available (candidates are sorted desc). Was the sum of ALL
+            # remaining scores, which undershoots -- and wrongly prunes --
+            # once negative scores are in the candidate list.
             rem_needed = 5 - count
             max_possible = current_score + suffix_sums[idx] - suffix_sums[idx + rem_needed]
-            if current_score + suffix_sums[idx] <= best_flex_score:
+            if max_possible <= best_flex_score:
                 return
                 
             # Option 1: Select candidate
@@ -71,7 +85,7 @@ def solve_showdown_iteration(names, salaries, scores, salary_cap=50000):
             
         dfs_flex(0, 0, 0, 0.0, [])
         
-        if best_flex_score >= 0:
+        if best_flex_set:
             total_score = cpt_score + best_flex_score
             if total_score > best_score:
                 best_score = total_score

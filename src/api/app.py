@@ -4727,6 +4727,11 @@ def run_simulation(req: SimulationRequest):
         showdown_salaries = salaries
 
     player_names = [p for p in showdown_salaries if showdown_salaries[p] is not None]
+    # Team per name, for the solve's one-player-from-each-team rule.
+    team_by_name = {name: team for team in [req.away_team, req.home_team] for name in sim.rosters[team]}
+    if showdown_dk.get('found'):
+        team_by_name.update({p['name']: p['team'] for p in showdown_dk.get('players', [])})
+    player_teams = [team_by_name.get(p) for p in player_names]
     optimal_counts = {p: 0 for p in player_names}
     optimal_cpt_counts = {p: 0 for p in player_names}
     optimal_flex_counts = {p: 0 for p in player_names}
@@ -4770,7 +4775,7 @@ def run_simulation(req: SimulationRequest):
 
     for it in solve_iterations:
         scores_arr = np.array([iter_scores[it].get(p, 0.0) for p in player_names])
-        opt_lineup = solve_showdown_iteration(player_names, player_salaries, scores_arr)
+        opt_lineup = solve_showdown_iteration(player_names, player_salaries, scores_arr, teams=player_teams)
         if opt_lineup:
             cpt = opt_lineup[0]
             optimal_cpt_counts[cpt] = optimal_cpt_counts.get(cpt, 0) + 1
@@ -6189,10 +6194,14 @@ def _solve_showdown_fast(
     lambda*own_cpt (values may be negative when the leverage penalty bites).
     Honours lock / lock-as-captain / exclude, per-player and per-captain
     exposure caps vs `prior_lineups`, and min-unique (a player counts once
-    whether CPT or FLEX). Returns {'cpt': idx, 'flex': [idx x5]} or None.
+    whether CPT or FLEX). Also enforces DK's Showdown roster rule: the 6
+    players must include at least one from EACH team (2026-09-28 -- was
+    unenforced, so blowout-leaning draws could return an illegal one-team
+    lineup). Returns {'cpt': idx, 'flex': [idx x5]} or None.
     """
     n = len(players)
     sal = np.array([p['salary'] for p in players], dtype=float)
+    team = [p.get('team') for p in players]
     # A tiny salary term in the objective so that, all else near-equal, the
     # solver spends the cap (real showdown lineups do) -- ~0.5 value per $1k,
     # far below a real projection gap, just a tie-breaker toward studs. Keeps
@@ -6248,11 +6257,16 @@ def _solve_showdown_fast(
             if nf < need:
                 continue
 
-            suffix = [0.0] * (nf + 1)  # upper-bound prune, valid with negatives
+            suffix = [0.0] * (nf + 1)
             for i in range(nf - 1, -1, -1):
                 suffix[i] = suffix[i + 1] + flex_val[cands[i]]
 
             forced_val = sum(flex_val[i] for i in forced)
+            # One-team rule: if the captain + forced FLEX already span both
+            # teams, any 5-flex is legal; otherwise the searched picks must
+            # include at least one player from a different team.
+            base_teams = {team[cpt], *(team[i] for i in forced)}
+            needs_other = len(base_teams) < 2
             # Pure value-optimal 5-flex for this captain -- NO min-unique
             # check in the loop (that would kill the prune and blow up to
             # full enumeration); checked once, after, on the finished lineup.
@@ -6260,6 +6274,8 @@ def _solve_showdown_fast(
 
             def dfs(idx, count, cur_sal, cur_val, chosen):
                 if count == need:
+                    if needs_other and all(team[i] in base_teams for i in chosen):
+                        return  # one-team lineup -- illegal on DK
                     total = cur_val + forced_val
                     if total > local['val']:
                         local['val'] = total
@@ -6267,7 +6283,12 @@ def _solve_showdown_fast(
                     return
                 if idx >= nf or count + (nf - idx) < need:
                     return
-                if cur_val + suffix[idx] + forced_val <= local['val']:
+                # Upper bound = the best (need - count) values still available
+                # (cands is sorted desc). Was the sum of ALL remaining values,
+                # which undershoots -- and wrongly prunes -- whenever the tail
+                # holds negative values (leverage penalty, negative DK scores).
+                k = need - count
+                if cur_val + (suffix[idx] - suffix[idx + k]) + forced_val <= local['val']:
                     return
                 ci = cands[idx]
                 if cur_sal + sal[ci] <= rem_budget:
@@ -6523,7 +6544,8 @@ def _compute_showdown_optimal_rates(
             continue
         row = pivot.loc[it]
         scores = np.array([row[pk] if pk in row.index else 0.0 for pk in player_keys])
-        lineup = solve_showdown_iteration(player_keys, salaries_arr, scores)
+        lineup = solve_showdown_iteration(player_keys, salaries_arr, scores,
+                                          teams=[pk[1] for pk in player_keys])
         if not lineup:
             continue
         solved += 1
@@ -6633,7 +6655,9 @@ def _build_showdown_field(
     """Ownership-weighted synthetic showdown field: `n_field` lineups, each
     {'cpt': idx, 'flex': [idx x5]}. CPT drawn from cpt_ownership_pct, FLEX
     from ownership_pct, rejection-sampled against the salary cap (cap check
-    relaxed after a few misses so a tight pool still fills)."""
+    relaxed after a few misses so a tight pool still fills) and against DK's
+    one-player-from-each-team rule (always enforced -- a real entrant can't
+    submit a one-team lineup, so the field shouldn't contain any)."""
     rng = np.random.default_rng(seed)
     n = len(players)
     idxs = np.arange(n)
@@ -6650,6 +6674,8 @@ def _build_showdown_field(
         remaining = [j for j in idxs if j != cpt]
         w = flex_w[remaining] / flex_w[remaining].sum()
         flex = rng.choice(remaining, size=5, replace=False, p=w).tolist()
+        if len({players[j].get('team') for j in [cpt, *flex]}) < 2:
+            continue  # one-team lineup -- illegal on DK
         total = sal[cpt] * 1.5 + sal[flex].sum()
         if total > salary_cap and attempts % 4 != 0:  # mostly enforce, occasionally allow
             continue
@@ -6707,8 +6733,21 @@ def showdown_prep(req: ShowdownPrepRequest):
             pass
 
     # Per-team implied points from the sim's own mean score (Vegas proxy).
+    # Prefers the DFS-week parquet -- the same sim the pool's projections,
+    # optimal rates and kicker lines come from -- falling back to the
+    # season-long "everyone healthy" cache only if the week isn't DFS-simmed.
+    # (2026-09-28: used to read GAMES_BY_GAME_ID unconditionally, so a
+    # roster edit + resim_games_2026.py moved every projection but not the
+    # ownership model's implied totals -- PHI@CHI wk3: 24.4/23.0 season-long
+    # vs. 26.9/21.2 in the actual DFS sim.)
     implied_by_team: Dict[str, float] = {}
-    gdf = GAMES_BY_GAME_ID.get(game_id) if game_id else None
+    gdf = None
+    if game_id and week is not None:
+        dfs_by_game = _get_dfs_week_by_game_id(week)
+        if dfs_by_game and game_id in dfs_by_game:
+            gdf = dfs_by_game[game_id][0]  # (games_df_slice, players_df_slice)
+    if gdf is None and game_id:
+        gdf = GAMES_BY_GAME_ID.get(game_id)
     if gdf is not None and not gdf.empty:
         r0 = gdf.iloc[0]
         implied_by_team[str(r0['away_team'])] = float(gdf['away_score'].mean())
