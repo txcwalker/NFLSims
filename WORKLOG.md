@@ -4,6 +4,31 @@
 
 ---
 
+### [2026-09-28] Handoff from Claude Opus 5.5 (PHI@CHI MNF showdown: roster edits, re-sim, two-team rule)
+
+- **Active Task:** Cam's MNF showdown prep for PHI@CHI (week 3): DK showdown salaries "not loading", then
+  roster changes + re-sim, then lineups breaking DK's one-player-from-each-team rule.
+- **Files Modified:**
+  - [data/overrides/2026/week_03/PHI.csv](data/overrides/2026/week_03/PHI.csv): Stowers out (IR); Shipley splits
+    Bigsby's RB2 role (Bigsby rushing, Shipley passing; Barkley unchanged); Goedert's 14% -- which the sheet had
+    sent TE-only -- re-split to all receivers, Smith > Lemon > Wicks biggest; Stowers' own share pro-rata WR/TE/RB.
+    Stowers also sticky-'out' in [dfs_status_ledger.json](data/overrides/2026/dfs_status_ledger.json) (no return week set).
+  - [src/api/app.py](src/api/app.py): `_solve_showdown_fast` + `_build_showdown_field` enforce the two-team rule;
+    B&B prune bound fixed (sum of ALL remaining values over-prunes with negatives -> best-k remaining);
+    `showdown_prep` implied totals now from the DFS-week parquet (was season-long: PHI@CHI 24.4/23.0 vs 26.9/21.2).
+  - [src/nfl_sim/optimizer.py](src/nfl_sim/optimizer.py): `solve_showdown_iteration(..., teams=)` -- same rule +
+    prune fix; both callers pass teams. Tests: [tests/test_showdown_two_team_rule.py](tests/test_showdown_two_team_rule.py) (7).
+- **Findings:** (1) The "no live DK showdown slate" message was the backend being unreachable -- `safeFetch`
+  turns ANY failed request into `{found:false}`, indistinguishable from a real miss (UI fix offered, not done).
+  (2) Cam's running backend was started as plain `uvicorn ... --port 8002` (no `--reload`), so code edits did
+  NOT go live until restart -- use `start_backend_api.bat`. (3) Kickers already used the DFS-week sim (9/25 fix).
+- **Verification Performed:** `pytest tests/ -q` -> 215 passed. PHI@CHI re-simmed (10K);
+  `week_3_sim_results.json` rebuilt with the new solver (Opt% shifts <=0.6pt). Live 40-lineup optimize had 0
+  one-team lineups -- but that ran on the OLD backend code; re-check after restart.
+- **Next Steps:** Restart the DFS backend; reload Showdown page, Load DK Salaries (Shipley's price + fresh ownership).
+
+---
+
 ### [2026-09-25, part 2] Handoff from Claude Opus 5.5 (Evaluation tab: Player Projections + percentile finish)
 
 - **Active Task:** Cam's follow-on: evaluate the sim's player projections vs. real stat lines, incl. the
