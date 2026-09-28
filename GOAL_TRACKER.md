@@ -88,7 +88,7 @@ This is a living document tracking all project goals, statuses, and target dates
 | Goal / Milestone | Status | Target Date |
 | :--- | :--- | :--- |
 | Odds API integration (live sportsbook lines) | ❌ Pending | May 2027 |
-| Prediction market integration (Polymarket, Kalshi) | ❌ Pending | May 2027 |
+| Prediction market integration (Polymarket, Kalshi) — automated, hourly target / daily minimum | ❌ Pending (priority raised to ASAP 2026-09-23, see DECISIONS.md) | ASAP (Oct 2026) |
 | Sim vs. book comparison view (edge finder) | 🔄 In Progress | June 2027 |
 | Weekly odds comparison report | ❌ Pending | Aug 2027 |
 | Season-long odds report (division, Super Bowl) | ❌ Pending | Aug 2027 |

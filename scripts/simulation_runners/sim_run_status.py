@@ -67,6 +67,38 @@ def read_run_marker(week, base_dir="."):
     return m
 
 
+# ── Kickoff lock (2026-09-25) ────────────────────────────────────────────────
+# Once a game kicks off, its sim is frozen: the writers carry the existing
+# rows forward instead of re-simming, so the Evaluation tab always grades the
+# last PRE-kickoff prediction (not one re-run with post-game roster toggles).
+# Each game's rows are stamped with SIM_RUN_AT_COL (unix seconds, UTC) when
+# they're simmed, so the evaluator can prove "predicted before kickoff".
+SIM_RUN_AT_COL = "sim_run_at"
+_SCHEDULE_TZ = "America/New_York"   # nflverse gameday/gametime are Eastern
+
+
+def kickoff_ts(sched_row):
+    """Inputs: sched_row (schedule_2026.csv row / dict with gameday 'YYYY-MM-DD'
+    and gametime 'HH:MM', both Eastern).
+    Output: kickoff as unix seconds (float), or None if unparseable.
+    Purpose: single place that turns the schedule's local ET kickoff into an
+    absolute time the lock and the evaluator can compare against."""
+    import pandas as pd  # local: keeps this module importable without pandas for the marker helpers
+    try:
+        ts = pd.Timestamp(f"{sched_row['gameday']} {sched_row['gametime']}").tz_localize(_SCHEDULE_TZ)
+    except (KeyError, ValueError, TypeError):
+        return None
+    return ts.timestamp()
+
+
+def has_kicked_off(sched_row, now=None):
+    """Inputs: sched_row (see kickoff_ts), now (unix s; default time.time()).
+    Output: bool -- True once the scheduled kickoff has passed (unparseable
+    kickoff -> False, i.e. never lock on bad data)."""
+    ko = kickoff_ts(sched_row)
+    return ko is not None and (time.time() if now is None else now) >= ko
+
+
 def atomic_to_parquet(df, path):
     """Inputs: df (pandas DataFrame), path (str destination).
     Output: none. Writes to `<path>.tmp` then os.replace()s it into place, so

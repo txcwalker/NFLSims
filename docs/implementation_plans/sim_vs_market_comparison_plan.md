@@ -4,6 +4,9 @@
 comparison (Season2026 Matchups tab + DFS Simulator) covers the near-term need.
 Revisit the multi-book odds feeds and prediction-market integration below when
 there's appetite for a paid odds API and account setup. Nothing here is started.
+**Update 2026-09-26:** the prediction-market part (Option C) is picked up, for player props first, in
+[prediction_market_props_plan.md](prediction_market_props_plan.md). Polymarket US needs no key or account for
+read-only data, so the "account setup" blocker above no longer applies to reading.
 **Author:** drafted with Claude, 2026-09-06
 **Roadmap slot:** Frontend / analytics tooling (post-DFS-site MVP). Candidate line item for `FRONTEND_GOALS.md`.
 

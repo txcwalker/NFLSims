@@ -13,7 +13,10 @@ current for the affected teams:
     venv\\Scripts\\python.exe scripts/roster_management/apply_team_week_overrides_v_0_1_0.py <week> <TEAM>
 
 Usage:
-    venv\\Scripts\\python.exe scripts/simulation_runners/resim_games_2026.py <week> <AWAY>_<HOME> [<AWAY>_<HOME> ...] [--iterations N]
+    venv\\Scripts\\python.exe scripts/simulation_runners/resim_games_2026.py <week> <AWAY>_<HOME> [<AWAY>_<HOME> ...] [--iterations N] [--force]
+
+Kickoff lock (2026-09-25): games that already kicked off are skipped (their
+pre-kickoff sim stays frozen for the Evaluation tab) unless --force is passed.
 
 Example:
     venv\\Scripts\\python.exe scripts/simulation_runners/resim_games_2026.py 1 ATL_PIT TB_CIN
@@ -28,23 +31,29 @@ import pandas as pd  # noqa: E402
 
 from src.nfl_sim.batch import BatchSimulator  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sim_run_status import run_marker, atomic_to_parquet  # noqa: E402
+from sim_run_status import (run_marker, atomic_to_parquet,  # noqa: E402
+                            has_kicked_off, SIM_RUN_AT_COL)
 
 SIM_YEAR = 2026
 ROSTERS_DIR = os.path.join("data", "current_rosters", "dfs")
 SCHEDULE_PATH = os.path.join("data", "external", f"schedule_{SIM_YEAR}.csv")
 
 
-def resim_games(week, matchups, iterations=10000):
-    """Inputs: week (int), matchups (list of (away, home)), iterations (int per game).
+def resim_games(week, matchups, iterations=10000, force=False):
+    """Inputs: week (int), matchups (list of (away, home)), iterations (int per game),
+    force (bool -- re-sim games that already kicked off).
     Output: none -- merges fresh sims for just those games into the week's
     dfs_week_{week}_*.parquet caches. Wrapped in sim_run_status.run_marker
-    (2026-09-23) so the site shows "sims running" and auto-refreshes after."""
+    (2026-09-23) so the site shows "sims running" and auto-refreshes after.
+    Kickoff lock (2026-09-25): matchups that already kicked off are skipped
+    (their pre-kickoff sim stays frozen for the Evaluation tab); if EVERY
+    requested matchup is locked this raises, so the roster-toggle job in
+    app.py surfaces "locked" to the UI instead of silently doing nothing."""
     with run_marker(week, iterations=iterations, games=[f"{a}@{h}" for a, h in matchups]):
-        return _resim_games(week, matchups, iterations)
+        return _resim_games(week, matchups, iterations, force)
 
 
-def _resim_games(week, matchups, iterations):
+def _resim_games(week, matchups, iterations, force=False):
     games_cache_path = os.path.join("data", "interim", f"dfs_week_{week}_games.parquet")
     players_cache_path = os.path.join("data", "interim", f"dfs_week_{week}_players.parquet")
     if not os.path.exists(games_cache_path) or not os.path.exists(players_cache_path):
@@ -65,6 +74,9 @@ def _resim_games(week, matchups, iterations):
             raise SystemExit(f"No week {week} schedule entry for {away} @ {home}.")
         row = row.iloc[0]
         game_id = row["game_id"]
+        if not force and has_kicked_off(row):
+            print(f"LOCKED {away} @ {home}: already kicked off -- pre-kickoff sim kept, not re-simmed.")
+            continue
         resimmed_game_ids.append(game_id)
 
         print(f"Re-simulating {away} @ {home} ({game_id}), {iterations} iterations...")
@@ -76,6 +88,7 @@ def _resim_games(week, matchups, iterations):
         game_df["away_team"] = away
         game_df["home_team"] = home
         game_df["div_game"] = row["div_game"]
+        game_df[SIM_RUN_AT_COL] = time.time()
         fresh_games_list.append(game_df)
 
         if player_df is not None and not player_df.empty:
@@ -83,6 +96,9 @@ def _resim_games(week, matchups, iterations):
             player_df["game_id"] = game_id
             fresh_players_list.append(player_df)
 
+    if not resimmed_game_ids:
+        raise ValueError("All requested games have already kicked off -- their sims are locked "
+                         "(pass force=True / --force to override).")
     print(f"Re-simulation complete in {time.time() - start_time:.2f}s.")
 
     fresh_games_df = pd.concat(fresh_games_list, ignore_index=True)
@@ -123,5 +139,6 @@ if __name__ == "__main__":
         i = args.index("--iterations")
         iters = int(args[i + 1])
         args = args[:i] + args[i + 2:]
-    pairs = [tuple(a.split("_", 1)) for a in args]
-    resim_games(wk, pairs, iterations=iters)
+    force = "--force" in args
+    pairs = [tuple(a.split("_", 1)) for a in args if a != "--force"]
+    resim_games(wk, pairs, iterations=iters, force=force)

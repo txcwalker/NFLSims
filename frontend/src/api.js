@@ -716,6 +716,70 @@ export const ApiService = {
 
   // ── Evaluation tab reads (offline-built by score_paper_entries.py /
   // eval_field.py -- these are just JSON views over their parquet output).
+  // Game Lines evaluation (2026-09-25) -- sim vs. Vegas (open + close) vs.
+  // actual for spreads/totals/winners. Computed live by the API from the sim
+  // parquets + data/eval/{year}/line_history.csv; see src/evaluation/.
+  async getGameLinesEval(year = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/eval/game_lines?${new URLSearchParams({ year })}`);
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+
+  // Player Projections evaluation (2026-09-25) -- sim projection vs. real
+  // stat line + percentile finish within our own sims. First call after a new
+  // sim run takes ~30s server-side (then cached). See src/evaluation/player_proj_eval.py.
+  async getPlayerProjectionsEval(minDk = 5, year = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/eval/player_projections?${new URLSearchParams({ year, min_dk: minDk })}`);
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+
+  // Rankings evaluation (2026-09-26) -- weekly positional rankings vs. actual
+  // finishes in season-long scoring; see src/evaluation/rankings_eval.py.
+  async getRankingsEval(fmt = '4_ppr', year = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/eval/rankings?${new URLSearchParams({ year, fmt })}`);
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+
+  // Prediction-market props (draft 2026-09-26) -- Polymarket US ladders vs.
+  // our week sims; see src/evaluation/prop_markets.py. Deliberately NOT via
+  // safeFetch: no mock fallback, the page shows the error instead.
+  // Returns {ok: true, data} | {ok: false, error}.
+  async getPolymarketProps(week, refresh = false, year = 2026) {
+    try {
+      const params = new URLSearchParams({ year, refresh });
+      if (week != null) params.set('week', week);
+      const res = await fetch(`${API_BASE}/props/polymarket?${params}`);
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { detail = (await res.json()).detail || detail; } catch { /* non-JSON error body */ }
+        return { ok: false, error: detail };
+      }
+      return { ok: true, data: await res.json() };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  },
+
+  async refreshPlayerActuals(year = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/eval/refresh_player_actuals?${new URLSearchParams({ year })}`, { method: 'POST' });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+
   async getFieldEval(slateId) {
     try {
       const res = await fetch(`${API_BASE}/eval/field?${new URLSearchParams({ slate_id: slateId })}`);

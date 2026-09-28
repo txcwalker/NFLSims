@@ -92,10 +92,10 @@ export const PAGES = [
     label: 'Prop Bet Finder',
     showInNavbar: true,
     category: 'tool',
-    isDevelopment: true,
-    targetDate: 'June 2027',
+    // Draft 2026-09-26: live Polymarket US prop ladders vs. our sims (pages/PropMarkets.jsx).
+    // The old isDevelopment mock preview in InDevelopment.jsx no longer renders for this id.
     icon: '🎯',
-    description: 'Identify value edges by comparing simulated player performance thresholds with live sportsbook odds.'
+    description: 'Compare our simulated player-stat probabilities with live prediction-market prop prices (Polymarket US first; Kalshi later).'
   },
   {
     id: 'war',

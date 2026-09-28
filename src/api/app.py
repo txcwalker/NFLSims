@@ -60,6 +60,22 @@ from src.api.lineup_stats import (
 )
 from src.data_pipeline.current_week_v_0_1_0 import get_current_week
 from src.data_pipeline.vegas_lines_refresh import refresh_vegas_lines
+from src.evaluation.game_line_eval import (build_eval as build_game_lines_eval,
+                                           summarize as summarize_game_lines,
+                                           running_by_week as running_game_lines)
+from src.evaluation.player_proj_eval import (build_player_eval, summarize_players,
+                                             ALL_STATS as PLAYER_EVAL_STATS,
+                                             STAT_LABELS as PLAYER_STAT_LABELS,
+                                             POS_STATS as PLAYER_POS_STATS)
+from src.evaluation.player_actuals import (refresh_player_actuals,
+                                           cache_path as player_actuals_cache_path)
+from src.evaluation.rankings_eval import (build_rankings_eval, summarize_rankings,
+                                          FORMATS as RANKING_FORMATS,
+                                          FORMAT_LABELS as RANKING_FORMAT_LABELS)
+from src.evaluation.season_rankings import snapshot_summary as season_snapshot_summary
+from src.evaluation.prop_markets import build_week_props, SIM_COLUMNS as PROP_SIM_COLUMNS
+from src.data_pipeline.polymarket_us_client import fetch_events_for_games
+from src.evaluation.game_line_eval import _kickoff_ts as kickoff_ts_eval
 
 # Positional (chess-style) evaluator — lazily constructed singleton so the heavy
 # WP/EP model loads + KEP curve build happen once, not per request.
@@ -411,6 +427,16 @@ def build_simulate_cache_key(req: "SimulationRequest") -> str:
         "team_overrides": team_overrides_sorted,
         "player_overrides": player_overrides_sorted,
         "use_dfs_week": req.use_dfs_week,
+        # Version of the DFS week's sim inputs (parquet + optimal_pct + roster
+        # files). This cache is otherwise only cleared when the SEASON-LONG
+        # parquet reloads, and the player overrides above come from
+        # season-long shares -- so an injury toggle + resim_games_2026.py
+        # rerun produced an identical key and served the pre-resim response
+        # (2026-09-27: DJ Moore flipped to active, BUF resimmed, but
+        # week_sim_results kept the Moore-out projections -- Moore missing,
+        # Shakir inflated -- and baked them into week_3_sim_results.json).
+        "dfs_week_version": (_dfs_week_input_mtime(req.use_dfs_week, req.year)
+                             if req.use_dfs_week else None),
     }
     return json.dumps(payload, sort_keys=True, default=str)
 
@@ -2599,6 +2625,243 @@ def get_sim_replay_eval(slate_id: Optional[str] = None):
     the real field if our model were reality", not "how did it actually do"
     (that's /api/eval/paper). Offline-built; empty until that script has run."""
     return {"rows": _read_parquet_rows("sim_replay.parquet", slate_id)}
+
+
+_GAME_LINES_EVAL_CACHE: Dict[Any, Any] = {}
+
+
+def _game_lines_input_token(year: int):
+    """mtimes of every input build_eval() reads -- the cache key, so a new sim
+    run, a Vegas refresh, a results update or an override edit all rebuild."""
+    paths = [SCHEDULE_CSV_PATH,
+             os.path.join(BASE_DIR, "data", "eval", str(year), "line_history.csv"),
+             os.path.join(BASE_DIR, "data", "eval", str(year), "line_overrides.csv")]
+    paths += [os.path.join(BASE_DIR, "data", "interim", f"dfs_week_{w}_games.parquet") for w in range(1, 19)]
+    return tuple(os.path.getmtime(p) if os.path.exists(p) else None for p in paths)
+
+
+def _json_safe(v):
+    """NaN/inf/numpy scalars -> JSON-safe Python values."""
+    if isinstance(v, (np.floating, float)):
+        return None if not np.isfinite(v) else float(v)
+    if isinstance(v, np.integer):
+        return int(v)
+    if isinstance(v, np.bool_):
+        return bool(v)
+    return v
+
+
+@app.get("/api/eval/game_lines")
+def get_game_lines_eval(year: int = 2026, week: Optional[int] = None):
+    """Sim vs. Vegas (opening + closing) vs. actual for game spreads, totals
+    and winners -- see src/evaluation/game_line_eval.py for every metric.
+
+    Response:
+      games   -- per-game rows (filtered to `week` if given, else all weeks)
+      summary -- season-to-date aggregates (all played games, ignores `week`)
+      running -- cumulative metrics after each week (for the trend chart)
+      weeks   -- weeks that have a sim file
+    Computed live (cheap: ~16 games x 10K sims per week), cached on the
+    mtimes of every input so it refreshes itself after a new sim/line pull."""
+    token = _game_lines_input_token(year)
+    cached = _GAME_LINES_EVAL_CACHE.get(year)
+    if not cached or cached[0] != token:
+        df = build_game_lines_eval(year)
+        rows = [{k: _json_safe(v) for k, v in r.items()} for r in df.to_dict(orient="records")] if len(df) else []
+        payload = {
+            "rows": rows,
+            "summary": json.loads(json.dumps(summarize_game_lines(df) if len(df) else {}, default=_json_safe)),
+            "running": running_game_lines(df) if len(df) else [],
+            "weeks": sorted({r["week"] for r in rows}),
+        }
+        _GAME_LINES_EVAL_CACHE[year] = (token, payload)
+        cached = _GAME_LINES_EVAL_CACHE[year]
+    payload = cached[1]
+    games = [r for r in payload["rows"] if week is None or r["week"] == week]
+    return {"games": games, "summary": payload["summary"], "running": payload["running"],
+            "weeks": payload["weeks"]}
+
+
+_PLAYER_EVAL_CACHE: Dict[Any, Any] = {}
+# Per-row fields sent to the UI (the full frame has q25/q75 etc. too).
+_PLAYER_ROW_SUFFIXES = ("_mean", "_q10", "_q50", "_q90", "_actual", "_pit", "_miss")
+
+
+def _player_eval_input_token(year: int):
+    """mtimes of the player-eval inputs (week sim parquets + actuals cache)."""
+    paths = [player_actuals_cache_path(year)]
+    paths += [os.path.join(BASE_DIR, "data", "interim", f"dfs_week_{w}_players.parquet") for w in range(1, 19)]
+    return tuple(os.path.getmtime(p) if os.path.exists(p) else None for p in paths)
+
+
+def _df_records(df, cols=None):
+    if df is None or len(df) == 0:
+        return []
+    d = df[cols] if cols else df
+    return [{k: _json_safe(v) for k, v in r.items()} for r in d.to_dict(orient="records")]
+
+
+@app.get("/api/eval/player_projections")
+def get_player_projections_eval(year: int = 2026, min_dk: float = 5.0):
+    """Sim player projections vs. real stat lines -- see src/evaluation/player_proj_eval.py.
+
+    Response:
+      rows          -- graded QB/RB/WR/TE player-games (ALL projections; the UI
+                       filters by week/position/min projection itself)
+      summary       -- coverage/bias/MAE/PIT by position+stat, projection
+                       bucket, week, repeat offenders -- for proj_dk >= min_dk
+      no_stat_line  -- projected >= min_dk but no real stat line (inactive / no touches)
+      unprojected   -- real lines (>= 5 DK) for players we never simmed
+      weeks, actuals_updated_at, stale_games (final per the schedule but no
+      stat lines in the actuals cache -> hit refresh)
+    The expensive build (~20s for 3 weeks of 10K sims) is cached on input mtimes."""
+    token = _player_eval_input_token(year)
+    cached = _PLAYER_EVAL_CACHE.get(year)
+    if not cached or cached[0] != token:
+        graded, missing, unproj = build_player_eval(year)
+        _PLAYER_EVAL_CACHE[year] = (token, (graded, missing, unproj))
+        cached = _PLAYER_EVAL_CACHE[year]
+    graded, missing, unproj = cached[1]
+
+    stat_cols = [f"{s}{suf}" for s in PLAYER_EVAL_STATS for suf in _PLAYER_ROW_SUFFIXES]
+    id_cols = ["week", "game_id", "Team", "Player", "Pos", "proj_dk", "matched_by"]
+    rows = _df_records(graded, [c for c in id_cols + stat_cols if c in graded.columns]) if len(graded) else []
+
+    ap = player_actuals_cache_path(year)
+    have = set(pd.read_parquet(ap, columns=["game_id"])["game_id"]) if os.path.exists(ap) else set()
+    stale = []
+    if os.path.exists(SCHEDULE_CSV_PATH):
+        sched = pd.read_csv(SCHEDULE_CSV_PATH)
+        final = sched[(sched["game_type"] == "REG") & sched["result"].notna()]
+        stale = sorted(set(final["game_id"]) - have)
+    return {
+        "rows": rows,
+        "summary": json.loads(json.dumps(summarize_players(graded, min_dk), default=_json_safe)),
+        "no_stat_line": _df_records(missing[missing["proj_dk"] >= min_dk].sort_values("proj_dk", ascending=False)
+                                    if len(missing) else missing),
+        "unprojected": _df_records(unproj),
+        "weeks": sorted({r["week"] for r in rows}),
+        "stat_labels": PLAYER_STAT_LABELS, "pos_stats": PLAYER_POS_STATS,
+        "actuals_updated_at": os.path.getmtime(ap) if os.path.exists(ap) else None,
+        "stale_games": stale,
+    }
+
+
+_RANKINGS_EVAL_CACHE: Dict[Any, Any] = {}
+
+
+@app.get("/api/eval/rankings")
+def get_rankings_eval(year: int = 2026, fmt: str = "4_ppr"):
+    """Our weekly positional rankings (Slate Leaders) vs. actual finishes, in
+    season-long scoring -- see src/evaluation/rankings_eval.py.
+
+    Response (for one format; switch formats client-side by refetching):
+      summary   -- by_pos {QB..TE: {mean, median, prob}}, winner (which basis
+                   ranked better), by_week, prob, misses, repeat
+      rows      -- graded player-weeks for this format (for the table)
+      absent    -- projected inside the relevance pool but no stat line
+      formats, completed_weeks, pending_weeks (have sims but not every game final),
+      season_snapshots -- status of the season-long rankings ledger
+    Completed weeks are cached on disk per week; ~30s per NEW week cold."""
+    if fmt not in RANKING_FORMATS:
+        raise HTTPException(status_code=400, detail=f"fmt must be one of {list(RANKING_FORMATS)}")
+    token = _player_eval_input_token(year)
+    cached = _RANKINGS_EVAL_CACHE.get(year)
+    if not cached or cached[0] != token:
+        _RANKINGS_EVAL_CACHE[year] = (token, build_rankings_eval(year))
+        cached = _RANKINGS_EVAL_CACHE[year]
+    rows, absent = cached[1]
+    done = sorted(int(w) for w in rows["week"].unique()) if len(rows) else []
+    simmed = sorted(int(re.search(r"week_(\d+)_", p).group(1))
+                    for p in glob.glob(os.path.join(BASE_DIR, "data", "interim", "dfs_week_*_players.parquet")))
+    sched = pd.read_csv(SCHEDULE_CSV_PATH) if os.path.exists(SCHEDULE_CSV_PATH) else pd.DataFrame()
+    first_ko = None
+    if len(sched):
+        reg = sched[sched["game_type"] == "REG"].sort_values(["gameday", "gametime"])
+        if len(reg):
+            first_ko = kickoff_ts_eval(reg.iloc[0])
+    keep = ["week", "Player", "Team", "Pos", "proj_mean", "proj_median", "rank_mean", "rank_median",
+            "p_top12", "p_top1", "actual_score", "actual_rank"]
+    f_rows = rows[rows["fmt"] == fmt] if len(rows) else rows
+    f_abs = absent[absent["fmt"] == fmt] if len(absent) else absent
+    return {
+        "fmt": fmt,
+        "formats": RANKING_FORMAT_LABELS,
+        "summary": json.loads(json.dumps(summarize_rankings(rows, fmt), default=_json_safe)),
+        "rows": _df_records(f_rows, keep) if len(f_rows) else [],
+        "absent": _df_records(f_abs.sort_values(["week", "rank_mean"])) if len(f_abs) else [],
+        "completed_weeks": done,
+        "pending_weeks": [w for w in simmed if w not in done],
+        "season_snapshots": season_snapshot_summary(year, first_ko),
+    }
+
+
+@app.post("/api/eval/refresh_player_actuals")
+def post_refresh_player_actuals(year: int = 2026):
+    """Re-download nflverse's weekly player stats into the actuals cache
+    (src/evaluation/player_actuals.py). Button-triggered from the Evaluation
+    tab after games finish -- not scheduled."""
+    try:
+        return refresh_player_actuals(year)
+    except Exception as e:  # noqa: BLE001 -- surface network/source failures to the UI
+        raise HTTPException(status_code=502, detail=f"nflverse fetch failed: {e}")
+
+
+# -------------------------------------------------------------------------
+# PREDICTION-MARKET PROPS (draft 2026-09-26) -- Polymarket US player-prop
+# ladders vs. our week sims, live and read-only. Public endpoints, no API
+# key. See src/evaluation/prop_markets.py and
+# docs/implementation_plans/prediction_market_props_plan.md (capture ledger + grading are the
+# next phase; nothing here writes to disk).
+# -------------------------------------------------------------------------
+_PROP_MARKETS_CACHE: Dict[Any, Any] = {}   # (year, week) -> (fetched_at, sims_token, payload)
+PROP_MARKETS_TTL_S = 300                   # re-pull the books at most every 5 min unless refresh=true
+
+
+@app.get("/api/props/polymarket")
+def get_polymarket_props(week: Optional[int] = None, year: int = 2026, refresh: bool = False):
+    """Every Polymarket US player-prop ladder rung for a week's games, with our
+    sim's P(YES) and the after-fee edge of each side (pre-kickoff games only).
+
+    Response: rows (one per ladder rung), summary (coverage + disagreement by
+    stat, unmatched players, unpriced market types), games (per-game found /
+    phase / market count), week, fetched_at, sims_updated_at (null = no week
+    sim parquet, rows then carry market prices only), errors, ttl_s.
+    Live book pulls are cached PROP_MARKETS_TTL_S; refresh=true forces one.
+    The sim side re-prices whenever the week parquet changes."""
+    week = week or get_current_week(year)
+    if not os.path.exists(SCHEDULE_CSV_PATH):
+        raise HTTPException(status_code=404, detail="schedule CSV missing")
+    sched = pd.read_csv(SCHEDULE_CSV_PATH)
+    wk = sched[(sched["week"] == week) & (sched["game_type"] == "REG")]
+    games = wk[["game_id", "week", "away_team", "home_team", "gameday"]].to_dict("records")
+
+    p_path = os.path.join(BASE_DIR, "data", "interim", f"dfs_week_{week}_players.parquet")
+    g_path = os.path.join(BASE_DIR, "data", "interim", f"dfs_week_{week}_games.parquet")
+    have_sims = os.path.exists(p_path) and os.path.exists(g_path)
+    sims_token = (os.path.getmtime(p_path), os.path.getmtime(g_path)) if have_sims else None
+
+    key = (year, week)
+    cached = _PROP_MARKETS_CACHE.get(key)
+    fresh = cached and not refresh and (time.time() - cached[0] < PROP_MARKETS_TTL_S) and cached[1] == sims_token
+    if not fresh:
+        try:
+            events, meta = fetch_events_for_games(games)
+        except Exception as e:  # noqa: BLE001 -- network failure -> tell the UI, never fake data
+            raise HTTPException(status_code=502, detail=f"Polymarket US fetch failed: {e}")
+        players, n_iter = None, {}
+        if have_sims:
+            players = pd.read_parquet(p_path, columns=PROP_SIM_COLUMNS)
+            g = pd.read_parquet(g_path, columns=["away_team", "home_team"])
+            n_iter = pd.concat([g["away_team"], g["home_team"]]).value_counts().to_dict()
+        payload = build_week_props(games, events, players, n_iter)
+        payload.update({"week": week, "fetched_at": meta["fetched_at"], "errors": meta["errors"],
+                        "sims_updated_at": sims_token[0] if sims_token else None,
+                        "ttl_s": PROP_MARKETS_TTL_S, "venue": "Polymarket US"})
+        payload = json.loads(json.dumps(payload, default=_json_safe))
+        _PROP_MARKETS_CACHE[key] = (time.time(), sims_token, payload)
+        cached = _PROP_MARKETS_CACHE[key]
+    return cached[2]
 
 
 # -------------------------------------------------------------------------
@@ -6138,9 +6401,17 @@ def _assign_showdown_slots(sol: dict, players: list) -> list:
     return out
 
 
-def _synthesize_kicker_scores(game_id: str, team: str) -> Optional[np.ndarray]:
+def _synthesize_kicker_scores(game_id: str, team: str, week: Optional[int] = None) -> Optional[np.ndarray]:
     """Back out a team kicker's DK fantasy line per sim iteration from the
     cached game + player parquet, since the engine models no kickers.
+
+    `week`, when given and that week has been DFS-simmed, sources the game +
+    player slices from data/interim/dfs_week_{N}_*.parquet instead of the
+    season-long cache -- the SAME sim the Game Read box-select's iteration
+    ids and /api/optimize_showdown's aligned draws index into. Without it
+    the kicker line came from a different sim than every other player, so
+    its iteration i had nothing to do with anyone else's iteration i
+    (2026-09-25 fix, found while wiring conditioned projections).
 
     Per iteration i:
         team_tds  = sum of that team's players' (rTD + recTD + def_td) at i
@@ -6153,8 +6424,14 @@ def _synthesize_kicker_scores(game_id: str, team: str) -> Optional[np.ndarray]:
     Returns a per-iteration np.ndarray aligned to the parquet's iteration
     order, or None if the game isn't in cache.
     """
-    game_df = GAMES_BY_GAME_ID.get(game_id)
-    players_df = PLAYERS_BY_GAME_ID.get(game_id)
+    game_df = players_df = None
+    if week is not None:
+        dfs_by_game = _get_dfs_week_by_game_id(week)
+        if dfs_by_game and game_id in dfs_by_game:
+            game_df, players_df = dfs_by_game[game_id]
+    if game_df is None or players_df is None:
+        game_df = GAMES_BY_GAME_ID.get(game_id)
+        players_df = PLAYERS_BY_GAME_ID.get(game_id)
     if game_df is None or players_df is None or game_df.empty:
         return None
     g = game_df.sort_values('iteration')
@@ -6265,6 +6542,91 @@ def _compute_showdown_optimal_rates(
     }
 
 
+def _compute_conditioned_distributions(
+    game_id: Optional[str], week: Optional[int],
+    players: List[dict], iteration_filter: List[int],
+) -> Tuple[Dict[Tuple[str, str], Dict[str, Any]], int]:
+    """Per-player DK-score distribution restricted to a Game-Read scenario.
+
+    Inputs:
+        game_id / week     -- locate the game's per-iteration player slice
+                              (DFS-week parquet preferred, season cache
+                              fallback -- same preference as
+                              _compute_showdown_optimal_rates, so the
+                              iteration ids mean the same thing).
+        players            -- pool dicts with 'name', 'team', 'pos'.
+        iteration_filter   -- the box-selected iteration ids.
+    Outputs:
+        ({(name, team): {projection, p85, ceiling, dk_pcts_all}}, n_iterations)
+        -- projection = P50, ceiling = P95, dk_pcts_all = 101-point curve,
+        all over ONLY the filtered iterations. Consumed by showdown_prep ->
+        the Showdown pool, so the solver objective reflects the read.
+    Purpose:
+        The Game Read used to condition only lineup SCORING (aligned draws)
+        and Opt CPT/FLEX%; the pool's projections stayed unconditioned, so
+        the solver still built for the average game. This is the missing
+        half. Pure filter + percentile over data already in memory -- no
+        re-sim, well under a second for 10k iterations.
+
+    Matching: exact (Player, Team) first, then (Team, Pos) -- the DST rows
+    are named "Defense" in the parquet, and a 2-team game makes (team, pos)
+    unique for DST (same fallback /api/optimize_showdown's trial_map uses).
+    Kickers are handled via _synthesize_kicker_scores (engine has no kicker
+    rows); a filtered id beyond a kicker array's length is dropped.
+    """
+    if not game_id or not iteration_filter:
+        return {}, 0
+    wp = _get_dfs_week_players(week) if week else None
+    if wp is None or wp.empty:
+        wp = ALL_PLAYERS_CACHED
+    if wp is None or wp.empty:
+        return {}, 0
+    g = wp[wp["game_id"] == game_id]
+    if g.empty:
+        return {}, 0
+    allowed = np.array(sorted({int(i) for i in iteration_filter}))
+    g = g[g["iteration"].isin(allowed)]
+    n_iter = int(g["iteration"].nunique())
+    if n_iter == 0:
+        return {}, 0
+
+    q = np.linspace(0, 100, 101)
+    by_name: Dict[Tuple[str, str], np.ndarray] = {}
+    by_teampos: Dict[Tuple[str, str], np.ndarray] = {}
+    for (pl, tm, ps), grp in g.groupby(["Player", "Team", "Pos"]):
+        # reindex onto the full filtered set: a missing row = 0 pts that sim
+        arr = grp.set_index("iteration")["dk_score"].reindex(allowed, fill_value=0.0).values
+        by_name[(str(pl), str(tm))] = arr
+        by_teampos[(str(tm), str(ps))] = arr
+
+    def _summ(arr: np.ndarray) -> Dict[str, Any]:
+        pcts = np.percentile(arr, q)
+        return {
+            "projection": round(float(pcts[50]), 1),
+            "p85": round(float(pcts[85]), 1),
+            "ceiling": round(float(pcts[95]), 1),
+            "dk_pcts_all": pcts.round(2).tolist(),
+        }
+
+    out: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for p in players:
+        key = (p["name"], p["team"])
+        if p.get("pos") == "K":
+            karr = _synthesize_kicker_scores(game_id, p["team"], week=week)
+            if karr is None:
+                continue
+            idx = allowed[allowed < len(karr)]
+            if len(idx):
+                out[key] = _summ(karr[idx])
+            continue
+        arr = by_name.get(key)
+        if arr is None:
+            arr = by_teampos.get((p["team"], p.get("pos")))
+        if arr is not None:
+            out[key] = _summ(arr)
+    return out, n_iter
+
+
 def _build_showdown_field(
     players: list, salary_cap: int, n_field: int, seed: Optional[int] = None
 ) -> list:
@@ -6358,7 +6720,7 @@ def showdown_prep(req: ShowdownPrepRequest):
         d = p.dict()
         d['implied_total'] = implied_by_team.get(p.team)
         if p.pos == 'K':
-            karr = _synthesize_kicker_scores(game_id, p.team) if game_id else None
+            karr = _synthesize_kicker_scores(game_id, p.team, week=week) if game_id else None
             if karr is not None and len(karr) >= 100:
                 kicker_source = 'game_script'
                 pcts = np.percentile(karr, np.linspace(0, 100, 101)).round(2).tolist()
@@ -6378,25 +6740,26 @@ def showdown_prep(req: ShowdownPrepRequest):
     # rather than re-solving the same unconditioned answer on every pool
     # load. A scenario pick, though, can't be precomputed (it's chosen at
     # browse time), so that case still needs a fresh, scenario-scoped solve.
+    #
+    # The conditioned rates (and projections, below) are kept in their own
+    # dicts and only applied to the RESPONSE, never to `pool` before the
+    # ownership model runs. Cam's call 2026-09-25: ownership stays fully
+    # fixed to the unconditioned read -- it's a forecast of what the FIELD
+    # (ETR/RTS-driven) will play, and the field doesn't know our Game Read.
+    # Before this, the conditioned Opt CPT/FLEX% leaked into the model's
+    # chalk-proxy feature and moved ownership with every box-select.
+    cond_rates: Dict[Tuple[str, str], Dict[str, float]] = {}
+    cond_dists: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    cond_n = 0
     if req.iteration_filter:
         player_keys = [(d['name'], d['team']) for d in pool if d['pos'] != 'K']
         salary_by_key = {(d['name'], d['team']): d.get('salary') for d in pool}
-        optimal_rates = _compute_showdown_optimal_rates(
+        cond_rates = _compute_showdown_optimal_rates(
             game_id, week, player_keys, salary_by_key, iteration_filter=req.iteration_filter
         )
-        for d in pool:
-            rates = optimal_rates.get((d['name'], d['team']))
-            if rates:
-                d['optimal_cpt_pct'] = rates['optimal_cpt_pct']
-                d['optimal_flex_pct'] = rates['optimal_flex_pct']
-            elif d['pos'] != 'K':
-                # No real rate resolved (e.g. this game has no cached sim
-                # data at all) -- 0 rather than the client's stale guess, so
-                # a UI showing "0%" here is an honest "couldn't compute",
-                # not a leftover sample from a different (unconditioned)
-                # scenario.
-                d['optimal_cpt_pct'] = 0.0
-                d['optimal_flex_pct'] = 0.0
+        cond_dists, cond_n = _compute_conditioned_distributions(
+            game_id, week, pool, req.iteration_filter
+        )
 
     # zlib.crc32, not Python's builtin hash() -- hash() is randomized per
     # process (PYTHONHASHSEED), so the "deterministic" seed used to only
@@ -6407,6 +6770,7 @@ def showdown_prep(req: ShowdownPrepRequest):
 
     out = []
     for d in pool:
+        key = (d['name'], d['team'])
         row = {
             'name': d['name'], 'team': d['team'], 'pos': d['pos'],
             'ownership_pct': d.get('ownership_pct'),
@@ -6419,8 +6783,30 @@ def showdown_prep(req: ShowdownPrepRequest):
             row['projection'] = d.get('projection')
             row['ceiling'] = d.get('_ceiling')
             row['dk_pcts_all'] = d.get('_dk_pcts_all')
+        if req.iteration_filter:
+            rates = cond_rates.get(key)
+            if rates:
+                row['optimal_cpt_pct'] = rates['optimal_cpt_pct']
+                row['optimal_flex_pct'] = rates['optimal_flex_pct']
+            elif d['pos'] != 'K':
+                # No real rate resolved (e.g. this game has no cached sim
+                # data at all) -- 0 rather than the client's stale guess, so
+                # a UI showing "0%" here is an honest "couldn't compute",
+                # not a leftover sample from a different (unconditioned)
+                # scenario.
+                row['optimal_cpt_pct'] = 0.0
+                row['optimal_flex_pct'] = 0.0
+            # Scenario-conditioned distribution (P50 / P85 / P95 / 101-pt curve).
+            # The client treats these as the new sim baseline for the pool.
+            dist = cond_dists.get(key)
+            if dist:
+                row['cond_projection'] = dist['projection']
+                row['cond_p85'] = dist['p85']
+                row['cond_ceiling'] = dist['ceiling']
+                row['cond_dk_pcts_all'] = dist['dk_pcts_all']
         out.append(row)
-    return {'players': out, 'game_id': game_id, 'kicker_source': kicker_source}
+    return {'players': out, 'game_id': game_id, 'kicker_source': kicker_source,
+            'conditioned_n': cond_n if req.iteration_filter else None}
 
 
 _SHOWDOWN_OPT_LOCK = threading.Lock()
@@ -6629,7 +7015,7 @@ def optimize_showdown(req: ShowdownOptimizeRequest):
     if req.game_id:
         for p in active:
             if p['pos'] == 'K' and (p['name'], p['team'], 'K') not in trial_map:
-                karr = _synthesize_kicker_scores(req.game_id, p['team'])
+                karr = _synthesize_kicker_scores(req.game_id, p['team'], week=req.week)
                 if karr is not None and len(karr) >= 100:
                     trial_map[(p['name'], p['team'], 'K')] = karr
                     trial_map[(p['team'], 'K')] = karr
@@ -6663,7 +7049,17 @@ def optimize_showdown(req: ShowdownOptimizeRequest):
             arr = trial_map.get((p['team'], p['pos']))
         if arr is not None and len(arr) >= 100:
             safe = np.clip(indices, 0, len(arr) - 1)
-            med = float(np.percentile(arr, 50))
+            # Under a Game-Read scenario the client's `projection` is the
+            # scenario-conditioned P50 (+ any manual bump), so the rescale
+            # median must come from the SAME filtered iterations -- a full-
+            # array median would scale a player whose median rises in the
+            # scenario up a second time on top of the already-filtered draws.
+            if valid_filter:
+                fidx = np.array(valid_filter)
+                fidx = fidx[fidx < len(arr)]
+                med = float(np.percentile(arr[fidx], 50)) if len(fidx) else float(np.percentile(arr, 50))
+            else:
+                med = float(np.percentile(arr, 50))
             proj = p.get('projection', 10.0)
             if med > 1.0 and abs(proj - med) > 0.1:
                 return arr[safe] * (proj / med)

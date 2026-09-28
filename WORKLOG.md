@@ -4,6 +4,95 @@
 
 ---
 
+### [2026-09-25, part 2] Handoff from Claude Opus 5.5 (Evaluation tab: Player Projections + percentile finish)
+
+- **Active Task:** Cam's follow-on: evaluate the sim's player projections vs. real stat lines, incl. the
+  percentile finish of the real line inside each player's sim runs. Relative to our sims only for now --
+  prop lines (Vegas / prediction markets) are a later column on the same rows.
+- **Files Modified:**
+  - [src/evaluation/player_actuals.py](src/evaluation/player_actuals.py) (new): real per-player-game stats from
+    nflverse's `stats_player_week_2026.csv` (nfl_data_py's weekly pull still 404s -- deprecated lib), renamed
+    to sim stat names, DK via the sim's own scoring. Cache `data/eval/2026/player_actuals_week.parquet`
+    (gitignored). CLI: `python -m src.evaluation.player_actuals 2026`.
+  - [src/evaluation/player_proj_eval.py](src/evaluation/player_proj_eval.py) (new): per player-game sim
+    mean/q10-q90, actual, percentile (mid-rank PIT), miss; GSIS-id join (+ name fallback); coverage/bias/
+    MAE by position+stat, projection bucket, week; repeat over/under-projection lists.
+  - [src/api/app.py](src/api/app.py): `GET /api/eval/player_projections?min_dk=` (cached on mtimes; ~30s cold)
+    and `POST /api/eval/refresh_player_actuals`.
+  - [frontend/src/components/PlayerProjectionsEval.jsx](frontend/src/components/PlayerProjectionsEval.jsx)
+    (new), mounted under Game Lines in [EvaluationTab.jsx](frontend/src/pages/EvaluationTab.jsx); `PitHist`/
+    `Tile`/`Empty` now exported from GameLinesEval.jsx for reuse; two new calls in [api.js](frontend/src/api.js).
+  - [.gitignore](.gitignore): the actuals cache. Tests (new): [tests/test_player_proj_eval.py](tests/test_player_proj_eval.py) (15).
+- **Decisions (Cam):** QB/RB/WR/TE only (DST/K later); projected-but-no-stat-line listed separately, never
+  graded as 0; default view hides players projected < 5 DK (toggle).
+- **Verification Performed:** `pytest tests/ -q` -> 208 passed. Mutation check: ignoring ties, not excluding
+  unplayed games, and exclusive coverage bounds each fail tests. 610/613 player-games matched by id, 3 by
+  name; the 10 "no stat line" players (e.g. Nacua wk2) confirmed as real absences (same id has lines in other
+  weeks). Page verified in the browser pane against a snapshot of the real payload.
+- **Current System Status:** Needs the DFS API restart (same as Game Lines). Early read (392 player-games,
+  proj >= 5 DK): centered (bias -0.4 DK) but ranges too narrow -- 73% inside our 10-90 (target 80%, beyond
+  the +-4-pt noise band), U-shaped percentile histogram; same signal as game margins.
+- **Immediate Next Steps for the Next Agent:**
+  1. The too-narrow signal at BOTH game and player level may share an engine-level cause -- worth a focused
+     look once more weeks land (ties to the 2026-09-23 blowout-rate note).
+  2. `build_actual_season_stats_2026.py` / `real_results_v_0_1_0.py` still say "no 2026 per-player data" --
+     they could switch to the `stats_player` release too (fills fumbles/sacks, enables rookie leaders).
+  3. Dev-server gotcha seen this session: the other chat's vite missed the 2nd of two rapid edits to the
+     same file (served a stale transform, even after a full reload) -- `touch` the file to force a recompile.
+
+### [2026-09-25] Handoff from Claude Opus 5.5 (Evaluation tab: Game Lines -- sim vs. Vegas vs. actual; kickoff lock)
+
+- **Active Task:** Cam asked to flesh out the Evaluation tab starting with game lines: grade the sim's
+  spreads, totals and win probabilities against Vegas (opening AND closing line -- opener matters more,
+  soft openers are the strategy) and against the actual result, plus a running calibration view,
+  "where we win/fail" breakdowns, agree/disagree tiers, and moneyline value bets. Player projections
+  and props are the NEXT layer (same page), not built yet.
+- **Files Modified:**
+  - [src/evaluation/](src/evaluation/) (new package): [line_history.py](src/evaluation/line_history.py)
+    (append-only Vegas line ledger -> per-game open/close; hand-entered overrides win) and
+    [game_line_eval.py](src/evaluation/game_line_eval.py) (per-game grading + `summarize` /
+    `tier_breakdown` / `running_by_week`). Module docstrings define every metric.
+  - [src/data_pipeline/vegas_lines_refresh.py](src/data_pipeline/vegas_lines_refresh.py): every refresh
+    now also appends changed lines to `data/eval/{year}/line_history.csv`.
+  - [scripts/evaluation/seed_line_history.py](scripts/evaluation/seed_line_history.py) (new, one-time,
+    rerunnable): backfilled the ledger from the schedule CSV's git history + working copy; created
+    `data/eval/2026/line_overrides.csv` with Cam's ATL@GB book open (GB -7.5/46.5) and close (-4.5/43.5).
+  - Kickoff lock: [sim_run_status.py](scripts/simulation_runners/sim_run_status.py) (`kickoff_ts`,
+    `has_kicked_off`, `SIM_RUN_AT_COL`); [run_week_sim_2026.py](scripts/simulation_runners/run_week_sim_2026.py)
+    carries kicked-off games' rows forward; [resim_games_2026.py](scripts/simulation_runners/resim_games_2026.py)
+    skips them (raises if ALL requested are locked -> roster toggle reports "locked"). Both take `--force`
+    and stamp `sim_run_at` on fresh rows.
+  - [src/api/app.py](src/api/app.py): `GET /api/eval/game_lines` (live compute, cached on input mtimes).
+  - [frontend/src/components/GameLinesEval.jsx](frontend/src/components/GameLinesEval.jsx) (new) mounted at
+    the top of [EvaluationTab.jsx](frontend/src/pages/EvaluationTab.jsx); `getGameLinesEval` in
+    [api.js](frontend/src/api.js). Open/Close toggle; scoreboard; cumulative-units + accuracy-gap charts;
+    reliability + PIT calibration; agree/disagree grid; slices; per-game table (Actual uses line notation --
+    winner gets the minus). Inline SVG charts (no chart lib on the DFS site); palette validated with the
+    dataviz validator (spread #0fa3b1, total #c97d00, moneyline #9b6ad6).
+  - Tests (new): [tests/test_game_line_eval.py](tests/test_game_line_eval.py) (43),
+    [tests/test_kickoff_lock.py](tests/test_kickoff_lock.py) (11); [tests/README.md](tests/README.md).
+- **Decisions (Cam):** grade from the latest sim run (reruns are injury news, not hindsight); tiers = |our
+  line - Vegas line|: <=1 agree, (1, 2.5] disagree, >2.5 strong (moneyline <=3 / 3-7 / >7 win-prob pts);
+  moneyline bet only when sim prob beats the price's break-even INCLUDING vig; sim line = mean of sims.
+- **Verification Performed:** `pytest tests/ -q` -> 193 passed. Mutation check: disabling the lock fails 3
+  lock tests, flipping cover side fails 6 grading tests. API smoke-tested via TestClient. Page verified in
+  the browser pane against a snapshot of the real API payload (the running 8002 server belonged to another
+  chat and has no `--reload`), no NaN/undefined; ATL@GB row hand-checked.
+- **Current System Status:** Code done and green. **The DFS API on 8002 must be restarted** to serve
+  `/api/eval/game_lines` (until then the section shows "Couldn't reach"). `data/eval/` is new and
+  uncommitted -- commit it (captured lines are unrecoverable once they move). Early read, 32 games:
+  sim MAE ~0.5-0.8 pts worse than Vegas; strong spread disagreements lose (Vegas closer ~60%); totals and
+  moneyline value bets (mostly dogs) positive -- small sample, provisional.
+- **Immediate Next Steps for the Next Agent:**
+  1. Player projection evaluation (Cam's next ask): actual vs. sim projection + percentile finish within
+     the sim distribution; props/markets later.
+  2. Three Week 1-2 games (NE@SEA, SF@LA, DET@BUF) are flagged "unknown timing" (sim file rewritten after
+     kickoff, pre-lock) -- graded anyway per Cam.
+  3. "Open" before 2026-09-25 = earliest captured snapshot (git), not necessarily the true book opener --
+     add real openers to `line_overrides.csv` when Cam has them.
+  4. Margin PIT is U-shaped (12/32 in the outer deciles vs ~6 expected) -- sim margin spread may be too
+     narrow; ties to the 2026-09-23 blowout-rate note. Worth a real look once more weeks land.
+
 ### [2026-09-23] Handoff from Claude Opus 5.5 (Game Explorer: sticky toggles, score explorer, cross-filter, auto-refresh)
 
 - **Active Task:** Cam's Game Explorer (ex-"DFS Simulator") UI requests, 2026-09-22/23: rename; fix + make

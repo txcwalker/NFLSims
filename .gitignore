@@ -141,3 +141,11 @@ data/optimizer/**/builds/
 # Game Explorer workspace save slots -- rewritten on every UI save (3+ MB each),
 # local working state only; nothing in history needs them.
 data/workspace/
+
+# Evaluation tab (2026-09-25): nflverse weekly player stats cache -- re-downloadable
+# any time (src/evaluation/player_actuals.py / the tab's refresh button). The line
+# ledger files next to it (line_history.csv, line_overrides.csv) are NOT ignored:
+# a captured line can't be recovered once it moves.
+data/eval/*/player_actuals_week.parquet
+# Evaluation per-week grading cache (src/evaluation/rankings_eval.py) -- rebuilt automatically.
+data/eval/*/_cache/

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ApiService } from '../api';
+import GameLinesEval from '../components/GameLinesEval';
+import PlayerProjectionsEval from '../components/PlayerProjectionsEval';
+import RankingsEval from '../components/RankingsEval';
 
 // ─── Shared visual language (matches Optimizer.jsx / ShowdownOptimizer.jsx) ──
 const cardStyle = { background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '14px', padding: '16px' };
@@ -111,6 +114,22 @@ export default function EvaluationTab({ allSimResults = {}, games = [], selected
         {loading && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>loading…</span>}
       </div>
 
+      {/* ── Game Lines (2026-09-25): sim vs. Vegas vs. actual, whole slate ── */}
+      <GameLinesEval selectedWeek={selectedWeek} />
+
+      {/* ── Player Projections (2026-09-25): sim projection vs. real line + percentile finish ── */}
+      <div style={{ marginTop: '26px' }}>
+        <PlayerProjectionsEval selectedWeek={selectedWeek} />
+      </div>
+
+      {/* ── Rankings (2026-09-26): weekly positional rankings vs. finish, season-long scoring ── */}
+      <div style={{ marginTop: '26px' }}>
+        <RankingsEval selectedWeek={selectedWeek} />
+      </div>
+
+      <h2 style={{ margin: '26px 0 10px 2px', fontSize: '1.05rem' }}>
+        DFS Contests <span style={{ fontSize: '0.78rem', fontWeight: 400, color: 'var(--text-muted)' }}>— per showdown game (pick one in the Game selector above)</span>
+      </h2>
       {!activeGame ? (
         <div style={{ ...cardStyle, textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
           Pick a simmed game above.

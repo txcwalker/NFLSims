@@ -23,8 +23,9 @@ const POS_COLORS = {
 };
 
 // ─── GPP Projection Weights by Contest Type ───────────────────────────────────
-// These weights tilt the ILP objective toward ceiling for GPP formats.
-// Cash uses pure median; GPP types blend in P75/P95 proportionally to prize skew.
+// Weights for the 'blend' Solver Objective (see OBJECTIVE_MODES below), the
+// default for GPP types. Cash is pure median; GPP types blend in P75/P95
+// proportionally to prize skew.
 // To adjust: change weights here. They must sum to 1.0.
 // See docs/todo/optimizer_ownership_leverage.md for the full design rationale.
 const GPP_WEIGHTS_BY_TYPE = {
@@ -47,6 +48,42 @@ function computeGppProj(p, weights) {
     (weights.p75 || 0) * p75 +
     (weights.p95 || 0) * p95
   ).toFixed(1));
+}
+
+// ─── Solver objective ────────────────────────────────────────────────────────
+// What per-player score the ILP maximises, independent of contest type
+// (contest type still drives the payout/EV math and the draw width). Sent to
+// the backend as `gpp_projection`; 'median' sends null so the backend falls
+// back to `projection` (the shifted P50).
+//   blend   — contest-type ceiling blend (GPP_WEIGHTS_BY_TYPE above)
+//   mean    — sim mean
+//   median  — sim P50
+//   ceiling — pure 95th percentile
+// Mirrored in ShowdownOptimizer.jsx's OBJECTIVE_MODES.
+const OBJECTIVE_MODES = [
+  ['blend',   'GPP blend'],
+  ['mean',    'Mean'],
+  ['median',  'Median (P50)'],
+  ['ceiling', '95% ceiling'],
+];
+
+/** Default objective for a contest type -- what the dropdown resets to when
+ *  the contest type changes, and what an older saved workspace (no
+ *  `objective` field) resolves to. Input: contestType (str). Output: mode (str). */
+const naturalObjective = (contestType) => (contestType === 'cash' ? 'median' : 'blend');
+
+/** Solver-objective points for one enriched pool player.
+ *  Inputs: p (enrichedPool row -- percentiles already shifted by any manual
+ *  projAdjust, plus `meanProj`), mode (OBJECTIVE_MODES value), weights (the
+ *  contest type's GPP_WEIGHTS_BY_TYPE entry, used by 'blend').
+ *  Output: number (points). Players with no sim distribution (custom adds)
+ *  fall back to their flat projection under every mode. */
+function computeObjectiveProj(p, mode, weights) {
+  if (!p.hasPcts) return parseFloat((p.projection || 0).toFixed(1));
+  if (mode === 'median')  return p.projection;
+  if (mode === 'mean')    return p.meanProj ?? p.projection;
+  if (mode === 'ceiling') return p.p95 ?? p.projection;
+  return computeGppProj(p, weights);
 }
 
 const OPTIMIZER_SEASON = 2026;
@@ -637,6 +674,7 @@ function FlexMixSliders({ settings, setSettings }) {
 
 function SettingsPanel({ settings, setSettings, allTeams, allGames, excludedTeams, setExcludedTeams, excludedGames, setExcludedGames, dkContests = [] }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const objective = settings.objective ?? naturalObjective(settings.contestType);
   return (
     <div style={{
       ...cardStyle,
@@ -678,12 +716,34 @@ function SettingsPanel({ settings, setSettings, allTeams, allGames, excludedTeam
                 <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: settings.contestType === opt.value ? 'var(--text-white)' : 'var(--text-muted)' }}>
                   <input type="radio" name="contestType" value={opt.value}
                     checked={settings.contestType === opt.value}
-                    onChange={() => setSettings(s => ({ ...s, contestType: opt.value }))}
+                    // Changing contest type resets the objective to that
+                    // type's natural default, so a Median left over from a
+                    // cash build can't silently ride into a GPP build.
+                    onChange={() => setSettings(s => ({ ...s, contestType: opt.value, objective: naturalObjective(opt.value) }))}
                     style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
                   />
                   {opt.label}
                 </label>
               ))}
+            </div>
+
+            <label style={labelStyle}
+              title="What the solver maximises per player. Separate from contest type, which still drives payouts/EV and lineup variety. Resets to the contest type's default when you change contest type.">
+              Solver Objective
+            </label>
+            <select style={{ ...inputStyle, marginBottom: '3px' }} value={objective}
+              onChange={e => setSettings(s => ({ ...s, objective: e.target.value }))}>
+              {OBJECTIVE_MODES.map(([v, l]) => (
+                <option key={v} value={v}>{l}{v === naturalObjective(settings.contestType) ? ' (default)' : ''}</option>
+              ))}
+            </select>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+              {objective === 'blend' && (settings.contestType === 'cash'
+                ? 'Cash blend weights are pure P50 -- same as Median.'
+                : 'Ceiling blend weighted by contest type.')}
+              {objective === 'mean' && 'Sim mean -- sits above the median for right-skewed players.'}
+              {objective === 'median' && 'Sim P50 -- no ceiling tilt.'}
+              {objective === 'ceiling' && 'Pure 95th percentile -- maximum boom.'}
             </div>
           </>
         )}
@@ -956,7 +1016,7 @@ export default function Optimizer({
   // Team/game filter for the pool table: 'ALL' | 'G:<AWAY@HOME>' | 'T:<TEAM>'.
   // View-only -- does not exclude anyone from the optimizer.
   const [teamGameFilter, setTeamGameFilter] = useState('ALL');
-  // Projection cell currently being typed into: { id, projection, gppProjection }
+  // Projection cell currently being typed into: { id, projection, objProjection }
   // snapshotted at focus. While set, that player is exempt from the "hide
   // below X pts" threshold and sorts by the snapshot, so a half-typed value
   // (12 -> 1 -> 13) neither hides the row nor jumps it around the table. Cleared
@@ -1107,6 +1167,11 @@ export default function Optimizer({
     () => GPP_WEIGHTS_BY_TYPE[settings.contestType] || GPP_WEIGHTS_BY_TYPE.top_heavy,
     [settings.contestType]
   );
+  // Solver objective (see OBJECTIVE_MODES). Saved workspaces from before the
+  // dropdown existed have no `objective`, so they resolve to the contest
+  // type's natural default -- i.e. exactly how they optimized before.
+  const objective = settings.objective ?? naturalObjective(settings.contestType);
+  const objectiveLabel = OBJECTIVE_MODES.find(([v]) => v === objective)?.[1] ?? 'GPP blend';
 
   // ── Salary cap by platform
   const salaryCap = settings.platform === 'FD' ? 60000 : 50000;
@@ -1194,10 +1259,19 @@ export default function Optimizer({
         // player above their sim ceiling" tint stays meaningful after a shift.
         simP50: s50, simP75: s75, simP95: s95,
       };
+      // Mean on the active platform's (shifted) scale. The pool's `mean` is
+      // the DK sim mean; FD has no mean column, so FD (or any row missing a
+      // mean) uses the average of the 101-point percentile curve instead --
+      // a close approximation of the mean of the underlying sims.
+      const curveMean = activePcts && activePcts.length
+        ? activePcts.reduce((a, v) => a + v, 0) / activePcts.length : null;
+      const rawMean = (!isFD && enriched.mean != null) ? enriched.mean : curveMean;
+      enriched.meanProj = rawMean != null ? parseFloat(rawMean.toFixed(1)) : null;
       enriched.gppProjection = computeGppProj(enriched, contestWeights);
+      enriched.objProjection = computeObjectiveProj(enriched, objective, contestWeights);
       return enriched;
     });
-  }, [playerPool, overlay, settings.platform, contestWeights]);
+  }, [playerPool, overlay, settings.platform, contestWeights, objective]);
 
   // ── Derived lists
   const allTeams = useMemo(() => [...new Set(enrichedPool.map(p => p.team))].sort(), [enrichedPool]);
@@ -1251,7 +1325,7 @@ export default function Optimizer({
         return true;
       })
       .sort((a, b) => {
-        const field = sortField === 'gppProjection' ? 'gppProjection' : sortField;
+        const field = sortField;
         let va = sortVal(a, field) ?? 0;
         let vb = sortVal(b, field) ?? 0;
         if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
@@ -1317,12 +1391,13 @@ export default function Optimizer({
   // priced players are eligible either way (DK hasn't priced an unpriced
   // player, so there's no real salary/cap to score them against).
   const buildOptimizerPlayersPayload = () => {
-    const isCash = settings.contestType === 'cash';
     return enrichedPool.filter(p => p.salary != null).map(p => ({
       name: p.name, team: p.team, pos: p.pos,
       salary: p.salary,
       projection: p.p50 ?? p.projection ?? p.simProjection,   // shifted P50 for evaluation
-      gpp_projection: isCash ? null : (p.gppProjection ?? null), // blended for ILP only
+      // Solver objective for the ILP only (see OBJECTIVE_MODES); null for
+      // 'median' so the backend falls back to `projection` above.
+      gpp_projection: objective === 'median' ? null : (p.objProjection ?? null),
       locked: p.locked,
       excluded: isPlayerExcluded(p),
       ownership_pct: p.ownershipPct,
@@ -1344,8 +1419,9 @@ export default function Optimizer({
     //                    where sending gppProjection here inflated the field cutoff.
     //                    p.p50 here is already the manually-shifted median (see
     //                    enrichedPool / projAdjust), so overrides flow through.
-    //   gpp_projection = blended ceiling value — used ONLY by the ILP objective to
-    //                    steer the solver toward higher-ceiling players. null for cash.
+    //   gpp_projection = the Solver Objective value (GPP blend by default for GPP
+    //                    types; mean / 95% ceiling on request) — used ONLY by the
+    //                    ILP objective. null for 'median' (backend uses projection).
     //                    Also computed off the shifted percentiles.
     const payload = {
       players: buildOptimizerPlayersPayload(),
@@ -1500,6 +1576,7 @@ export default function Optimizer({
       players_used[id] = p ? {
         name: p.name, team: p.team, pos: p.pos, salary: p.salary,
         proj: p.projection, gpp_proj: p.gppProjection,
+        obj_proj: p.objProjection, objective,
         p25: p.p25, p50: p.p50, p75: p.p75, p95: p.p95,
         proj_adjust: p.projAdjust || 0, ownership_pct: p.ownershipPct,
       } : { name: pl.name, team: pl.team, pos: pl.pos, salary: pl.salary };
@@ -2237,10 +2314,10 @@ export default function Optimizer({
               <button
                 onClick={() => setShowGppCol(v => {
                   const next = !v;
-                  if (!next && sortField === 'gppProjection') { setSortField('projection'); setSortAsc(false); }
+                  if (!next && sortField === 'objProjection') { setSortField('projection'); setSortAsc(false); }
                   return next;
                 })}
-                title="Show/hide the blended ceiling projection the optimizer uses for GPP contest types"
+                title="Show/hide the per-player value the solver maximises (set by Solver Objective in Advanced Settings)"
                 style={{
                   ...pillBtnBase,
                   background: showGppCol ? 'rgba(0,242,254,0.15)' : 'rgba(255,255,255,0.04)',
@@ -2248,7 +2325,7 @@ export default function Optimizer({
                   borderColor: showGppCol ? 'rgba(0,242,254,0.4)' : 'rgba(255,255,255,0.08)',
                   whiteSpace: 'nowrap',
                 }}
-              >{showGppCol ? 'Hide' : 'Show'} GPP blend</button>
+              >{showGppCol ? 'Hide' : 'Show'} solver proj</button>
               <select
                 value={teamGameFilter} onChange={e => setTeamGameFilter(e.target.value)}
                 title="Show only one game or team (view filter -- doesn't exclude anyone from the optimizer)"
@@ -2348,8 +2425,8 @@ export default function Optimizer({
                   ))}
                   {showGppCol && (
                     <th style={{ cursor: 'pointer', padding: '7px 8px', whiteSpace: 'nowrap', color: 'rgba(0,242,254,0.7)', fontSize: '0.72rem' }}
-                      onClick={() => handleSort('gppProjection')} title="Blended ceiling projection used by optimizer for GPP types">
-                      GPP Proj {sortField === 'gppProjection' ? (sortAsc ? '↑' : '↓') : '⬍'}
+                      onClick={() => handleSort('objProjection')} title={`What the solver maximises per player: ${objectiveLabel}`}>
+                      {objectiveLabel} {sortField === 'objProjection' ? (sortAsc ? '↑' : '↓') : '⬍'}
                     </th>
                   )}
                   <th style={{ padding: '7px 5px', fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>P25</th>
@@ -2430,7 +2507,7 @@ export default function Optimizer({
                             type="number" step={0.1}
                             value={p.projection}
                             onChange={e => setProjection(p.id, e.target.value)}
-                            onFocus={() => setEditingProj({ id: p.id, projection: p.projection, gppProjection: p.gppProjection })}
+                            onFocus={() => setEditingProj({ id: p.id, projection: p.projection, objProjection: p.objProjection })}
                             onBlur={() => setEditingProj(null)}
                             onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                             style={{
@@ -2450,20 +2527,20 @@ export default function Optimizer({
                           )}
                         </div>
                       </td>
-                      {/* GPP Proj — blended ceiling projection (read-only display, click to use as proj) */}
+                      {/* Solver proj — the Solver Objective value (read-only display, click to use as proj) */}
                       {showGppCol && (
                         <td style={{ padding: '3px 5px' }}>
                           {p.hasPcts ? (
                             <button
-                              onClick={() => setProjection(p.id, p.gppProjection)}
-                              title={`Set projection to GPP blend: ${p.gppProjection}`}
+                              onClick={() => setProjection(p.id, p.objProjection)}
+                              title={`Set projection to ${objectiveLabel}: ${p.objProjection}`}
                               style={{
                                 ...pillBtnBase, padding: '2px 7px', fontSize: '0.72rem', fontWeight: 700,
                                 background: 'rgba(0,242,254,0.08)',
                                 color: 'rgba(0,242,254,0.85)',
                                 borderColor: 'rgba(0,242,254,0.2)',
                               }}
-                            >{p.gppProjection}</button>
+                            >{p.objProjection}</button>
                           ) : (
                             <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.18)' }}>—</span>
                           )}

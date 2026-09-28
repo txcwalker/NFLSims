@@ -23,8 +23,14 @@ present -- they were baked from the OLD data source and app.py's own
 mtime-staleness checks don't know a DFS-specific parquet even exists, so
 they'd otherwise keep serving pre-refresh numbers.
 
+Kickoff lock (2026-09-25): games whose scheduled kickoff has already passed
+are NOT re-simmed -- their rows are carried forward from the existing week
+cache unchanged, so the Evaluation tab always grades the last pre-kickoff
+prediction. Pass --force to re-sim them anyway. Every freshly simmed game's
+rows are stamped with sim_run_at (unix s) -- see sim_run_status.py.
+
 Usage:
-    venv\\Scripts\\python.exe scripts/simulation_runners/run_week_sim_2026.py <week> [iterations]
+    venv\\Scripts\\python.exe scripts/simulation_runners/run_week_sim_2026.py <week> [iterations] [--force]
 
 iterations defaults to 10,000 (2026-09-23; was 1,000), matching
 resim_games_2026.py's default so a full-week run and a single-game resim
@@ -41,7 +47,8 @@ import pandas as pd  # noqa: E402
 
 from src.nfl_sim.batch import BatchSimulator  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sim_run_status import run_marker, atomic_to_parquet  # noqa: E402
+from sim_run_status import (run_marker, atomic_to_parquet,  # noqa: E402
+                            has_kicked_off, SIM_RUN_AT_COL)
 
 SIM_YEAR = 2026
 ROSTERS_DIR = os.path.join("data", "current_rosters", "dfs")
@@ -51,16 +58,17 @@ SCHEDULE_PATH = os.path.join("data", "external", f"schedule_{SIM_YEAR}.csv")
 DEFAULT_ITERATIONS = 10000
 
 
-def simulate_week(week, iterations=DEFAULT_ITERATIONS):
-    """Inputs: week (int), iterations (int per game).
+def simulate_week(week, iterations=DEFAULT_ITERATIONS, force=False):
+    """Inputs: week (int), iterations (int per game), force (bool -- re-sim
+    games that already kicked off; default False keeps their locked rows).
     Output: (games_df, players_df), also written to the dfs_week_{week}_*.parquet caches.
     Wrapped in sim_run_status.run_marker (2026-09-23) so the site can show
     "sims running" and auto-refresh the moment the new run lands."""
     with run_marker(week, iterations=iterations):
-        return _simulate_week(week, iterations)
+        return _simulate_week(week, iterations, force)
 
 
-def _simulate_week(week, iterations):
+def _simulate_week(week, iterations, force=False):
     print(f"\n{'='*60}\n Simulating NFL {SIM_YEAR} Week {week} (DFS roster tree)\n"
          f" Iterations per game: {iterations}\n{'='*60}\n")
 
@@ -77,10 +85,25 @@ def _simulate_week(week, iterations):
     games_cache_path = os.path.join("data", "interim", f"dfs_week_{week}_games.parquet")
     players_cache_path = os.path.join("data", "interim", f"dfs_week_{week}_players.parquet")
 
+    # Kickoff lock: load the existing cache once so already-played games can
+    # be carried forward instead of re-simmed (see module docstring).
+    existing_games = existing_players = None
+    if not force and os.path.exists(games_cache_path) and os.path.exists(players_cache_path):
+        existing_games = pd.read_parquet(games_cache_path)
+        existing_players = pd.read_parquet(players_cache_path)
+
     all_games_list, all_players_list = [], []
     start_time = time.time()
     for idx, row in week_games.iterrows():
         away, home, game_id = row["away_team"], row["home_team"], row["game_id"]
+        if not force and has_kicked_off(row):
+            if existing_games is not None and (existing_games["game_id"] == game_id).any():
+                print(f"LOCKED {away} at {home}: kicked off -- keeping pre-kickoff sim rows.")
+                all_games_list.append(existing_games[existing_games["game_id"] == game_id])
+                all_players_list.append(existing_players[existing_players["game_id"] == game_id])
+                continue
+            print(f"WARNING {away} at {home}: kicked off but no cached sim -- simming now "
+                  f"(sim_run_at will show it's post-kickoff).")
         print(f"Simulating {idx+1}/{len(week_games)}: {away} at {home}...")
         batch = BatchSimulator(away, home, year=SIM_YEAR, rosters_dir=ROSTERS_DIR)
         game_df, player_df = batch.run_batch(iterations=iterations, vectorized=True)
@@ -90,6 +113,7 @@ def _simulate_week(week, iterations):
         game_df["away_team"] = away
         game_df["home_team"] = home
         game_df["div_game"] = row["div_game"]
+        game_df[SIM_RUN_AT_COL] = time.time()
         all_games_list.append(game_df)
 
         if player_df is not None and not player_df.empty:
@@ -123,5 +147,6 @@ if __name__ == "__main__":
         print(__doc__)
         sys.exit(1)
     wk = int(sys.argv[1])
-    iters = int(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_ITERATIONS
-    simulate_week(wk, iterations=iters)
+    pos = [a for a in sys.argv[2:] if not a.startswith("--")]
+    iters = int(pos[0]) if pos else DEFAULT_ITERATIONS
+    simulate_week(wk, iterations=iters, force="--force" in sys.argv)

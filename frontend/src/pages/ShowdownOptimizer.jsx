@@ -51,8 +51,11 @@ const CONTEST_TYPES = [
 // What per-player score the ILP maximises, sent to the backend as
 // `gpp_projection` (it falls back to the raw median when that's null).
 //   blend   — contest-type ceiling blend (mirrors Optimizer.jsx GPP_WEIGHTS_BY_TYPE)
-//   ceiling — pure 95th percentile
+//   mean    — sim mean (average of the 101-point percentile curve)
 //   median  — sim P50 (null → backend uses `projection`)
+//   ceiling — pure 95th percentile
+// Changing contest type resets it to naturalObjective() (Cash → median,
+// GPP → blend), same rule as Optimizer.jsx.
 const GPP_WEIGHTS_BY_TYPE = {
   cash:              { p25: 0,    p50: 1.00, p75: 0,    p95: 0    },
   flat:              { p25: 0.10, p50: 0.30, p75: 0.40, p95: 0.20 },
@@ -61,9 +64,13 @@ const GPP_WEIGHTS_BY_TYPE = {
 };
 const OBJECTIVE_MODES = [
   ['blend',   'GPP blend'],
-  ['ceiling', '95% ceiling'],
+  ['mean',    'Mean'],
   ['median',  'Median (P50)'],
+  ['ceiling', '95% ceiling'],
 ];
+
+/** Default objective for a contest type (Input: contestType str; Output: mode str). */
+const naturalObjective = (contestType) => (contestType === 'cash' ? 'median' : 'blend');
 
 /** The solver-objective points for one pool player under the chosen mode.
  *  Manual proj bumps (p.projection vs p.simProjection) shift the whole
@@ -78,13 +85,33 @@ function objectiveProjection(p, mode, contestType) {
     return round1(Math.max(0, (base ?? 0) + delta));
   }
   if (!pcts) return round1(p.projection);        // kickers etc. — no distribution
+  if (mode === 'mean') {
+    // The 101-point curve follows a Game-Read scenario, so the mean does too.
+    const mean = pcts.reduce((a, v) => a + v, 0) / pcts.length;
+    return round1(Math.max(0, mean + delta));
+  }
   const w = GPP_WEIGHTS_BY_TYPE[contestType] || GPP_WEIGHTS_BY_TYPE.top_heavy;
   const blend = (w.p25 || 0) * pcts[25] + (w.p50 || 0) * pcts[50]
               + (w.p75 || 0) * pcts[75] + (w.p95 || 0) * pcts[95];
   return round1(Math.max(0, blend + delta));
 }
 
-const DK_TEAM_ALIASES = { LAR: 'LA', JAC: 'JAX', LVR: 'LV', WSH: 'WAS' };
+/** A player's manual projection bump, as a delta over the sim baseline.
+ *  Inputs: `base` (pool row carrying the UNCONDITIONED simProjection),
+ *  `e` (that player's entry in `edits`, or undefined).
+ *  Output: number (points) -- 0 when there's no bump.
+ *  Stored as a delta (`projDelta`) so a bump survives a Game-Read scenario
+ *  swapping the baseline underneath it (+2 stays +2 over whatever the
+ *  scenario's P50 is). Older saved slots stored an absolute `projection`;
+ *  that's converted against the unconditioned base it was typed against. */
+function projDeltaOf(base, e) {
+  if (!e) return 0;
+  if (e.projDelta != null) return e.projDelta;
+  if (e.projection != null) return e.projection - (base.simProjection ?? e.projection);
+  return 0;
+}
+
+const DK_TEAM_ALIASES ={ LAR: 'LA', JAC: 'JAX', LVR: 'LV', WSH: 'WAS' };
 const normTeam = (t) => DK_TEAM_ALIASES[t] || t;
 
 /** Mirror of dk_scraper.normalize_player_name: case/punct/suffix-insensitive. */
@@ -150,7 +177,7 @@ function buildShowdownPool(simRes) {
 
 const DEFAULT_SETTINGS = {
   contestType: 'top_heavy',
-  objective: 'blend',       // 'blend' | 'ceiling' | 'median' — see objectiveProjection
+  objective: 'blend',       // 'blend' | 'mean' | 'median' | 'ceiling' — see objectiveProjection
   nLineups: 20,
   minUnique: 2,
   maxExposure: 60,
@@ -191,8 +218,29 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
   const ownFrozen = frozenOwn != null;
 
   const basePool = useMemo(() => [...simPool, ...dkKickers], [simPool, dkKickers]);
+  // Merge order: base sim row → prep (ownership, opt rates, kicker line) →
+  // Game-Read conditioned distribution (if a scenario is active) → edits.
+  // `projection` is always derived as simProjection + the manual delta, so
+  // the solver objective, CPT Proj and ceiling all follow the scenario.
   const pool = useMemo(
-    () => basePool.map(p => ({ ...p, ...(prepData[p.id] || {}), ...(edits[p.id] || {}) })),
+    () => basePool.map(b => {
+      const { condSim, ...prep } = prepData[b.id] || {};
+      const e = edits[b.id] || {};
+      // eslint-disable-next-line no-unused-vars
+      const { projection: _absProj, projDelta: _d, ...editRest } = e;
+      const merged = { ...b, ...prep, ...editRest };
+      const delta = projDeltaOf({ simProjection: merged.simProjection }, e);
+      if (condSim) {
+        merged.simProjection = condSim.projection;
+        merged.p85 = condSim.p85;
+        merged.ceiling = condSim.ceiling;
+        merged.dk_pcts_all = condSim.dk_pcts_all;
+        merged.conditioned = true;
+      }
+      merged.projDelta = delta;
+      merged.projection = round1(Math.max(0, (merged.simProjection ?? 0) + delta));
+      return merged;
+    }),
     [basePool, prepData, edits],
   );
   // Resolved ownership for the payload: hand override → frozen snapshot → model.
@@ -223,6 +271,9 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
   const [gameReadOpen, setGameReadOpen] = useState(false);
   const [gameDist, setGameDist] = useState(null);   // GET /api/game_distribution response for this game
   const [scenario, setScenario] = useState(null);   // GameDistribution onSelect payload, or null = unconditioned
+  const [condN, setCondN] = useState(null);         // # sims the pool's projections are conditioned on (null = unconditioned)
+  const [prepLoading, setPrepLoading] = useState(false); // /showdown_prep in flight (scenario re-solve can take a few seconds)
+  const prepReqSeq = useRef(0);                      // latest runPrep request id -- stale responses are dropped
 
   // ── Paper trading (Phase 3): flag a lineup as "I'm actually entering this".
   // score_paper_entries.py settles it later against a dropped-in standings CSV.
@@ -238,7 +289,7 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
     setDkStatus(''); setDkExtras([]); setDkContests([]); setContestStatus(''); setContestFilter('');
     setDkKickers([]); setPrepData({}); setFrozenOwn(null); setEdits({});
     setLabRows([{ label: '', cpt: '', flex: ['', '', '', '', ''] }]); setLabOpen(false);
-    setGameDist(null); setScenario(null); setGameReadOpen(false);
+    setGameDist(null); setScenario(null); setCondN(null); setGameReadOpen(false);
     setSavedPaperIds({}); setPaperStatus('');
     setSettings(s => ({ ...s, payoutStructure: null, contest: null }));
   };
@@ -248,26 +299,34 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
   // optimizer pre-populating ownership_proj from the weekly sim.
   const runPrep = async (poolForPrep) => {
     if (!gameId || !poolForPrep.length) return;
+    // Only the newest request may write state: a scenario re-solve takes a
+    // few seconds, and a quick re-pick must not be overwritten by the older
+    // response landing late.
+    const reqId = ++prepReqSeq.current;
+    setPrepLoading(true);
     try {
       const res = await ApiService.showdownPrep({
         game_id: gameId,
         away_team: activeGame?.away_team, home_team: activeGame?.home_team,
-        // Scope the real optimal-captain/FLEX solve (and the ownership
-        // model, which uses those rates as a feature) to the Game-Read
-        // box-select when one is active, same convention as Optimize/Lab's
-        // own iteration_filter -- so picking a scenario updates Opt FLEX%/
-        // Opt CPT% for that conditioned subset, not the whole season.
+        // Scope the real optimal-captain/FLEX solve and the pool's
+        // projection distribution to the Game-Read box-select when one is
+        // active (same convention as Optimize/Lab's own iteration_filter).
+        // The ownership model is deliberately NOT conditioned -- see
+        // showdown_prep's comment.
         iteration_filter: scenario?.idx || undefined,
+        // Always the UNCONDITIONED base (simPool + edits), so the ownership
+        // model's inputs never move with the Game Read.
         players: poolForPrep.map(p => ({
           name: p.name, team: p.team, pos: p.pos,
           salary: p.salary ? Math.round(p.salary) : null,
-          projection: p.pos === 'K' ? null : p.projection,
+          projection: p.pos === 'K' ? null : round1((p.simProjection ?? 0) + projDeltaOf(p, edits[p.id])),
           optimal_cpt_pct: p.simCptRate ?? null,
           optimal_flex_pct: p.simFlexRate ?? null,
           ownership_pct: p.ownFlex ?? null,
           cpt_ownership_pct: p.ownCpt ?? null,
         })),
       });
+      if (reqId !== prepReqSeq.current) return;
       const byId = {};
       (res.players || []).forEach(r => {
         const id = `${r.name}_${r.team}`;   // matches buildShowdownPool / kicker row ids
@@ -282,19 +341,36 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
           simFlexRate: r.optimal_flex_pct ?? null,
           simCptRate: r.optimal_cpt_pct ?? null,
           ...(r.pos === 'K' ? {
-            projection: r.projection ?? undefined,
+            // simProjection too, not just projection -- otherwise the kicker's
+            // baseline stayed at the flat 8.0 placeholder and every solver
+            // objective read (P50 - 8.0) as a phantom manual bump.
+            simProjection: r.projection ?? undefined,
             ceiling: r.ceiling ?? undefined,
             dk_pcts_all: r.dk_pcts_all ?? undefined,
           } : {}),
+          // Game-Read scenario distribution (P50/P85/P95/curve over only the
+          // box-selected sims). Kept as its own object and applied in the
+          // `pool` memo, so clearing the scenario falls straight back to the
+          // unconditioned base. Ownership is NOT touched by this -- the
+          // backend runs the ownership model on unconditioned inputs.
+          condSim: r.cond_projection != null ? {
+            projection: r.cond_projection,
+            p85: r.cond_p85,
+            ceiling: r.cond_ceiling,
+            dk_pcts_all: r.cond_dk_pcts_all,
+          } : null,
         };
       });
       setPrepData(byId);
+      setCondN(res.conditioned_n ?? null);
       const hasKickers = poolForPrep.some(p => p.pos === 'K');
       if (hasKickers && res.kicker_source !== 'game_script') {
         setDkStatus(s => `${s} · kicker lines are flat defaults (game sim has no kicker data)`);
       }
     } catch (err) {
       console.error('showdown_prep failed', err);
+    } finally {
+      if (reqId === prepReqSeq.current) setPrepLoading(false);
     }
   };
 
@@ -963,21 +1039,22 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
 
             <label style={labelStyle}>Type</label>
             <select style={inputStyle} value={settings.contestType}
-              onChange={e => setSettings(s => ({ ...s, contestType: e.target.value }))}>
+              onChange={e => setSettings(s => ({ ...s, contestType: e.target.value, objective: naturalObjective(e.target.value) }))}>
               {CONTEST_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
 
             <label style={{ ...labelStyle, marginTop: '10px' }}
-              title="What the solver maximises per player. GPP blend = contest-type ceiling blend; 95% ceiling = pure p95; Median = sim P50.">
+              title="What the solver maximises per player. GPP blend = contest-type ceiling blend; Mean = sim mean; Median = sim P50; 95% ceiling = pure p95. Resets to the contest type's default when you change contest type.">
               Objective
             </label>
             <select style={inputStyle} value={settings.objective}
               onChange={e => setSettings(s => ({ ...s, objective: e.target.value }))}>
-              {OBJECTIVE_MODES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              {OBJECTIVE_MODES.map(([v, l]) => <option key={v} value={v}>{l}{v === naturalObjective(settings.contestType) ? ' (default)' : ''}</option>)}
             </select>
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '3px' }}>
               {settings.objective === 'blend' && 'Ceiling blend weighted by contest type.'}
               {settings.objective === 'ceiling' && 'Pure 95th-percentile — maximum boom.'}
+              {settings.objective === 'mean' && 'Sim mean — sits above the median for right-skewed players.'}
               {settings.objective === 'median' && 'Sim P50 — cash-style, no ceiling tilt.'}
             </div>
 
@@ -1181,7 +1258,13 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                     padding: '8px 12px', borderRadius: '8px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)',
                   }}>
                     <span style={{ fontSize: '0.78rem', color: '#eab308' }}>
-                      🎯 Conditioning ⚡ Optimize / Lab on this range — <strong>{(scenario.frac * 100).toFixed(1)}%</strong> of games ({scenario.idx?.length} sims)
+                      🎯 Conditioning projections, ⚡ Optimize / Lab on this range — <strong>{(scenario.frac * 100).toFixed(1)}%</strong> of games ({scenario.idx?.length} sims)
+                      {prepLoading
+                        ? <span style={{ marginLeft: '8px', color: 'var(--text-muted)' }}>· loading scenario projections…</span>
+                        : condN != null && <span style={{ marginLeft: '8px', color: 'var(--text-muted)' }}>· pool projections from {condN} sims · ownership unchanged</span>}
+                      {!prepLoading && condN != null && condN < 100 && (
+                        <span style={{ marginLeft: '8px', color: '#f59e0b' }}>⚠ small sample — P85/ceiling are noisy</span>
+                      )}
                     </span>
                     <button onClick={() => setScenario(null)}
                       style={{ padding: '3px 10px', borderRadius: '6px', border: '1px solid rgba(234,179,8,0.4)', background: 'none', color: '#eab308', cursor: 'pointer', fontSize: '0.74rem' }}>
@@ -1278,15 +1361,15 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                       <td style={{ padding: '4px 5px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                           <input type="number" step={0.5} value={p.projection}
-                            onChange={e => patchPlayer(p.id, { projection: +e.target.value })}
+                            onChange={e => patchPlayer(p.id, { projDelta: +e.target.value - (p.simProjection ?? 0), projection: undefined })}
                             style={{
                               ...inputStyle, width: '58px', padding: '3px 5px',
                               background: p.projection > p.simProjection + 0.05 ? 'rgba(245,158,11,0.15)' : inputStyle.background,
                             }} />
                           {p.simProjection != null && Math.abs((p.projection ?? 0) - p.simProjection) > 0.05 && (
                             <button
-                              onClick={() => patchPlayer(p.id, { projection: p.simProjection })}
-                              title={`Reset to sim projection (${p.simProjection})`}
+                              onClick={() => patchPlayer(p.id, { projDelta: 0, projection: undefined })}
+                              title={`Reset to ${p.conditioned ? 'scenario' : 'sim'} projection (${p.simProjection})`}
                               style={{
                                 border: 'none', cursor: 'pointer', borderRadius: '4px', padding: '2px 4px',
                                 background: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)', fontSize: '0.7rem',

@@ -17,6 +17,7 @@ import SimReplays from './pages/SimReplays'
 import CashLineups from './pages/CashLineups'
 import Bankroll from './pages/Bankroll'
 import Leverage from './pages/Leverage'
+import PropMarkets from './pages/PropMarkets'
 import './App.css'
 
 export default function App() {
@@ -312,6 +313,8 @@ export default function App() {
             setSelectedDraftGroupId={setSelectedDraftGroupId}
           />
         );
+      case 'props':
+        return <PropMarkets weeks={weeks} selectedWeek={selectedWeek} setSelectedWeek={setSelectedWeek} />;
       case 'about':
         return <About />;
       case 'roadmap':

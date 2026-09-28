@@ -16,9 +16,14 @@ by hand (see refresh_weekly_dna_v_0_1_0.py precedent in WORKLOG.md).
 """
 
 import os
+import sys
 
 import nfl_data_py as nfl
 import pandas as pd
+
+# repo root on sys.path so `python src/data_pipeline/vegas_lines_refresh.py` works too
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from src.evaluation.line_history import append_snapshot  # noqa: E402
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -70,6 +75,11 @@ def refresh_vegas_lines(year: int = 2026, csv_path: str = None) -> dict:
     tmp_path = csv_path + ".tmp"
     new_df.to_csv(tmp_path, index=False)
     os.replace(tmp_path, csv_path)
+
+    # 2026-09-25: also record every line that moved into the append-only
+    # ledger (data/eval/{year}/line_history.csv), since the CSV above keeps
+    # only the latest number -- the Evaluation tab needs the opener too.
+    append_snapshot(new_df, year, source="nflverse")
 
     return {
         "updated_at": pd.Timestamp.utcnow().isoformat(),

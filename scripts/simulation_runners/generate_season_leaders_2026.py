@@ -247,6 +247,16 @@ def generate(top_n=32, rookie_top_n=20):
         json.dump(leaders_json, f)
     print(f"Wrote {json_path}")
 
+    # 2026-09-26: freeze these rankings into the append-only season-rankings
+    # ledger (src/evaluation/season_rankings.py) -- the JSON above is
+    # overwritten every run, and a past ranking can't be graded if it's gone.
+    # Full tables, not the top_n slices, so deeper ranks are kept too.
+    import time
+    from src.evaluation.season_rankings import snapshot_frame, append_snapshot
+    snap = snapshot_frame(pd.concat([qb_leaders, rb_leaders, wr_leaders, te_leaders], ignore_index=True),
+                          time.time(), "live", current_week)
+    print(f"Season-rankings snapshot: +{append_snapshot(snap, SIM_YEAR)} rows")
+
 
 if __name__ == "__main__":
     generate()
