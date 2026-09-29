@@ -2415,10 +2415,23 @@ def get_bankroll_account_entries(account_id: str):
             # group by contest instead of collapsing every such entry into
             # one indiscriminate bucket, which used to silently mix e.g.
             # First Down and Screen Pass entries under the same "untagged"
-            # row.
-            build_id = e.get("build_id") or f"entry-contest:{e.get('contest_name')}"
+            # row. Keyed by week + slate too (2026-09-29): keyed by contest
+            # alone, every week's real First Down entries collapsed into
+            # one group labeled with the first week seen, so weeks 2+ were
+            # unreachable in the drill-down.
+            build_id = e.get("build_id") or (
+                f"entry-contest:{e.get('year')}-w{e.get('week')}:{e.get('slate_id')}:{e.get('contest_name')}")
             b = builds.setdefault(build_id, {
-                "build_id": build_id, "label": e.get("label"), "week": e.get("week"),
+                "build_id": build_id,
+                # A grouped (no-build) row holds many DK entries -- one
+                # entry's "Real firstdown (DK entry N)" label would mislabel it.
+                # An unlabeled optimizer build would otherwise display its raw
+                # build_id timestamp (e.g. "20260920T163035Z").
+                "label": (e.get("label") or f"{e.get('contest_name')} build · Wk {e.get('week')}")
+                         if e.get("build_id")
+                         else f"Real {e.get('contest_name')} (DK entries)" if account_id == "real"
+                         else f"{e.get('contest_name')} entries · Wk {e.get('week')}",
+                "week": e.get("week"),
                 "contest_name": e.get("contest_name"), "entry_fee": e.get("entry_fee"),
                 "slate_id": e.get("slate_id"), "entries": [],
             })

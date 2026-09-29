@@ -42,6 +42,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import sys
 from collections import defaultdict
 
@@ -89,7 +90,39 @@ def _lineup_actual_score(players: list, real_scores: dict, csv_scores: dict) -> 
     return round(total, 2), missing
 
 
-def _estimated_payout(actual_rank: int | None, entry: dict, field_size: int) -> float | None:
+def _saved_payout_table(folder: str, stem: str, field_size: int) -> list | None:
+    """This week's REAL DK payout table for one contest, from the slate's
+    payouts.json (written pre-lock by snapshot_contest_payouts.py).
+
+    Inputs:  folder (slate folder), stem (standings-CSV stem, e.g.
+             "firstdown_1_20max"), field_size (max rank in the standings).
+    Output:  tiers list [{rank_start, rank_end, payout}] or None if no table
+             was saved for that stem. Two contests can share a stem (e.g.
+             two $150 3-max Power Sweeps) -- the one whose max_entries is
+             closest to the settled field size wins."""
+    path = os.path.join(folder, "payouts.json")
+    if not os.path.exists(path):
+        return None
+    saved = (json.load(open(path)) or {}).get("contests", [])
+    # Exact stem, then the same stem with punctuation ignored in the name
+    # part ("hard_count_20_5max" vs saved "hardcount_20_5max"), then any
+    # contest with the same price+xmax ("_20_5max") -- CSV names are typed
+    # by hand, the saved stems are derived from DK's lobby name.
+    squash = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())  # noqa: E731
+    name, _, suffix = stem.rpartition("_")
+    name, _, price = name.rpartition("_")
+    tail = f"_{price}_{suffix}"
+    cands = ([c for c in saved if c.get("stem") == stem]
+             or [c for c in saved if c.get("stem", "").endswith(tail)
+                 and squash(c["stem"][: -len(tail)]) == squash(name)]
+             or [c for c in saved if c.get("stem", "").endswith(tail)])
+    if not cands:
+        return None
+    return min(cands, key=lambda c: abs(int(c.get("max_entries") or 0) - field_size))["tiers"]
+
+
+def _estimated_payout(actual_rank: int | None, entry: dict, field_size: int,
+                      saved_tiers: list | None = None) -> float | None:
     """A paper entry never actually sat in the real contest's field, so there
     is no real "Winnings" column to read (DK's standings export doesn't
     publish one anyway -- see read_standings' docstring). Two ways to price
@@ -112,7 +145,9 @@ def _estimated_payout(actual_rank: int | None, entry: dict, field_size: int) -> 
     captured prize_pool/paying_positions at all."""
     if actual_rank is None:
         return None
-    real_tiers = entry.get("payout_tiers")
+    # 0. (2026-09-29) this week's own saved DK table beats everything below:
+    #    an entry's payout_tiers can be a proxy copied from another week.
+    real_tiers = saved_tiers or entry.get("payout_tiers")
     if real_tiers:
         for tier in real_tiers:
             if tier["rank_start"] <= actual_rank <= tier["rank_end"]:
@@ -143,13 +178,31 @@ def process_slate(folder: str, own_actuals: pd.DataFrame | None) -> list[dict]:
     if not paper:
         return []
 
-    by_contest: dict = defaultdict(list)
-    for e in paper:
-        by_contest[e.get("contest_name")].append(e)
-
     slate_id = os.path.basename(folder)
     standings = [p for p in glob.glob(os.path.join(folder, "*.csv"))
                  if os.path.basename(p) != "salaries_prelock.csv"]
+
+    # Map each entry to a standings-file stem name. Exact contest_name match
+    # first; otherwise fall back to entry fee, but only when exactly one CSV
+    # in this folder carries that fee (2026-09-29: Week 3 builds saved with
+    # no contest selected got contest_name = the build_id timestamp, or the
+    # full DK lobby name "NFL $175K mini-MAX [150 Entry Max]" -- neither
+    # matches a "minimax_.5_150max" stem, so they silently never graded).
+    stem_names, names_by_fee = set(), defaultdict(list)
+    for p in standings:
+        m = parse_filename(os.path.splitext(os.path.basename(p))[0])
+        if m:
+            stem_names.add(m["contest_name"])
+            names_by_fee[round(m["entry_fee"], 2)].append(m["contest_name"])
+
+    by_contest: dict = defaultdict(list)
+    for e in paper:
+        name = e.get("contest_name")
+        if name not in stem_names:
+            fee_matches = names_by_fee.get(round(float(e.get("entry_fee") or -1), 2), [])
+            if len(fee_matches) == 1:
+                name = fee_matches[0]
+        by_contest[name].append(e)
 
     # Real, freshly-computed skill-position scores for this slate's week --
     # see _lineup_actual_score's docstring for why these win over the
@@ -185,6 +238,7 @@ def process_slate(folder: str, own_actuals: pd.DataFrame | None) -> list[dict]:
             continue
         settled_contests.add(meta["contest_name"])
         field_size = int(entries_df["rank"].max()) if entries_df["rank"].notna().any() else len(entries_df)
+        saved_tiers = _saved_payout_table(folder, stem, field_size)
         csv_scores = actual_scores_from_summary(dk_summary, normalize_player_name)
         has_points = "points" in entries_df.columns and entries_df["points"].notna().any()
         field_points = entries_df["points"].dropna().values if has_points else None
@@ -247,7 +301,9 @@ def process_slate(folder: str, own_actuals: pd.DataFrame | None) -> list[dict]:
                 "predicted_top1_pct": model.get("top1_pct"), "predicted_top01_pct": model.get("top01_pct"),
                 "predicted_first_pct": model.get("first_pct"),
                 "actual_rank": actual_rank, "beat_field_pct": beat_field_pct, "finish_percentile": finish_percentile,
-                "estimated_payout": _estimated_payout(actual_rank, e, field_size),
+                "estimated_payout": _estimated_payout(actual_rank, e, field_size, saved_tiers),
+                "payout_source": ("saved_week_table" if saved_tiers else "entry_tiers" if e.get("payout_tiers")
+                                  else "generic_curve" if e.get("prize_pool") else None),
                 "total_salary": model.get("total_salary"), "over_salary_cap": model.get("over_salary_cap"),
                 "players": json.dumps([p.get("name") for p in e.get("players", [])]),
             })
