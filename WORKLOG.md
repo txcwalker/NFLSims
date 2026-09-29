@@ -40,6 +40,11 @@
   `_dfs_week_input_mtime` changed mid-compute; `get_week_sim_results` recomputes (up to 3x).
   (6) `--reload` on :8002 hung once: 'Reloading...' but the old worker never exited (the site's constant
   polling likely keeps it alive) and kept serving stale memory. Hard restart fixed it -- watch for this.
+  (7) **LA@PHI missing from the DK main slate:** DK's `LAR` was never mapped to our `LA` in the CLASSIC
+  parser ([src/scrapers/dk_scraper.py](src/scrapers/dk_scraper.py); showdown already did) -- fixed, incl. prelock
+  CSV reads. Also: `marquise brown|PHI` -> DK 'hollywood brown' alias added to `data/dna/dk_name_aliases.json`;
+  salary + dk_id lookups now also walk the DFS-week roster tree (`_week_roster_names` in app.py, and
+  `run_simulation` prices every projected player) -- Ertz, a DFS-tree-only signing, was projected but unpriced.
 - **Verification Performed:** Week 4 TE/RB shares checked per week (4/6/7/8) via `build_team_week_rows`;
   Ertz present in the DFS traits + served `week_4_sim_results.json`; site home shows "Week 4 sims";
   `/api/weeks` returns 1-4. No code tests run (only a hardcoded list changed).

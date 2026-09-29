@@ -1039,6 +1039,24 @@ def _resolve_dk_pool(week_games_df, year: int, draft_group_id: Optional[int]) ->
     return get_dk_salaries(draft_group_id=_resolve_main_slate_dg_for(week_games_df, year, draft_group_id))
 
 
+def _week_roster_names(team: str, year: int = 2026) -> List[str]:
+    """Inputs: team (str, internal abbr), year (int).
+    Output: player names (list[str]) from the season-long traits file plus the
+    DFS-week tree (data/current_rosters/dfs/), season-long order first, deduped.
+    Purpose: salary/dk_id lookups used to walk only the season-long file, so a
+    mid-week signing that exists only in the DFS-week roster (2026-09-29: Zach
+    Ertz/PHI) was simulated and projected but never priced or given a dk_id."""
+    names: Dict[str, None] = {}
+    for roster_path in (
+        os.path.join(BASE_DIR, "data", "current_rosters", f"{team}_traits_{year}.json"),
+        os.path.join(BASE_DIR, "data", "current_rosters", "dfs", f"{team}_traits_{year}.json"),
+    ):
+        if os.path.exists(roster_path):
+            for name in load_json(roster_path).get("traits", {}):
+                names.setdefault(name, None)
+    return list(names)
+
+
 def get_week_salaries(week_games_df, year=2026, draft_group_id: Optional[int] = None) -> Dict[Tuple[str, str], Optional[int]]:
     """Real DraftKings salaries only -- None (not a fabricated placeholder)
     for a defense or player DK's live board doesn't currently price, e.g. a
@@ -1051,13 +1069,9 @@ def get_week_salaries(week_games_df, year=2026, draft_group_id: Optional[int] = 
     for team in teams:
         salaries[("Defense", team)] = dk["defense"].get(team)
 
-        roster_path = os.path.join(BASE_DIR, "data", "current_rosters", f"{team}_traits_{year}.json")
-        if os.path.exists(roster_path):
-            roster_data = load_json(roster_path)
-            traits = roster_data.get("traits", {})
-            for name in traits:
-                dk_salary, _ = resolve_dk_salary(name, team, dk)
-                salaries[(name, team)] = dk_salary
+        for name in _week_roster_names(team, year):
+            dk_salary, _ = resolve_dk_salary(name, team, dk)
+            salaries[(name, team)] = dk_salary
     return salaries
 
 def get_week_dk_ids(week_games_df, year=2026, draft_group_id: Optional[int] = None) -> Dict[Tuple[str, str], Optional[int]]:
@@ -1073,12 +1087,9 @@ def get_week_dk_ids(week_games_df, year=2026, draft_group_id: Optional[int] = No
 
     for team in teams:
         ids[("Defense", team)] = dk["defense_ids"].get(team)
-        roster_path = os.path.join(BASE_DIR, "data", "current_rosters", f"{team}_traits_{year}.json")
-        if os.path.exists(roster_path):
-            roster_data = load_json(roster_path)
-            for name in roster_data.get("traits", {}):
-                _, dk_id = resolve_dk_salary(name, team, dk)
-                ids[(name, team)] = dk_id
+        for name in _week_roster_names(team, year):
+            _, dk_id = resolve_dk_salary(name, team, dk)
+            ids[(name, team)] = dk_id
     return ids
 
 def get_week_dk_names(week_games_df, year=2026, draft_group_id: Optional[int] = None) -> Dict[str, str]:
@@ -4677,7 +4688,14 @@ def run_simulation(req: SimulationRequest):
         dk = get_dk_salaries()
     salaries = {}
     for team in [req.away_team, req.home_team]:
-        for name in sim.rosters[team]:
+        # Also price everyone the sim actually projected: on the DFS-week path
+        # player_df comes from data/current_rosters/dfs/, which can hold a
+        # player the season-long sim.rosters doesn't (a mid-week signing --
+        # 2026-09-29 Zach Ertz/PHI went unpriced despite DK listing him).
+        names = set(sim.rosters[team])
+        if player_df is not None and "Team" in player_df.columns:
+            names |= set(player_df.loc[player_df["Team"] == team, "Player"]) - {"Defense"}
+        for name in names:
             dk_salary, _ = resolve_dk_salary(name, team, dk)
             salaries[name] = dk_salary
 

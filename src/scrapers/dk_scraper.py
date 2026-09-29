@@ -506,7 +506,9 @@ def _refresh_slate(draft_group_id: int) -> None:
     teams: set = set()
 
     for d in draftables:
-        team = d.get("teamAbbreviation")
+        # Internal abbreviations (LAR -> LA) -- the showdown parser always did this;
+        # the classic one didn't, so wk4 2026 LA@PHI fell off the main slate.
+        team = _normalize_team(d.get("teamAbbreviation"))
         salary = d.get("salary")
         pos = d.get("position")
         draftable_id = d.get("draftableId")
@@ -698,7 +700,7 @@ def load_prelock_salary_snapshot(year: int, week: int) -> Optional[Dict[str, Any
     teams: set = set()
     with open(path, "r", encoding="utf-8-sig", newline="") as f:
         for row in csv.DictReader(f):
-            team = (row.get("team") or "").strip().upper()
+            team = _normalize_team((row.get("team") or "").strip().upper())
             if not team:
                 continue
             teams.add(team)
