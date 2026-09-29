@@ -879,12 +879,12 @@ def health_check():
 
 @app.get("/api/weeks")
 def get_weeks():
-    """Returns available weeks -- hardcoded to Weeks 1-3. The DFS dev site is
+    """Returns available weeks -- hardcoded to Weeks 1-4. The DFS dev site is
     scoped to weeks with real DraftKings salaries live/snapshotted (see
-    SCHEDULE_CSV_PATH above); week 3's main slate + Vegas are live as of
-    2026-09-22 (sim projections/ownership not run yet -- that's separate).
+    SCHEDULE_CSV_PATH above); week 4 added 2026-09-29 after its DFS week sim
+    (run_week_sim_2026.py 4) ran. The frontend defaults to max(weeks).
     Revisit/extend each week as it goes live."""
-    return {"weeks": [1, 2, 3]}
+    return {"weeks": [1, 2, 3, 4]}
 
 @app.get("/api/dk/slates")
 def get_dk_slates_endpoint(week: Optional[int] = None, year: int = 2026, force_refresh: bool = False):

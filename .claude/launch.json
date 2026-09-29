@@ -27,7 +27,7 @@
     {
       "name": "backend-api-dfs",
       "runtimeExecutable": "venv\\Scripts\\python.exe",
-      "runtimeArgs": ["-m", "uvicorn", "src.api.app:app", "--port", "8002"],
+      "runtimeArgs": ["-m", "uvicorn", "src.api.app:app", "--reload", "--reload-dir", "src", "--port", "8002"],
       "port": 8002,
       "autoPort": false
     },

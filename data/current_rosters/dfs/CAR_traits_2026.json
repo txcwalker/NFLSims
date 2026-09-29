@@ -1,7 +1,7 @@
 {
     "team": "CAR",
     "year": 2026,
-    "max_week": 3,
+    "max_week": 4,
     "traits": {
         "Bryce Young": {
             "pos": "QB",
@@ -9,29 +9,29 @@
             "carry_share": 0.06,
             "status": "active",
             "player_id": "00-0039150",
-            "cpoe": 2.0427,
-            "avg_air_yards_per_att": 7.2168,
+            "cpoe": 1.9032,
+            "avg_air_yards_per_att": 7.3208,
             "deep_ball_rate": 0.0974,
-            "scramble_rate": 0.0352,
-            "sack_rate": 0.055,
+            "scramble_rate": 0.0338,
+            "sack_rate": 0.0551,
             "play_action_rate": 0.0,
             "under_pressure_cpoe": 6.4755,
             "pressure_rate": 0.3121,
-            "avg_time_to_throw_sec": 2.8329,
+            "avg_time_to_throw_sec": 2.8446,
             "ngs_aggressiveness_index": 14.28,
             "splits": {
                 "primary": {
-                    "cpoe": 2.0427,
+                    "cpoe": 1.9032,
                     "target_share": 0.0,
                     "carry_share": 0.06
                 },
                 "redzone": {
-                    "cpoe": 0.5843,
+                    "cpoe": 6.6376,
                     "target_share": 0.0,
                     "carry_share": 0.13
                 },
                 "goalline": {
-                    "cpoe": 1.7279,
+                    "cpoe": -1.9129,
                     "target_share": 0.0,
                     "carry_share": 0.1
                 }
@@ -45,17 +45,17 @@
                 "avg_air_yards_per_att": 7.0487,
                 "splits": {
                     "primary": {
-                        "cpoe": 2.0427,
+                        "cpoe": 1.9032,
                         "target_share": 0.0,
                         "carry_share": 0.06
                     },
                     "redzone": {
-                        "cpoe": 0.5843,
+                        "cpoe": 6.6376,
                         "target_share": 0.0,
                         "carry_share": 0.13
                     },
                     "goalline": {
-                        "cpoe": 1.7279,
+                        "cpoe": -1.9129,
                         "target_share": 0.0,
                         "carry_share": 0.1
                     }
@@ -272,17 +272,17 @@
             "carry_share": 0.745842,
             "status": "active",
             "player_id": "00-0036555",
-            "adot": -0.9655,
-            "yac_per_rec": 7.8628,
-            "elusiveness": -0.1391,
-            "broken_tackle_rate": 0.1835,
-            "ypc": 4.2694,
+            "adot": -1.0403,
+            "yac_per_rec": 7.9864,
+            "elusiveness": -0.03,
+            "broken_tackle_rate": 0.1858,
+            "ypc": 4.2693,
             "efficiency": 3.881,
             "percent_attempts_gte_eight_defenders": 0.2097,
             "avg_time_to_los": 2.657,
             "rush_yards_over_expected_per_att": 0.299,
             "rush_pct_over_expected": 0.0045,
-            "catch_rate": 0.7844,
+            "catch_rate": 0.7928,
             "top_speed_mph": 20.55,
             "contested_catch_rate": 0.3793,
             "avg_separation_yds": 3.2,
@@ -291,7 +291,7 @@
                 "primary": {
                     "target_share": 0.195556,
                     "carry_share": 0.745842,
-                    "catch_rate": 0.7844
+                    "catch_rate": 0.7928
                 },
                 "redzone": {
                     "target_share": 0.16625,
@@ -318,7 +318,7 @@
                     "primary": {
                         "target_share": 0.195556,
                         "carry_share": 0.745842,
-                        "catch_rate": 0.7844
+                        "catch_rate": 0.7928
                     },
                     "redzone": {
                         "target_share": 0.16625,
@@ -351,17 +351,17 @@
             "carry_share": 0.184158,
             "status": "active",
             "player_id": "00-0036265",
-            "adot": 3.75,
-            "yac_per_rec": 2.25,
-            "elusiveness": -1.1988,
+            "adot": 1.0625,
+            "yac_per_rec": 2.9375,
+            "elusiveness": -2.536,
             "broken_tackle_rate": 0.0,
-            "ypc": 3.72,
+            "ypc": 3.7667,
             "efficiency": 4.049,
             "percent_attempts_gte_eight_defenders": 0.1965,
             "avg_time_to_los": 2.586,
             "rush_yards_over_expected_per_att": -0.163,
             "rush_pct_over_expected": 0.0042,
-            "catch_rate": 0.7942,
+            "catch_rate": 0.8457,
             "top_speed_mph": 20.62,
             "contested_catch_rate": 0.3516,
             "avg_separation_yds": 3.2,
@@ -370,7 +370,7 @@
                 "primary": {
                     "target_share": 0.024444,
                     "carry_share": 0.184158,
-                    "catch_rate": 0.7942
+                    "catch_rate": 0.8457
                 },
                 "redzone": {
                     "target_share": 0.02375,
@@ -397,7 +397,7 @@
                     "primary": {
                         "target_share": 0.024444,
                         "carry_share": 0.184158,
-                        "catch_rate": 0.7942
+                        "catch_rate": 0.8457
                     },
                     "redzone": {
                         "target_share": 0.02375,
@@ -727,23 +727,23 @@
             "carry_share": 0.0,
             "status": "active",
             "player_id": "00-0040124",
-            "adot": 12.4168,
-            "yac_per_rec": 4.2526,
-            "elusiveness": -0.1813,
-            "broken_tackle_rate": 0.1927,
+            "adot": 12.1958,
+            "yac_per_rec": 4.0538,
+            "elusiveness": -0.3542,
+            "broken_tackle_rate": 0.1832,
             "ypc": 4.0,
-            "avg_separation_yds": 2.6078,
+            "avg_separation_yds": 2.583,
             "avg_cushion_yds": 5.929,
-            "catch_rate": 0.5993,
+            "catch_rate": 0.5894,
             "route_profile": "intermediate",
             "top_speed_mph": 20.7,
-            "deep_target_rate": 0.2223,
+            "deep_target_rate": 0.2087,
             "contested_catch_rate": 0.4634,
             "splits": {
                 "primary": {
                     "target_share": 0.26,
                     "carry_share": 0.0,
-                    "catch_rate": 0.5993
+                    "catch_rate": 0.5894
                 },
                 "redzone": {
                     "target_share": 0.28,
@@ -770,7 +770,7 @@
                     "primary": {
                         "target_share": 0.26,
                         "carry_share": 0.0,
-                        "catch_rate": 0.5993
+                        "catch_rate": 0.5894
                     },
                     "redzone": {
                         "target_share": 0.28,
@@ -879,23 +879,23 @@
             "carry_share": 0.0,
             "status": "active",
             "player_id": "00-0033589",
-            "adot": 10.4363,
+            "adot": 11.0718,
             "yac_per_rec": 1.8405,
             "elusiveness": -1.9835,
             "broken_tackle_rate": 0.0357,
             "ypc": 6.0,
             "avg_separation_yds": 2.3198,
             "avg_cushion_yds": 6.112,
-            "catch_rate": 0.5904,
+            "catch_rate": 0.5707,
             "route_profile": "intermediate",
             "top_speed_mph": 20.84,
-            "deep_target_rate": 0.0885,
+            "deep_target_rate": 0.1189,
             "contested_catch_rate": 0.539,
             "splits": {
                 "primary": {
                     "target_share": 0.0,
                     "carry_share": 0.0,
-                    "catch_rate": 0.5904
+                    "catch_rate": 0.5707
                 },
                 "redzone": {
                     "target_share": 0.0,
@@ -922,7 +922,7 @@
                     "primary": {
                         "target_share": 0.0,
                         "carry_share": 0.0,
-                        "catch_rate": 0.5904
+                        "catch_rate": 0.5707
                     },
                     "redzone": {
                         "target_share": 0.0,
@@ -956,23 +956,23 @@
             "carry_share": 0.0,
             "status": "active",
             "player_id": "00-0039491",
-            "adot": 10.9087,
-            "yac_per_rec": 4.1042,
-            "elusiveness": -0.5151,
-            "broken_tackle_rate": 0.134,
+            "adot": 11.5386,
+            "yac_per_rec": 4.1227,
+            "elusiveness": -0.6357,
+            "broken_tackle_rate": 0.1217,
             "ypc": 4.0,
             "avg_separation_yds": 2.686,
             "avg_cushion_yds": 5.998,
-            "catch_rate": 0.711,
+            "catch_rate": 0.692,
             "route_profile": "intermediate",
             "top_speed_mph": 20.7,
-            "deep_target_rate": 0.1373,
+            "deep_target_rate": 0.1583,
             "contested_catch_rate": 0.3951,
             "splits": {
                 "primary": {
                     "target_share": 0.165,
                     "carry_share": 0.0,
-                    "catch_rate": 0.711
+                    "catch_rate": 0.692
                 },
                 "redzone": {
                     "target_share": 0.165,
@@ -999,7 +999,7 @@
                     "primary": {
                         "target_share": 0.165,
                         "carry_share": 0.0,
-                        "catch_rate": 0.711
+                        "catch_rate": 0.692
                     },
                     "redzone": {
                         "target_share": 0.165,
@@ -1031,23 +1031,23 @@
             "carry_share": 0.0,
             "status": "active",
             "player_id": "00-0037614",
-            "adot": 6.3525,
-            "yac_per_rec": 3.2952,
-            "elusiveness": -1.9482,
-            "broken_tackle_rate": 0.069,
+            "adot": 6.4329,
+            "yac_per_rec": 3.1835,
+            "elusiveness": -1.9687,
+            "broken_tackle_rate": 0.0667,
             "ypc": -1.6667,
-            "avg_separation_yds": 3.1353,
+            "avg_separation_yds": 3.0967,
             "avg_cushion_yds": 6.412,
-            "catch_rate": 0.734,
+            "catch_rate": 0.7154,
             "route_profile": "intermediate",
             "top_speed_mph": 21.2,
-            "deep_target_rate": 0.0455,
+            "deep_target_rate": 0.043,
             "contested_catch_rate": 0.5288,
             "splits": {
                 "primary": {
                     "target_share": 0.05,
                     "carry_share": 0.0,
-                    "catch_rate": 0.734
+                    "catch_rate": 0.7154
                 },
                 "redzone": {
                     "target_share": 0.05,
@@ -1074,7 +1074,7 @@
                     "primary": {
                         "target_share": 0.05,
                         "carry_share": 0.0,
-                        "catch_rate": 0.734
+                        "catch_rate": 0.7154
                     },
                     "redzone": {
                         "target_share": 0.05,
@@ -1108,23 +1108,23 @@
             "carry_share": 0.0,
             "status": "active",
             "player_id": "00-0038840",
-            "adot": 7.1,
-            "yac_per_rec": 3.1875,
-            "elusiveness": -1.5547,
-            "broken_tackle_rate": 0.1042,
+            "adot": 9.716,
+            "yac_per_rec": 3.3059,
+            "elusiveness": -1.4682,
+            "broken_tackle_rate": 0.1349,
             "ypc": 4.0,
-            "avg_separation_yds": 1.8529,
+            "avg_separation_yds": 2.2274,
             "avg_cushion_yds": 9.856,
-            "catch_rate": 0.8167,
+            "catch_rate": 0.7807,
             "route_profile": "intermediate",
             "top_speed_mph": 20.31,
-            "deep_target_rate": 0.0222,
+            "deep_target_rate": 0.1369,
             "contested_catch_rate": 0.5252,
             "splits": {
                 "primary": {
                     "target_share": 0.0,
                     "carry_share": 0.0,
-                    "catch_rate": 0.8167
+                    "catch_rate": 0.7807
                 },
                 "redzone": {
                     "target_share": 0.0,
@@ -1151,7 +1151,7 @@
                     "primary": {
                         "target_share": 0.0,
                         "carry_share": 0.0,
-                        "catch_rate": 0.8167
+                        "catch_rate": 0.7807
                     },
                     "redzone": {
                         "target_share": 0.0,
@@ -1831,23 +1831,23 @@
             "carry_share": 0.0,
             "status": "active",
             "player_id": "00-0037005",
-            "adot": 4.6441,
-            "yac_per_rec": 5.8753,
-            "elusiveness": 1.0602,
-            "broken_tackle_rate": 0.1691,
+            "adot": 4.7277,
+            "yac_per_rec": 5.9754,
+            "elusiveness": 1.1763,
+            "broken_tackle_rate": 0.1875,
             "ypc": 3.667,
             "avg_separation_yds": 2.5354,
             "avg_cushion_yds": 6.102,
-            "catch_rate": 0.7255,
+            "catch_rate": 0.7259,
             "route_profile": "short",
             "top_speed_mph": 19.8,
-            "deep_target_rate": 0.0182,
+            "deep_target_rate": 0.0173,
             "contested_catch_rate": 0.5455,
             "splits": {
                 "primary": {
                     "target_share": 0.05,
                     "carry_share": 0.0,
-                    "catch_rate": 0.7255
+                    "catch_rate": 0.7259
                 },
                 "redzone": {
                     "target_share": 0.045,
@@ -1874,7 +1874,7 @@
                     "primary": {
                         "target_share": 0.05,
                         "carry_share": 0.0,
-                        "catch_rate": 0.7255
+                        "catch_rate": 0.7259
                     },
                     "redzone": {
                         "target_share": 0.045,
@@ -1906,14 +1906,14 @@
             "carry_share": 0.0,
             "status": "active",
             "player_id": "00-0040187",
-            "adot": 4.4687,
-            "yac_per_rec": 5.7511,
-            "elusiveness": 0.2013,
-            "broken_tackle_rate": 0.1573,
+            "adot": 4.4583,
+            "yac_per_rec": 5.972,
+            "elusiveness": 0.5334,
+            "broken_tackle_rate": 0.1885,
             "ypc": 1.0,
             "avg_separation_yds": 3.0,
             "avg_cushion_yds": 5.6,
-            "catch_rate": 0.7271,
+            "catch_rate": 0.7455,
             "route_profile": "short",
             "top_speed_mph": 19.6,
             "deep_target_rate": 0.0,
@@ -1922,7 +1922,7 @@
                 "primary": {
                     "target_share": 0.0,
                     "carry_share": 0.0,
-                    "catch_rate": 0.7271
+                    "catch_rate": 0.7455
                 },
                 "redzone": {
                     "target_share": 0.0,
@@ -1949,7 +1949,7 @@
                     "primary": {
                         "target_share": 0.0,
                         "carry_share": 0.0,
-                        "catch_rate": 0.7271
+                        "catch_rate": 0.7455
                     },
                     "redzone": {
                         "target_share": 0.0,
@@ -2198,23 +2198,23 @@
             "carry_share": 0.0,
             "status": "active",
             "player_id": "00-0031610",
-            "adot": 9.5417,
-            "yac_per_rec": 4.1642,
-            "elusiveness": 0.0165,
-            "broken_tackle_rate": 0.1643,
+            "adot": 9.0671,
+            "yac_per_rec": 4.1874,
+            "elusiveness": 0.1415,
+            "broken_tackle_rate": 0.1524,
             "ypc": 4.0,
-            "avg_separation_yds": 2.694,
+            "avg_separation_yds": 3.391,
             "avg_cushion_yds": 6.08,
-            "catch_rate": 0.688,
+            "catch_rate": 0.7061,
             "route_profile": "intermediate",
             "top_speed_mph": 19.47,
-            "deep_target_rate": 0.139,
+            "deep_target_rate": 0.1159,
             "contested_catch_rate": 0.5138,
             "splits": {
                 "primary": {
                     "target_share": 0.065,
                     "carry_share": 0.0,
-                    "catch_rate": 0.688
+                    "catch_rate": 0.7061
                 },
                 "redzone": {
                     "target_share": 0.06,
@@ -2242,7 +2242,7 @@
                     "primary": {
                         "target_share": 0.065,
                         "carry_share": 0.0,
-                        "catch_rate": 0.688
+                        "catch_rate": 0.7061
                     },
                     "redzone": {
                         "target_share": 0.06,

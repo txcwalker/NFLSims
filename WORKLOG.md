@@ -4,6 +4,44 @@
 
 ---
 
+### [2026-09-29, part 2] Handoff from Claude Opus 5.5 (Week 3 -> Week 4 rollover, Ertz signing, Hall/Achane injuries)
+
+- **Active Task:** Cam: pull Week 3 stats from nflverse, run the Week 4 sims, move the DFS site to Week 4. Then
+  add Zach Ertz (PHI signing), and Breece Hall (out 2 wks) / De'Von Achane (ACL, season) injuries + resims.
+- **Runbook steps run:** A1 `refresh_weekly_dna_v_0_1_0.py 2026 3` (nflverse had all 16 wk3 games: PBP, NGS,
+  `stats_player`), A2 `build_actual_season_stats_2026.py`, player actuals (`python -m src.evaluation.player_actuals
+  2026`), C1 `build_week_overrides 4`, C2 `apply_team_week_overrides 4`, C3 `run_week_sim_2026.py 4` (16 games x
+  10K, ~10 min). **Not run:** A3 (rest-of-season sim + reports), B (ownership retrain).
+- **Files Modified:**
+  - [src/api/app.py](src/api/app.py): `/api/weeks` -> `[1, 2, 3, 4]`.
+  - [.claude/launch.json](.claude/launch.json): `backend-api-dfs` now `--reload --reload-dir src` (matches
+    `start_backend_api.bat`; the missing flag was flagged in the last two entries).
+  - [data/overrides/2026/season_long/PHI.csv](data/overrides/2026/season_long/PHI.csv): Zach Ertz added (TE,
+    `00-0030061`, efficiency from career `te_dna`). Mundt + Ertz at 0.5% tgt each so they split Goedert's role
+    while he's out (ledger: back wk7) -> exactly 14% tgt / 15% rz / 21% gl for the pair wk4-6, ~1% after.
+    To hit 14% exactly: Stowers (IR, no return wk) and Calcaterra (IR to wk8) shares zeroed and moved pro-rata
+    to WR/RB (originals in each row's `note` -- restore on return); Goedert 0.14 -> 0.13 (rz .14, gl .19).
+  - [data/overrides/2026/season_long/MIA.csv](data/overrides/2026/season_long/MIA.csv): Achane `ir`, blank
+    return_week (= out all season). Share goes pro-rata to Wright/Gordon (Wright ~11.6 att, Gordon ~8.3).
+  - [data/overrides/2026/dfs_status_ledger.json](data/overrides/2026/dfs_status_ledger.json): Breece Hall out wk4,
+    active wk6 (ledger, not IR -- a short absence). Braelon Allen ~16.9 att, Isaiah Davis ~9.8.
+  - Generated: `week_04/*.csv`, `current_rosters/dfs/*`, `trench_dna.json`, `docs/reports/season_actuals_2026/*`;
+    `dfs_week_4_*.parquet` (gitignored), resimmed LA_PHI, MIA_MIN, NYJ_CHI.
+- **Findings:** (1) Week 3 hand-edits made directly in `week_03/*.csv` (PHI Shipley/Goedert splits) do NOT
+  carry to later weeks -- week sheets are rebuilt from season_long + ledger. Durable edits belong in
+  `season_long/`. (2) Same-position redistribution means an out player's share always lands on his position
+  group; to cap a group (the TE pair), the absent player's share has to be moved in season_long by hand.
+  (3) PHI traits still carry Elijah Mitchell / Samori Toure / Stone Smartt (not on the sheet) -- tiny stray
+  targets, pre-existing since wk3, not fixed. (4) Cold `week_sim_results?week=4` build takes ~21 min; any
+  resim invalidates it.
+- **Verification Performed:** Week 4 TE/RB shares checked per week (4/6/7/8) via `build_team_week_rows`;
+  Ertz present in the DFS traits + served `week_4_sim_results.json`; site home shows "Week 4 sims";
+  `/api/weeks` returns 1-4. No code tests run (only a hardcoded list changed).
+- **Immediate Next Steps:** More wk4 injuries expected (Cam). Consider A3 when time allows. Restore Stowers /
+  Calcaterra shares when they return.
+
+---
+
 ### [2026-09-28] Handoff from Claude Opus 5.5 (PHI@CHI MNF showdown: roster edits, re-sim, two-team rule)
 
 - **Active Task:** Cam's MNF showdown prep for PHI@CHI (week 3): DK showdown salaries "not loading", then
