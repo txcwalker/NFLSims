@@ -34,6 +34,12 @@
   (3) PHI traits still carry Elijah Mitchell / Samori Toure / Stone Smartt (not on the sheet) -- tiny stray
   targets, pre-existing since wk3, not fixed. (4) Cold `week_sim_results?week=4` build takes ~21 min; any
   resim invalidates it.
+  (5) **Race fixed in [src/api/app.py](src/api/app.py):** a `week_sim_results` compute already running when
+  `resim_games_2026.py` wrote its parquet mixed old + new games (NYJ@CHI kept pre-injury Breece Hall, MIA@MIN
+  got the post-injury split) and cached it as fresh. `_compute_week_sim_results` now skips caching if
+  `_dfs_week_input_mtime` changed mid-compute; `get_week_sim_results` recomputes (up to 3x).
+  (6) `--reload` on :8002 hung once: 'Reloading...' but the old worker never exited (the site's constant
+  polling likely keeps it alive) and kept serving stale memory. Hard restart fixed it -- watch for this.
 - **Verification Performed:** Week 4 TE/RB shares checked per week (4/6/7/8) via `build_team_week_rows`;
   Ertz present in the DFS traits + served `week_4_sim_results.json`; site home shows "Week 4 sims";
   `/api/weeks` returns 1-4. No code tests run (only a hardcoded list changed).

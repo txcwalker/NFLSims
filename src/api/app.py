@@ -1589,7 +1589,15 @@ def get_week_sim_results(week: int = 1, year: int = 2026):
     with compute_lock:
         if cache_key in WEEK_SIM_RESULTS_CACHE and WEEK_SIM_RESULTS_CACHE_FRESHNESS.get(cache_key) == fresh_token:
             return WEEK_SIM_RESULTS_CACHE[cache_key]
-        return _compute_week_sim_results(week, year, cache_key, fresh_token)
+        # Recompute (bounded) if a resim landed mid-compute -- see the
+        # input-change guard at the end of _compute_week_sim_results.
+        for _ in range(3):
+            result = _compute_week_sim_results(week, year, cache_key, fresh_token)
+            new_token = _dfs_week_input_mtime(week, year)
+            if new_token == fresh_token:
+                return result
+            fresh_token = new_token
+        return result
 
 
 def _compute_week_sim_results(week: int, year: int, cache_key: tuple, fresh_token: float = 0.0):
@@ -1831,6 +1839,17 @@ def _compute_week_sim_results(week: int, year: int, cache_key: tuple, fresh_toke
         p['ownership_leverage'] = round(p['dk_points'] / fo, 2) if fo else 0.0
 
     result = {"week": week, "games": games_results, "cash_consensus_lineups": cash_consensus_lineups}
+
+    # Mid-compute input change guard (2026-09-29): this compute takes ~20 min,
+    # and _get_dfs_week_by_game_id() mtime-reloads per game -- so a
+    # resim_games_2026.py run landing mid-compute gives games processed before
+    # it the OLD sim and games after it the NEW one. Persisting that mixed
+    # result would mark it fresh (the JSON ends up newer than the parquet).
+    # Seen live: NYJ@CHI kept pre-injury Breece Hall projections while
+    # MIA@MIN got the post-injury ones. Don't cache; the caller recomputes.
+    if fresh_token and _dfs_week_input_mtime(week, year) != fresh_token:
+        print(f"Week {week} sim inputs changed during compute -- not caching this (mixed) result.")
+        return result
 
     try:
         os.makedirs(os.path.dirname(json_cache_path), exist_ok=True)
