@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { ApiService } from '../api';
 
-// ─── Shared visual language (matches Optimizer.jsx / SimReplays.jsx / EvaluationTab.jsx) ──
+// ─── Shared visual language (matches Optimizer.jsx / SimReplays.jsx) ──
 const cardStyle = { background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '14px', padding: '16px' };
 const inputStyle = { background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '6px', color: 'var(--text-white)', padding: '5px 8px', fontSize: '0.82rem' };
 const pnlColor = (v) => (v == null ? 'var(--text-muted)' : v > 0 ? 'var(--accent-green, #22c55e)' : v < 0 ? '#ef4444' : 'var(--text-secondary)');
@@ -91,7 +91,7 @@ export default function Bankroll() {
   };
   // Deferred into a microtask (not called directly as the effect body) so
   // this doesn't trip react-hooks/set-state-in-effect -- same pattern as
-  // useWorkspaceSlots / EvaluationTab's load effect.
+  // useWorkspaceSlots / ShowdownFieldEval's load effect.
   useEffect(() => {
     let cancelled = false;
     Promise.resolve().then(() => { if (!cancelled) runGrading(); });

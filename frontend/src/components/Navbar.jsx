@@ -3,7 +3,6 @@ import { PAGES } from '../pagesConfig'
 import { ApiService } from '../api'
 
 export default function Navbar({ currentPage, setCurrentPage, selectedWeek, selectedDraftGroupId, setGames }) {
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   // idle | loading | done | error
   const [vegasRefreshState, setVegasRefreshState] = useState('idle');
@@ -16,7 +15,7 @@ export default function Navbar({ currentPage, setCurrentPage, selectedWeek, sele
       const result = await ApiService.refreshVegasLines();
       // Pull the just-refreshed lines back into shared state (games is owned
       // by App.jsx) so every page reading it -- Simulator, Optimizer,
-      // ShowdownOptimizer, Evaluation -- reflects the new numbers immediately
+      // ShowdownOptimizer, Evaluation pages -- reflects the new numbers immediately
       // instead of only on the next natural refetch (week/slate switch).
       if (setGames && selectedWeek) {
         const data = await ApiService.getGames(selectedWeek, selectedDraftGroupId);
@@ -54,12 +53,12 @@ export default function Navbar({ currentPage, setCurrentPage, selectedWeek, sele
   // Group pages by category
   const coreLinks = PAGES.filter(p => p.category === 'core' && p.showInNavbar);
   const toolLinks = PAGES.filter(p => p.category === 'tool' && p.showInNavbar);
+  const evalLinks = PAGES.filter(p => p.category === 'eval' && p.showInNavbar);
   const metaLinks = PAGES.filter(p => p.category === 'meta' && p.showInNavbar);
 
   const handleNav = (pageId) => {
     setCurrentPage(pageId);
     window.location.hash = pageId === 'home' ? '' : pageId;
-    setDropdownOpen(false);
   };
 
   return (
@@ -171,104 +170,9 @@ export default function Navbar({ currentPage, setCurrentPage, selectedWeek, sele
           </button>
         ))}
 
-        {/* Dropdown Tools Link */}
-        <div 
-          className="nav-dropdown-wrapper"
-          onMouseEnter={() => setDropdownOpen(true)}
-          onMouseLeave={() => setDropdownOpen(false)}
-          style={{ position: 'relative' }}
-        >
-          <button
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: toolLinks.some(t => t.id === currentPage) ? 'var(--accent-secondary)' : 'var(--text-main)',
-              fontWeight: 600,
-              fontSize: '0.95rem',
-              cursor: 'pointer',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            Tools (Beta)
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{
-              transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 0.2s'
-            }}>
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-
-          {/* Dropdown Card */}
-          {dropdownOpen && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              paddingTop: '8px',
-              width: '240px',
-              zIndex: 101
-            }}>
-              <div style={{
-                background: '#0c122b',
-                border: '1px solid var(--border-glass)',
-                borderRadius: '12px',
-                padding: '8px',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.6)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px'
-              }}>
-                {toolLinks.map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => handleNav(t.id)}
-                    style={{
-                      background: currentPage === t.id ? 'rgba(157, 78, 221, 0.15)' : 'transparent',
-                      border: 'none',
-                      color: currentPage === t.id ? 'var(--text-white)' : 'var(--text-main)',
-                      textAlign: 'left',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      fontSize: '0.88rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '8px'
-                    }}
-                    className="dropdown-item"
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '1.1rem' }}>{t.icon}</span>
-                      {t.label}
-                    </span>
-                    {t.isDevelopment && (
-                      <span style={{
-                        fontSize: '0.7rem',
-                        padding: '2px 6px',
-                        background: 'rgba(255, 170, 0, 0.12)',
-                        color: 'var(--accent-gold)',
-                        borderRadius: '4px',
-                        border: '1px solid rgba(255, 170, 0, 0.2)',
-                        fontWeight: 700
-                      }}>
-                        DEV
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Dropdowns: Tools + Evaluation (one page per grader, 2026-09-29) */}
+        <NavDropdown label="Tools (Beta)" links={toolLinks} currentPage={currentPage} onNav={handleNav} />
+        <NavDropdown label="Evaluation" links={evalLinks} currentPage={currentPage} onNav={handleNav} />
 
         {/* Meta Links */}
         {metaLinks.map(p => (
@@ -294,4 +198,115 @@ export default function Navbar({ currentPage, setCurrentPage, selectedWeek, sele
       </div>
     </nav>
   )
+}
+
+/**
+ * Hover dropdown for a group of navbar pages (Tools, Evaluation).
+ * Inputs: label (string, button text), links (pagesConfig entries shown in
+ *   the card), currentPage (active page id, highlights the button + item),
+ *   onNav (fn(pageId) -> navigates; Navbar's handleNav).
+ * Output: JSX -- the button plus the card, open while hovered. Each dropdown
+ *   keeps its own open state so two can sit side by side.
+ */
+function NavDropdown({ label, links, currentPage, onNav }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div 
+      className="nav-dropdown-wrapper"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      style={{ position: 'relative' }}
+    >
+      <button
+        style={{
+          background: 'transparent',
+          border: 'none',
+          color: links.some(t => t.id === currentPage) ? 'var(--accent-secondary)' : 'var(--text-main)',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          cursor: 'pointer',
+          padding: '6px 12px',
+          borderRadius: '8px',
+          transition: 'all 0.2s',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}
+      >
+        {label}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{
+          transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+          transition: 'transform 0.2s'
+        }}>
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+
+      {/* Dropdown Card */}
+      {open && (
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          paddingTop: '8px',
+          width: '240px',
+          zIndex: 101
+        }}>
+          <div style={{
+            background: '#0c122b',
+            border: '1px solid var(--border-glass)',
+            borderRadius: '12px',
+            padding: '8px',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px'
+          }}>
+            {links.map(t => (
+              <button
+                key={t.id}
+                onClick={() => { setOpen(false); onNav(t.id); }}
+                style={{
+                  background: currentPage === t.id ? 'rgba(157, 78, 221, 0.15)' : 'transparent',
+                  border: 'none',
+                  color: currentPage === t.id ? 'var(--text-white)' : 'var(--text-main)',
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  fontSize: '0.88rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px'
+                }}
+                className="dropdown-item"
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '1.1rem' }}>{t.icon}</span>
+                  {t.label}
+                </span>
+                {t.isDevelopment && (
+                  <span style={{
+                    fontSize: '0.7rem',
+                    padding: '2px 6px',
+                    background: 'rgba(255, 170, 0, 0.12)',
+                    color: 'var(--accent-gold)',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(255, 170, 0, 0.2)',
+                    fontWeight: 700
+                  }}>
+                    DEV
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

@@ -6,7 +6,7 @@ import { PitHist, Empty, Tile } from './GameLinesEval';
  * Player Projections evaluation (2026-09-25) -- our sim's player projections
  * vs. the real stat line, and where that real line landed inside the player's
  * own 10K sim runs ("percentile finish"). Rendered under Game Lines on
- * EvaluationTab.jsx. Evaluated against our sims only for now; prop lines
+ * pages/EvaluationPage.jsx. Evaluated against our sims only for now; prop lines
  * (Vegas / prediction markets) are a later column on the same rows.
  *
  * Inputs (props): selectedWeek -- the page's week (default table filter).

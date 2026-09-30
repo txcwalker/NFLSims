@@ -4,7 +4,7 @@ import { ApiService } from '../api';
 /**
  * Game Lines evaluation (2026-09-25) -- the sim's spreads / totals / win
  * probabilities graded against Vegas (opening AND closing line) and against
- * what actually happened. Rendered as a section of EvaluationTab.jsx.
+ * what actually happened. Rendered by pages/EvaluationPage.jsx (Evaluation > Game Lines).
  *
  * Inputs (props):
  *   selectedWeek -- the page's week (default filter for the per-game table)

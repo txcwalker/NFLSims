@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ApiService } from '../api';
 import LineupHistogramModal from '../components/LineupHistogramModal';
+import ShowdownFieldEval from '../components/ShowdownFieldEval';
 
-// ─── Shared visual language (matches Optimizer.jsx / ShowdownOptimizer.jsx / EvaluationTab.jsx) ──
+// ─── Shared visual language (matches Optimizer.jsx / ShowdownOptimizer.jsx / Bankroll.jsx) ──
 const cardStyle = { background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '14px', padding: '16px' };
 const inputStyle = { background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '6px', color: 'var(--text-white)', padding: '5px 8px', fontSize: '0.82rem' };
 const evColor = (v) => (v == null ? 'var(--text-muted)' : v > 0 ? 'var(--accent-primary)' : '#ef4444');
@@ -58,11 +59,16 @@ const PAGE_SIZE = 100;
  * OUR sim against the REAL field's real rosters (not a synthetic one) -- same
  * Sim ROI/Cash Rate/Ceiling/Top1%/histogram treatment the live optimizer
  * already gives freshly-generated lineups (LineupHistogramModal), just
- * applied to real submitted lineups instead. Distinct from the "Sim Replay"
- * section on the Evaluation tab, which needs a paper-entry flag and a
+ * applied to real submitted lineups instead. Distinct from the field "Sim
+ * Replay" table in ShowdownFieldEval (bottom of this page, moved here from the
+ * old Evaluation tab 2026-09-29), which needs a paper-entry flag and a
  * different (percentile-only) computation.
+ *
+ * Inputs (props, from App.jsx -- only forwarded to ShowdownFieldEval):
+ *   games, allSimResults, selectedWeek, weeks, setSelectedWeek -- the app-wide
+ *   week's schedule + sims and the week picker's state.
  */
-export default function SimReplays() {
+export default function SimReplays({ games = [], allSimResults = {}, selectedWeek, weeks = [], setSelectedWeek }) {
   const [contests, setContests] = useState([]);
   const [loadingContests, setLoadingContests] = useState(true);
   const [selectedKey, setSelectedKey] = useState('');
@@ -285,6 +291,9 @@ export default function SimReplays() {
           )}
         </div>
       )}
+
+      <ShowdownFieldEval games={games} allSimResults={allSimResults} selectedWeek={selectedWeek}
+        weeks={weeks} setSelectedWeek={setSelectedWeek} />
 
       {modalLineup && <LineupHistogramModal lineup={modalLineup} onClose={() => setModalLineup(null)} />}
     </div>

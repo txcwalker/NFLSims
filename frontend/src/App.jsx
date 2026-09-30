@@ -12,7 +12,7 @@ import InDevelopment from './pages/InDevelopment'
 import DfsSummary from './pages/DfsSummary'
 import Optimizer from './pages/Optimizer'
 import ShowdownOptimizer from './pages/ShowdownOptimizer'
-import EvaluationTab from './pages/EvaluationTab'
+import EvaluationPage from './pages/EvaluationPage'
 import SimReplays from './pages/SimReplays'
 import CashLineups from './pages/CashLineups'
 import Bankroll from './pages/Bankroll'
@@ -185,7 +185,9 @@ export default function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      const baseHash = hash.split('?')[0];
+      // '#evaluation' was the single Evaluation tab before the 2026-09-29 split;
+      // old bookmarks land on its first page instead of bouncing to Home.
+      const baseHash = hash.split('?')[0] === 'evaluation' ? 'eval_games' : hash.split('?')[0];
       const validPages = PAGES.map(p => p.id);
       if (validPages.includes(baseHash)) {
         setCurrentPage(baseHash);
@@ -285,18 +287,22 @@ export default function App() {
             setSelectedWeek={setSelectedWeek}
           />
         );
-      case 'evaluation':
+      case 'eval_games':
+      case 'eval_players':
+      case 'eval_rankings':
         return (
-          <EvaluationTab
-            allSimResults={allSimResults}
-            games={games}
+          <EvaluationPage
+            view={currentPage.replace('eval_', '')}
             weeks={weeks}
             selectedWeek={selectedWeek}
             setSelectedWeek={setSelectedWeek}
           />
         );
       case 'sim_replays':
-        return <SimReplays />;
+        return (
+          <SimReplays games={games} allSimResults={allSimResults} selectedWeek={selectedWeek}
+            weeks={weeks} setSelectedWeek={setSelectedWeek} />
+        );
       case 'slate_leaders':
         return <SlateLeaders />;
       case 'cash_lineups':
@@ -329,7 +335,7 @@ export default function App() {
       display: 'flex',
       flexDirection: 'column',
       minHeight: '100vh',
-      maxWidth: (currentPage === 'optimizer' || currentPage === 'showdown_optimizer' || currentPage === 'evaluation') ? '1680px' : '1280px',
+      maxWidth: (currentPage === 'optimizer' || currentPage === 'showdown_optimizer' || currentPage.startsWith('eval_')) ? '1680px' : '1280px',
       margin: '0 auto',
       padding: '20px',
       boxSizing: 'border-box'

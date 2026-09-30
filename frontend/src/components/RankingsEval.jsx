@@ -6,7 +6,7 @@ import { Empty } from './GameLinesEval';
  * Rankings evaluation (2026-09-26) -- our de facto weekly positional rankings
  * (the Slate Leaders page) graded against actual positional finishes, in
  * season-long scoring (PPR / half / standard, 4- or 6-pt pass TD, no yardage
- * bonuses -- the exact Slate Leaders formula). Rendered on EvaluationTab.jsx.
+ * bonuses -- the exact Slate Leaders formula). Rendered by pages/EvaluationPage.jsx (Evaluation > Rankings).
  *
  * Inputs (props): selectedWeek -- the page week (table default when complete).
  * Data: GET /api/eval/rankings?fmt= (src/evaluation/rankings_eval.py).

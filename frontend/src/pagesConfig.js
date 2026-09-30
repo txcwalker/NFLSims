@@ -47,13 +47,32 @@ export const PAGES = [
     icon: '✧',
     description: 'Single-game Showdown (CPT + 5 FLEX) lineup builder with a leverage dial that trades ceiling for lower total lineup ownership.'
   },
+  // Evaluation dropdown (2026-09-29): one page per model-accuracy grader,
+  // all rendered by pages/EvaluationPage.jsx. DFS contest review lives on
+  // Sim Replays; paper-trade results on Bankroll.
   {
-    id: 'evaluation',
-    label: 'Evaluation',
+    id: 'eval_games',
+    label: 'Game Lines',
     showInNavbar: true,
-    category: 'tool',
-    icon: '🧪',
-    description: 'Field analysis for settled contests (winner, percentile cutoffs, hindsight-optimal, top-finisher ownership) and paper-trade results (predicted vs actual for lineups you flagged as playing).'
+    category: 'eval',
+    icon: '🎲',
+    description: 'Sim spreads, totals and win probabilities graded against opening/closing Vegas lines and the actual results -- accuracy, ATS/total/moneyline records, calibration and CLV.'
+  },
+  {
+    id: 'eval_players',
+    label: 'Player Projections',
+    showInNavbar: true,
+    category: 'eval',
+    icon: '🏃',
+    description: 'Every QB/RB/WR/TE projection graded against the real stat line -- interval coverage, bias, error and where each player finished inside their own sim distribution.'
+  },
+  {
+    id: 'eval_rankings',
+    label: 'Rankings',
+    showInNavbar: true,
+    category: 'eval',
+    icon: '🏆',
+    description: 'Weekly positional rankings graded against actual finishes in season-long scoring formats -- rank correlation, top-12 hit rates and probability skill.'
   },
   {
     id: 'sim_replays',
@@ -61,7 +80,7 @@ export const PAGES = [
     showInNavbar: true,
     category: 'tool',
     icon: '🔁',
-    description: 'Pick a contest you actually entered and see your submitted lineup(s) -- real points and rank -- next to our sim\'s own pre-game projected distribution for that exact lineup.'
+    description: 'Pick a contest you actually entered and see your submitted lineup(s) -- real points and rank -- next to our sim\'s own pre-game projected distribution for that exact lineup. Also holds each showdown game\'s field analysis and field sim replay.'
   },
   {
     id: 'bankroll',
