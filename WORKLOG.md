@@ -4,6 +4,35 @@
 
 ---
 
+### [2026-09-29, part 3] Handoff from Claude Opus 5.5 (Week 3 evaluation run)
+
+- **Active Task:** Cam: run the evaluation for Week 3 results (game lines, player projections, rankings).
+- **Runbook steps run:** `python -m src.evaluation.player_actuals 2026` (48 games, wks 1-3);
+  `python src/data_pipeline/vegas_lines_refresh.py 2026` -- `schedule_2026.csv` had only 1 of 16 wk3 results
+  before this, so game-line grading would have skipped 15 games. Graders run in-process
+  (`game_line_eval.build_eval`, `player_proj_eval.build_player_eval`, `rankings_eval.build_rankings_eval`).
+- **Files Modified:** [data/eval/2026/line_history.csv](data/eval/2026/line_history.csv) (+37 rows, incl.
+  post-game close captures for 6 wk3 games -- e.g. PHI@CHI close -4.5 -> -3.5, LA@DEN -1.5 -> DEN -1.5),
+  [data/external/schedule_2026.csv](data/external/schedule_2026.csv) (wk3 finals + wk4/5 line moves). No code changes.
+- **Week 3 results:**
+  - Game lines: margin MAE sim 10.05 vs open 8.84 / close 8.09; totals MAE 11.18 vs 11.19 / 10.94; Brier sim
+    0.281 vs Vegas 0.254. ATS 7-9 open, 3-11-2 close (-8.3u); totals 7-9 / 8-8; ML open 6-7 (+0.07u).
+    Season: totals 26-22 / 27-21, ML open +7.9u, spreads 22-26 / 19-26-3.
+  - Player projections (189 graded, proj >= 5 DK): 80% band coverage 77.3%, 50% band 45.5%, bias -0.57 DK,
+    MAE 5.57. Biggest misses were upside tails (Bowers, Bijan, M. Wilson, Geno, Gibbs).
+  - Rankings (4pt PPR) Spearman QB .27 / RB .52 / WR .55 / TE .41; QB top-12 prob skill -0.17 (worse than naive).
+- **Findings:** (1) Sim took the under in 11/16 wk3 games and real scoring ran hot (ARI@SF 66 vs 46 sim,
+  LV@NO 62 vs 38, SEA@WAS 64) -- one week, but watch sim total scoring for a systematic low lean.
+  (2) Roster gaps: CHI started Case Keenum (23.5 DK, unprojected) over projected Bagent; 11 real >=5-DK lines
+  were never simmed (Keenum, Ruckert 14.9, Tremayne 12.3, ...). (3) QB ranking probabilities are the weakest eval area.
+- **Commits:** this entry + line_history.csv + schedule_2026.csv only. The earlier part-2/Bankroll entries' uncommitted
+  work was left alone (this entry was staged by itself).
+- **Immediate Next Steps for the Next Agent:**
+  1. Run the Vegas refresh before grading each week -- the schedule's `result` column is what marks a game played.
+  2. If the under lean repeats in wk4, compare sim points/game vs real 2026 scoring.
+
+---
+
 ### [2026-09-29, part 2] Handoff from Claude Opus 5.5 (Week 3 -> Week 4 rollover, Ertz signing, Hall/Achane injuries)
 
 - **Active Task:** Cam: pull Week 3 stats from nflverse, run the Week 4 sims, move the DFS site to Week 4. Then
