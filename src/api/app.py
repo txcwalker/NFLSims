@@ -73,6 +73,7 @@ from src.evaluation.rankings_eval import (build_rankings_eval, summarize_ranking
                                           FORMATS as RANKING_FORMATS,
                                           FORMAT_LABELS as RANKING_FORMAT_LABELS)
 from src.evaluation.season_rankings import snapshot_summary as season_snapshot_summary
+from src.evaluation import cash_lineup_eval
 from src.evaluation.prop_markets import build_week_props, SIM_COLUMNS as PROP_SIM_COLUMNS
 from src.data_pipeline.polymarket_us_client import fetch_events_for_games
 from src.evaluation.game_line_eval import _kickoff_ts as kickoff_ts_eval
@@ -2848,6 +2849,42 @@ def post_refresh_player_actuals(year: int = 2026):
         return refresh_player_actuals(year)
     except Exception as e:  # noqa: BLE001 -- surface network/source failures to the UI
         raise HTTPException(status_code=502, detail=f"nflverse fetch failed: {e}")
+
+
+_CASH_EVAL_CACHE: Dict[Any, Any] = {}
+
+
+def _cash_eval_input_token(week: int, year: int):
+    """mtimes of everything the cash-lineup grade reads -- the week's archived
+    main-slate CSVs, the benchmark file, the week's sims, the nflverse
+    fallback cache and the saved cash-pool overrides -- so a newly dropped
+    standings CSV or benchmark edit invalidates the cached grade."""
+    folder = cash_lineup_eval.main_slate_dir(year, week)
+    paths = sorted(glob.glob(os.path.join(folder, "*.csv")))
+    paths += [cash_lineup_eval.benchmark_path(year), player_actuals_cache_path(year),
+              os.path.join(BASE_DIR, "data", "interim", f"dfs_week_{week}_players.parquet"),
+              cash_pool_store._pool_path(year, week)]
+    return tuple((p, os.path.getmtime(p) if os.path.exists(p) else None) for p in paths)
+
+
+@app.get("/api/eval/cash_lineups")
+def get_cash_lineups_eval(week: int = 1, year: int = 2026):
+    """Grades this week's cash lineups (the same builds GET /api/week_cash_lineups
+    serves, saved pool overrides applied) and any hand-entered benchmark cash
+    lineups (data/eval/{year}/benchmark_cash_lineups.json) against real DK
+    scores -- see src/evaluation/cash_lineup_eval.py.
+
+    Response: {"week", "gradable", "ours": [graded builds], "benchmarks":
+    [graded benchmark lineups], "summary"}. gradable=False until a main-slate
+    standings CSV is archived for the week. Cached on input mtimes."""
+    token = _cash_eval_input_token(week, year)
+    cached = _CASH_EVAL_CACHE.get((week, year))
+    if not cached or cached[0] != token:
+        ours = get_week_cash_lineups(week=week, year=year).get("lineups", [])
+        result = cash_lineup_eval.build_cash_eval(year, week, ours, _priced_pool_for_week(week, year))
+        _CASH_EVAL_CACHE[(week, year)] = (token, {"week": week, **result})
+        cached = _CASH_EVAL_CACHE[(week, year)]
+    return cached[1]
 
 
 # -------------------------------------------------------------------------

@@ -20,7 +20,7 @@ src/nfl_sim/proe_overlay_v_0_1_0.py  ACTIVE. Coach PROE (pass-rate-over-expected
 src/nfl_sim/nfl_positional_evaluator.py  ACTIVE. Chess-style KEP/EP positional evaluator.
 src/nfl_sim/models/                ACTIVE. 11 trained model families (XGBoost joblib/native-json artifacts + their training scripts). Git-tracked as of the 2026-07-15 audit.
 src/data_pipeline/                 ACTIVE (new 2026-07-22). Pure-function DNA blending engine — see §5.
-src/evaluation/                    ACTIVE (new 2026-09-25). Evaluation tab grading: sim vs. Vegas (open + close) vs. actual for spreads/totals/moneylines, plus the Vegas line ledger (GET /api/eval/game_lines); and player projections vs. real stat lines with percentile finish inside our sims (GET /api/eval/player_projections).
+src/evaluation/                    ACTIVE (new 2026-09-25). Evaluation tab grading: sim vs. Vegas (open + close) vs. actual for spreads/totals/moneylines, plus the Vegas line ledger (GET /api/eval/game_lines); and player projections vs. real stat lines with percentile finish inside our sims (GET /api/eval/player_projections). 2026-09-29: the frontend's Evaluation tab is now a navbar dropdown -- Game Lines / Player Projections / Rankings pages (frontend/src/pages/EvaluationPage.jsx); showdown field analysis + field sim replay live on Sim Replays (components/ShowdownFieldEval.jsx). 2026-09-30: cash_lineup_eval.py grades the Cash Lineups page's builds + hand-entered benchmark lineups (data/eval/{year}/benchmark_cash_lineups.json) vs real DK points (GET /api/eval/cash_lineups).
 src/api/app.py                     ACTIVE. FastAPI backend, port 8000.
 src/live/                          ACTIVE. ESPN scraper + live 4th-down posting policy — a DIFFERENT concept-space than the sim engine (real dynamic possession, not away/home), see AGENTS.md §8.
 scripts/roster_management/         ACTIVE (new 2026-07-22). Builds/refreshes every DNA and roster file the engine reads — see §5.
@@ -78,8 +78,8 @@ cd frontend && npm run dev             # :5173
 # Full test suite
 python -m pytest tests/ -v
 
-# Evaluation tab grading + kickoff lock tests (fast, no real sims)
-python -m pytest tests/test_game_line_eval.py tests/test_kickoff_lock.py tests/test_player_proj_eval.py -v
+# Evaluation grading + kickoff lock tests (fast, no real sims)
+python -m pytest tests/test_game_line_eval.py tests/test_kickoff_lock.py tests/test_player_proj_eval.py tests/test_cash_lineup_eval.py -v
 
 # Record the current Vegas lines into the line ledger (also re-pulls schedule_2026.csv)
 python src/data_pipeline/vegas_lines_refresh.py 2026

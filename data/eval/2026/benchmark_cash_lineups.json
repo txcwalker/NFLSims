@@ -1,0 +1,47 @@
+{
+  "_readme": "Hand-entered benchmark cash lineups, graded next to our own cash builds on the Cash Lineups page (src/evaluation/cash_lineup_eval.py). One entry per (week, label). Slots in DK classic order: QB, RB, RB, WR, WR, WR, TE, FLEX, DST. name/team/pos must match the DK salary file (name matching is punctuation/case-insensitive); DST name can be the nickname. Salaries are filled in from data/dfs_ownership/{year}/week_NN/main_slate/salaries_prelock.csv. Ambiguous last names were resolved by Cam on 2026-09-30 (wk2 Bijan Robinson + Garrett Wilson; wk3 Garrett Wilson + Parker Washington).",
+  "lineups": [
+    {
+      "week": 1, "label": "Adam Levitan", "source": "Cam, 2026-09-30",
+      "players": [
+        {"slot": "QB", "name": "Jared Goff", "team": "DET", "pos": "QB"},
+        {"slot": "RB", "name": "Jahmyr Gibbs", "team": "DET", "pos": "RB"},
+        {"slot": "RB", "name": "Jonathan Taylor", "team": "IND", "pos": "RB"},
+        {"slot": "WR", "name": "Ja'Marr Chase", "team": "CIN", "pos": "WR"},
+        {"slot": "WR", "name": "Amon-Ra St. Brown", "team": "DET", "pos": "WR"},
+        {"slot": "WR", "name": "Devaughn Vele", "team": "NO", "pos": "WR"},
+        {"slot": "TE", "name": "Sam LaPorta", "team": "DET", "pos": "TE"},
+        {"slot": "FLEX", "name": "Michael Mayer", "team": "LV", "pos": "TE"},
+        {"slot": "DST", "name": "Jets", "team": "NYJ", "pos": "DST"}
+      ]
+    },
+    {
+      "week": 2, "label": "Adam Levitan", "source": "Cam, 2026-09-30",
+      "players": [
+        {"slot": "QB", "name": "Dak Prescott", "team": "DAL", "pos": "QB"},
+        {"slot": "RB", "name": "Bijan Robinson", "team": "ATL", "pos": "RB"},
+        {"slot": "RB", "name": "Derrick Henry", "team": "BAL", "pos": "RB"},
+        {"slot": "WR", "name": "Garrett Wilson", "team": "NYJ", "pos": "WR"},
+        {"slot": "WR", "name": "DK Metcalf", "team": "PIT", "pos": "WR"},
+        {"slot": "WR", "name": "Matthew Golden", "team": "GB", "pos": "WR"},
+        {"slot": "TE", "name": "Dalton Schultz", "team": "HOU", "pos": "TE"},
+        {"slot": "FLEX", "name": "Javonte Williams", "team": "DAL", "pos": "RB"},
+        {"slot": "DST", "name": "Panthers", "team": "CAR", "pos": "DST"}
+      ]
+    },
+    {
+      "week": 3, "label": "Adam Levitan", "source": "Cam, 2026-09-30",
+      "players": [
+        {"slot": "QB", "name": "Tyler Shough", "team": "NO", "pos": "QB"},
+        {"slot": "RB", "name": "Jahmyr Gibbs", "team": "DET", "pos": "RB"},
+        {"slot": "RB", "name": "Kenneth Walker", "team": "KC", "pos": "RB"},
+        {"slot": "WR", "name": "Garrett Wilson", "team": "NYJ", "pos": "WR"},
+        {"slot": "WR", "name": "Parker Washington", "team": "JAX", "pos": "WR"},
+        {"slot": "WR", "name": "Isaiah Williams", "team": "NYJ", "pos": "WR"},
+        {"slot": "TE", "name": "Dalton Schultz", "team": "HOU", "pos": "TE"},
+        {"slot": "FLEX", "name": "Chuba Hubbard", "team": "CAR", "pos": "RB"},
+        {"slot": "DST", "name": "Titans", "team": "TEN", "pos": "DST"}
+      ]
+    }
+  ]
+}

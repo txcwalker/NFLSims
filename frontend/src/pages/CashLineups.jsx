@@ -80,9 +80,21 @@ export default function CashLineups() {
   const [sortField, setSortField] = useState('median');
   const [sortAsc, setSortAsc] = useState(false);
 
+  // Post-slate grading (GET /api/eval/cash_lineups) -- loaded alongside, never
+  // blocks the lineups table; gradable=false for weeks not yet settled.
+  const [cashEval, setCashEval] = useState(null);
+
   useEffect(() => {
     ApiService.getWeeks().then(data => setWeeks(data.weeks || [1])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    // No synchronous reset here -- a previous week's grade is ignored via the
+    // week check in `graded` until this week's arrives.
+    let cancelled = false;
+    ApiService.getCashLineupsEval(selectedWeek).then(d => { if (!cancelled) setCashEval(d); });
+    return () => { cancelled = true; };
+  }, [selectedWeek]);
 
   useEffect(() => {
     setLoading(true);
@@ -127,6 +139,17 @@ export default function CashLineups() {
     return counts;
   }, [lineups]);
 
+  // Grades line up with the table row-for-row only if they were computed
+  // from the same builds (same saved pool) -- checked by projected totals, so
+  // a stale grade never gets painted onto different lineups.
+  const graded = useMemo(() => {
+    const ours = cashEval?.gradable && cashEval.week === selectedWeek ? cashEval.ours || [] : [];
+    const matches = ours.length > 0 && ours.length === lineups.length
+      && ours.every((g, i) => Math.abs(g.projected - lineups[i].projected_score) < 0.1);
+    return matches ? ours.map(g => ({ ...g, byKey: Object.fromEntries(g.players.map(p => [poolKey(p.name, p.team), p])) })) : null;
+  }, [cashEval, lineups, selectedWeek]);
+  const benchmarks = useMemo(() => (graded ? cashEval.benchmarks || [] : []), [graded, cashEval]);
+
   const excludedKeys = useMemo(() => new Set(excluded.map(e => poolKey(e.name, e.team))), [excluded]);
   const lockedKeys = useMemo(() => new Set(locked.map(e => poolKey(e.name, e.team))), [locked]);
   const hasPendingChanges = useMemo(() => {
@@ -161,6 +184,8 @@ export default function CashLineups() {
       setLineups(data.lineups || []);
       setAppliedExcluded(data.excluded || excluded);
       setAppliedLocked(data.locked || locked);
+      // The rerun saved a new pool, so the graded builds changed too.
+      ApiService.getCashLineupsEval(selectedWeek).then(setCashEval);
     } catch (err) {
       setRegenError(err.message || 'Rerun failed');
     } finally {
@@ -361,6 +386,14 @@ export default function CashLineups() {
         )}
       </div>
 
+      {!loading && cashEval?.gradable && cashEval.week === selectedWeek && (graded
+        ? <EvalSummaryStrip summary={cashEval.summary} />
+        : (
+          <div style={{ ...cardStyle, marginBottom: '16px', fontSize: '0.8rem', color: '#eab308' }}>
+            This week has results, but the builds below differ from the ones that were graded (pool changed?) — reload to re-grade.
+          </div>
+        ))}
+
       {loading ? (
         <div style={{ ...cardStyle, textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
           Generating cash-optimal builds… (first load of the week can take a bit — 10 ILP solves)
@@ -380,11 +413,18 @@ export default function CashLineups() {
                 ))}
                 <th style={{ padding: '7px 6px', fontSize: '0.7rem', color: 'var(--text-muted)' }}>Median</th>
                 <th style={{ padding: '7px 6px', fontSize: '0.7rem', color: 'var(--text-muted)' }}>Salary</th>
+                {graded && <>
+                  <th style={{ padding: '7px 6px', fontSize: '0.7rem', color: 'var(--text-muted)' }}>Actual</th>
+                  <th style={{ padding: '7px 6px', fontSize: '0.7rem', color: 'var(--text-muted)' }}>vs Proj</th>
+                  <th style={{ padding: '7px 6px', fontSize: '0.7rem', color: 'var(--text-muted)' }}
+                    title="Where the actual score landed among this exact lineup's own sim runs (50 = right on its median)">Sim %ile</th>
+                </>}
               </tr>
             </thead>
             <tbody>
               {lineups.map((lu, idx) => {
                 const cols = getSlottedColumns(lu.slots);
+                const g = graded?.[idx];
                 return (
                   <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                     <td style={{ padding: '6px 6px', fontWeight: 700, color: 'var(--text-muted)' }}>{idx + 1}</td>
@@ -400,22 +440,160 @@ export default function CashLineups() {
                           padding: '5px 6px', whiteSpace: 'nowrap',
                           background: isConsensus ? 'rgba(34,197,94,0.08)' : 'transparent',
                           borderRadius: '4px',
-                        }} title={`In ${count}/${lineups.length} of this slate's top cash builds`}>
+                        }} title={`In ${count}/${lineups.length} of this slate's top cash builds${gradeTitle(g?.byKey[key])}`}>
                           <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: TEAM_COLORS[p.team] || '#888', marginRight: '4px', verticalAlign: 'middle' }} />
                           <span style={{ fontWeight: isConsensus ? 700 : 600, color: isConsensus ? '#22c55e' : 'var(--text-white)' }}>{displayName}</span>
                           {isLocked && <span title="Locked" style={{ marginLeft: '3px', fontSize: '0.65rem' }}>🔒</span>}
+                          {g && <PlayerActual gp={g.byKey[key]} />}
                         </td>
                       );
                     })}
                     <td style={{ padding: '6px 6px', color: 'var(--accent-primary)', fontWeight: 600 }}>{lu.projected_score}</td>
                     <td style={{ padding: '6px 6px', color: 'var(--text-muted)' }}>${lu.total_salary?.toLocaleString()}</td>
+                    {g && <GradeCells g={g} />}
                   </tr>
                 );
               })}
+              {benchmarks.map((b, bi) => (
+                // Benchmark lineup (hand-entered, data/eval/{year}/benchmark_cash_lineups.json),
+                // projected by OUR sims so its Median is comparable to the rows above.
+                <tr key={`bench${bi}`} style={{ borderTop: bi === 0 ? '2px solid rgba(234,179,8,0.35)' : undefined, background: 'rgba(234,179,8,0.05)' }}>
+                  <td style={{ padding: '6px 6px', fontWeight: 700, color: '#eab308', fontSize: '0.7rem', whiteSpace: 'nowrap' }} title={b.source ? `Entered: ${b.source}` : undefined}>{b.label}</td>
+                  {getSlottedColumns(b.players).map((p, i) => {
+                    if (!p) return <td key={i} style={{ padding: '5px 6px', color: 'rgba(255,255,255,0.2)' }}>—</td>;
+                    const n = appearanceCounts[poolKey(p.name, p.team)] || 0;
+                    return (
+                      <td key={i} style={{ padding: '5px 6px', whiteSpace: 'nowrap' }}
+                        title={`${n ? `In ${n}/${lineups.length} of our builds` : 'Not in any of our builds'}${gradeTitle(p)}`}>
+                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: TEAM_COLORS[p.team] || '#888', marginRight: '4px', verticalAlign: 'middle' }} />
+                        <span style={{ fontWeight: 600, color: n ? 'var(--text-white)' : '#eab308' }}>{p.pos === 'DST' ? `${p.team} DST` : p.name.split(' ').slice(-1)[0]}</span>
+                        <PlayerActual gp={p} />
+                      </td>
+                    );
+                  })}
+                  <td style={{ padding: '6px 6px', color: 'var(--accent-primary)', fontWeight: 600 }} title="Our sims' projection for this lineup">{b.projected}</td>
+                  <td style={{ padding: '6px 6px', color: 'var(--text-muted)' }}>{b.salary ? `$${b.salary.toLocaleString()}` : '—'}</td>
+                  <GradeCells g={b} />
+                </tr>
+              ))}
             </tbody>
           </table>
+          {graded && (
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+              Small number under each player = real DK points (green beat our projection, red missed; hover for both).
+              {benchmarks.length > 0 && ' Gold row = benchmark lineup, projected by our own sims; gold names are players in none of our builds.'}
+            </div>
+          )}
         </div>
       )}
+
+      {graded && (cashEval.summary?.benchmarks || []).map(bs => (
+        <BenchmarkComparison key={bs.label} bs={bs} />
+      ))}
+    </div>
+  );
+}
+
+const diffColor = (v) => (v == null ? 'var(--text-muted)' : v > 0 ? '#22c55e' : v < 0 ? '#ef4444' : 'var(--text-muted)');
+const signed = (v, d = 1) => (v == null ? '—' : `${v > 0 ? '+' : ''}${Number(v).toFixed(d)}`);
+
+/** Tooltip suffix for a graded player: " · proj 14.2 → actual 22.6 (source)". */
+function gradeTitle(gp) {
+  if (!gp) return '';
+  const src = gp.source === 'dk' ? '' : gp.source === 'nflverse' ? ' (nflverse — nobody rostered him)' : ' (no real score found)';
+  return ` · proj ${gp.projection ?? '—'} → actual ${gp.actual ?? '—'}${src}`;
+}
+
+/** The small real-points line under a player's name in a lineup cell.
+ * Input: gp -- that player's graded row from /api/eval/cash_lineups. */
+function PlayerActual({ gp }) {
+  if (!gp) return null;
+  return (
+    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: diffColor(gp.diff), paddingLeft: '10px' }}>
+      {gp.actual == null ? '—' : gp.actual.toFixed(1)}
+      {gp.source !== 'dk' && <span style={{ color: '#eab308' }}>*</span>}
+    </div>
+  );
+}
+
+/** Actual / vs-projection / sim-percentile cells for one graded lineup row. */
+function GradeCells({ g }) {
+  const pct = g.sim?.actual_percentile;
+  return (
+    <>
+      <td style={{ padding: '6px 6px', fontWeight: 700, color: 'var(--text-white)' }}
+        title={g.missing?.length ? `No real score for: ${g.missing.join(', ')} (counted 0)` : undefined}>
+        {g.actual.toFixed(1)}{g.missing?.length ? <span style={{ color: '#eab308' }}>*</span> : null}
+      </td>
+      <td style={{ padding: '6px 6px', fontWeight: 700, color: diffColor(g.diff) }}>{signed(g.diff)}</td>
+      <td style={{ padding: '6px 6px', fontWeight: 600, color: pct == null ? 'var(--text-muted)' : pct >= 50 ? '#22c55e' : pct < 20 ? '#ef4444' : 'var(--text-white)' }}
+        title={g.sim ? `Beat ${pct}% of this lineup's sim runs · sim P10 ${g.sim.p10} / P50 ${g.sim.p50} / P90 ${g.sim.p90}` : 'No sims for this lineup'}>
+        {pct == null ? '—' : Math.round(pct)}
+      </td>
+    </>
+  );
+}
+
+/** Week roll-up above the table. Input: summary -- cash_lineup_eval.summarize(). */
+function EvalSummaryStrip({ summary }) {
+  const tile = (label, value, sub, color) => (
+    <div key={label} style={{ minWidth: '130px' }}>
+      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+      <div style={{ fontSize: '1.15rem', fontWeight: 800, color: color || 'var(--text-white)' }}>{value}</div>
+      {sub && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{sub}</div>}
+    </div>
+  );
+  return (
+    <div style={{ ...cardStyle, marginBottom: '16px', display: 'flex', gap: '28px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-white)', alignSelf: 'center' }}>📋 Results</div>
+      {tile('Our builds (avg)', `${summary.avg_projected} → ${summary.avg_actual}`, 'projected → actual')}
+      {tile('vs projection', signed(summary.avg_diff), 'avg per build', diffColor(summary.avg_diff))}
+      {tile('Beat projection', `${summary.n_beat_projection}/${summary.n}`, 'builds')}
+      {tile('Top build', `${summary.top_build?.actual}`, `projected ${summary.top_build?.projected} · best of ${summary.n}: ${summary.best_actual}`)}
+      {(summary.benchmarks || []).map(b => tile(
+        b.label, `${b.actual}`,
+        `our proj ${b.projected} · ${b.n_ours_beat_it}/${summary.n} of ours beat it`,
+        '#eab308',
+      ))}
+    </div>
+  );
+}
+
+/** Our top build vs one benchmark lineup, split into shared players and each
+ * side's unique picks with their real points -- the unique picks are where
+ * the week was won or lost. Input: bs -- one summary.benchmarks entry. */
+function BenchmarkComparison({ bs }) {
+  const total = (ps) => ps.reduce((a, p) => a + (p.actual || 0), 0);
+  const col = (title, players, color) => (
+    <div style={{ flex: '1 1 220px' }}>
+      <div style={{ fontSize: '0.75rem', fontWeight: 700, color, marginBottom: '6px' }}>
+        {title} <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>· {players.length} · {total(players).toFixed(1)} pts</span>
+      </div>
+      {players.length === 0 ? <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>—</div> : players.map(p => (
+        <div key={`${p.name}_${p.team}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '2px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          <span>
+            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: TEAM_COLORS[p.team] || '#888', marginRight: '6px', verticalAlign: 'middle' }} />
+            {p.pos === 'DST' ? `${p.team} DST` : p.name} <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{p.pos}</span>
+          </span>
+          <span style={{ fontWeight: 700 }}>{p.actual == null ? '—' : p.actual.toFixed(1)}</span>
+        </div>
+      ))}
+    </div>
+  );
+  const edge = total(bs.only_ours) - total(bs.only_theirs);
+  return (
+    <div style={{ ...cardStyle, marginTop: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+        <h2 style={{ margin: 0, fontSize: '1rem' }}>Our top build vs {bs.label}</h2>
+        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: diffColor(bs.top_build_minus_benchmark) }}>
+          {signed(bs.top_build_minus_benchmark)} pts overall · unique picks {signed(edge)}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+        {col('Only ours', bs.only_ours, 'var(--accent-primary)')}
+        {col(`Only ${bs.label}`, bs.only_theirs, '#eab308')}
+        {col('Shared', bs.shared, 'var(--text-white)')}
+      </div>
     </div>
   );
 }

@@ -431,6 +431,14 @@ export const ApiService = {
     return safeFetch(`${API_BASE}/week_cash_lineups?week=${week}`, {}, fallback);
   },
 
+  // Cash Lineups grading (src/evaluation/cash_lineup_eval.py): this week's
+  // cash builds + hand-entered benchmark lineups vs real DK scores.
+  // gradable=false until the week's main-slate standings CSVs are archived.
+  async getCashLineupsEval(week, year = 2026) {
+    const fallback = { week, gradable: false, ours: [], benchmarks: [], summary: {} };
+    return safeFetch(`${API_BASE}/eval/cash_lineups?week=${week}&year=${year}`, {}, fallback);
+  },
+
   // Button-triggered (Cash Lineups page player pool) -- re-solves the
   // consensus builds with `excluded` players removed and `locked` players
   // ([{name, team}, ...] each) forced into every build, and persists both

@@ -4,6 +4,50 @@
 
 ---
 
+### [2026-09-30] Handoff from Claude Opus 5.5 (Evaluation dropdown split + Cash Lineups grading vs Levitan)
+
+- **Active Task:** Cam: (1) split the single Evaluation tab into its own navbar dropdown (games / players /
+  rankings), drop Paper Trades from it (Bankroll already covers them), move Field Analysis + field Sim Replay to
+  the Sim Replays page; (2) grade the Cash Lineups page's builds vs their projection, and vs Adam Levitan's
+  real cash lineups (wks 1-3, supplied by Cam).
+- **Files Modified:**
+  - [frontend/src/pages/EvaluationPage.jsx](frontend/src/pages/EvaluationPage.jsx) (new): one page per grader
+    (`eval_games` / `eval_players` / `eval_rankings`, pagesConfig category `eval`), shared week picker.
+    `EvaluationTab.jsx` deleted; old `#evaluation` links land on Game Lines.
+  - [frontend/src/components/Navbar.jsx](frontend/src/components/Navbar.jsx): Tools dropdown refactored into a
+    reusable `NavDropdown`; second one for Evaluation.
+  - [frontend/src/components/ShowdownFieldEval.jsx](frontend/src/components/ShowdownFieldEval.jsx) (new): the old
+    tab's Field Analysis + field Sim Replay cards, verbatim, with week + game pickers; mounted at the bottom of
+    [SimReplays.jsx](frontend/src/pages/SimReplays.jsx).
+  - [src/evaluation/cash_lineup_eval.py](src/evaluation/cash_lineup_eval.py) (new) + `GET /api/eval/cash_lineups`
+    in [src/api/app.py](src/api/app.py) + [tests/test_cash_lineup_eval.py](tests/test_cash_lineup_eval.py) (6).
+  - [data/eval/2026/benchmark_cash_lineups.json](data/eval/2026/benchmark_cash_lineups.json) (new, hand-edited):
+    Levitan wks 1-3. Ambiguous names resolved by Cam: wk2 Bijan Robinson + Garrett Wilson, wk3 Garrett Wilson +
+    Parker Washington (both = the max-cap option).
+  - [frontend/src/pages/CashLineups.jsx](frontend/src/pages/CashLineups.jsx): results strip, per-player real DK
+    points under each name, Actual / vs Proj / Sim %ile columns, gold benchmark row, "our top build vs Levitan"
+    card (shared / only ours / only his). Grades only paint if they match the on-screen builds.
+- **Findings:** (1) Main-slate standings CSVs are frozen at download time and wk1's were mostly grabbed at 4:46pm
+  ET mid-slate -> actuals use the most-recently-downloaded file per player; matches ESPN finals except 2-pt
+  conversions (DK counts them). Uses file mtimes -- a fresh clone resets them. (2) Results: wk1 our avg 149.3 ->
+  153.1 (6/10 beat proj), Levitan 159.9 (4/10 of ours beat him); wk2 152.6 -> 89.9 (0/10; MIN/GB core flopped),
+  Levitan 154.8; wk3 166.8 -> 142.1 (0/10), Levitan 163.3. Our sims projected his lineups 20-35 pts BELOW ours
+  every week and he beat us in wks 2-3 -- 3 weeks is small, but if it persists it points at projections
+  overrating our cash picks, not variance. (3) Existing field_eval.parquet only covers two pre-2026 showdowns,
+  so the moved Field Analysis / Sim Replay tables are empty for 2026 until eval_field.py / sim_replay_field.py run.
+- **Verification Performed:** `pytest` evaluation suites (70 incl. 6 new) pass; frontend `vite build` OK, new
+  files lint clean (pre-existing errors remain in App.jsx / CashLineups.jsx effects and api.js mocks); browser:
+  both dropdowns, all 3 eval pages, Sim Replays field section, Cash Lineups wks 1/3/4.
+- **Commits:** this entry + both features only. Pre-existing uncommitted Bankroll / Showdown Optimizer /
+  sim_replay_store / optimizer_store work from other sessions deliberately left unstaged (the mixed files
+  app.py, SimReplays.jsx, Bankroll.jsx, WORKLOG.md were staged with only this session's hunks).
+- **Immediate Next Steps for the Next Agent:**
+  1. Sim Replays step 2 (agreed with Cam): merge the Showdown Field Review's week/game picker into the page's
+     own contest picker so one selection drives both halves.
+  2. Add Levitan's lineup to benchmark_cash_lineups.json each week (Cam supplies it).
+
+---
+
 ### [2026-09-29, part 3] Handoff from Claude Opus 5.5 (Week 3 evaluation run)
 
 - **Active Task:** Cam: run the evaluation for Week 3 results (game lines, player projections, rankings).
