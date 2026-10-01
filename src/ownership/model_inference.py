@@ -248,6 +248,17 @@ def predict_classic_ownership(players: list, week: Optional[int] = None,
     return players
 
 
+# 2026-10-01 stopgap (PIT@CLE wk4): the 2026-09-22 showdown models were trained
+# on 6 slates whose optimal_cpt_pct never exceeded ~26 and have every
+# optimal_cpt_pct tree split at 26.0 -- above it they predict ~0 ownership
+# (Warren, Opt CPT 43%, came out 2% FLEX / 0.5% CPT raw vs ~50% / ~14% at <=25).
+# Real chalk captains legitimately exceed 26, so cap the MODEL INPUT at the top
+# of the trained range. Remove once the model is retrained/revisited (planned
+# after wk4 TNF data lands). Flex splits reach ~49, so 45 is a safe in-range cap.
+SHOWDOWN_OPT_CPT_CAP = 25.0
+SHOWDOWN_OPT_FLEX_CAP = 45.0
+
+
 def predict_showdown_ownership(players: list, week: Optional[int] = None, seed: Optional[int] = None,
                                 contest: Optional[dict] = None) -> list:
     """Drop-in for _compute_showdown_ownership(players, seed=...): mutates
@@ -290,7 +301,11 @@ def predict_showdown_ownership(players: list, week: Optional[int] = None, seed: 
             "game_total": total_by_team.get(p.get("team")),
             "team_implied_total": p.get("implied_total") or implied_by_team.get(p.get("team")),
             "team_spread": spread_by_team.get(p.get("team")),
-            "optimal_cpt_pct": p.get("optimal_cpt_pct") or 0.0, "optimal_flex_pct": p.get("optimal_flex_pct") or 0.0,
+            # Clamped to the range the showdown models were trained on --
+            # see SHOWDOWN_OPT_CPT_CAP / SHOWDOWN_OPT_FLEX_CAP. The stored
+            # p["optimal_*_pct"] values are untouched; only the model input is capped.
+            "optimal_cpt_pct": min(p.get("optimal_cpt_pct") or 0.0, SHOWDOWN_OPT_CPT_CAP),
+            "optimal_flex_pct": min(p.get("optimal_flex_pct") or 0.0, SHOWDOWN_OPT_FLEX_CAP),
             "prior_week_score": prior_week_feature(p.get("name"), p.get("team"), YEAR, week),
             "salary_dispersion_pos": disp.get(i, 0.0), "salary_rank_pctile": rank.get(i, 0.5),
             "pos": p.get("pos"), **contest_fields,
