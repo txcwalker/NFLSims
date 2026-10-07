@@ -21,9 +21,19 @@ static career total_attempts/total_targets. NOT run automatically (no
 scheduled task set up yet, per 2026-07-22 decision) -- run by hand after
 each week's games complete.
 
-Usage: python refresh_weekly_dna_v_0_1_0.py <year> <completed_week>
+Usage: python refresh_weekly_dna_v_0_1_0.py <year> <completed_week> [--blend-mode legacy|window]
   e.g. `python refresh_weekly_dna_v_0_1_0.py 2026 3` after week 3 finishes,
   writes projections for week 4 (game_number = completed_week + 1).
+
+--blend-mode (added 2026-10-07; default `legacy` = everything above, unchanged):
+  `window` replaces the veteran flat fields, red-zone/goal-line target_share/
+  carry_share, and TEAM_RATE_FIELDS with the 5-input last-4 + season blend
+  (src/data_pipeline/window_blend_apply_v_0_1_0.py; backtest in
+  docs/eda_outputs/window_blend_backtest/). Rookies, NGS fields, zone catch_rate/
+  cpoe and the trench composites still use the legacy blend. Intended for
+  completed_week >= 4 (earlier weeks mostly fall back to preseason). Preseason
+  inputs are untouched (preseason_projection stays frozen) so switching back is
+  just rerunning in legacy mode.
 """
 import sys
 import os
@@ -41,6 +51,7 @@ from src.data_pipeline.rolling_stats_v_0_1_0 import (
 )
 from src.data_pipeline.dna_blender_v_0_1_0 import blend_player_dna, blend_team_dna
 from src.data_pipeline.rookie_curves_v_0_1_0 import resolve_rookie_curves
+from src.data_pipeline import window_blend_apply_v_0_1_0 as window_apply
 from src.data_pipeline.trench_composite_stats_v_0_1_0 import compute_trench_composites, ALL_TRENCH_FIELDS
 from export_live_week_overrides_v_0_1_0 import export_live_week
 
@@ -87,7 +98,9 @@ def load_rookie_projections(year):
 
 
 def blend_one_player(traits, pbp, team_totals, team_zone_totals, ngs_pass_df, ngs_recv_df,
-                      completed_week, game_number, rookie_projections):
+                      completed_week, game_number, rookie_projections, window_ctx=None):
+    """window_ctx: window_blend_apply.build_context() output when --blend-mode
+    window is on (veterans only); None = legacy blend, unchanged."""
     pos = traits["pos"]
     player_id = traits.get("player_id")
 
@@ -134,6 +147,10 @@ def blend_one_player(traits, pbp, team_totals, team_zone_totals, ngs_pass_df, ng
         projection, l4_actual, season_actual, game_number, curve_override,
         projection_volume=projection_volume, season_volume=season_volume,
     )
+    if window_ctx is not None and not is_rookie:
+        # Window mode: override the legacy flat values BEFORE they are written, so
+        # splits.primary (which mirrors `blended` below) follows too.
+        blended.update(window_apply.player_flat_values(traits, pbp, window_ctx, team_totals, completed_week))
     for field, value in blended.items():
         if value is not None:
             traits[field] = round(value, 4) if isinstance(value, float) else value
@@ -181,6 +198,10 @@ def blend_one_player(traits, pbp, team_totals, team_zone_totals, ngs_pass_df, ng
         for field, value in zone_blended.items():
             if value is not None:
                 traits["splits"].setdefault(zone, {})[field] = round(value, 4) if isinstance(value, float) else value
+        if window_ctx is not None and not is_rookie:
+            zone_win = window_apply.player_zone_values(traits, window_ctx, team_zone_totals, completed_week).get(zone, {})
+            for field, value in zone_win.items():
+                traits["splits"].setdefault(zone, {})[field] = round(value, 4)
 
 
 def detect_starter_flips(team_traits, pbp, completed_week, lookback=STARTER_FLIP_LOOKBACK_WEEKS):
@@ -227,7 +248,7 @@ def detect_starter_flips(team_traits, pbp, completed_week, lookback=STARTER_FLIP
 
 
 def refresh_team_defense(team, year, pbp, completed_week, game_number, trench_dna,
-                          trench_composites_season=None, trench_composites_l4=None):
+                          trench_composites_season=None, trench_composites_l4=None, window_ctx=None):
     """Blends trench_dna.json[year][team]'s live rate fields (def_pressure_rate,
     def_sack_rate, sack_rate_allowed, and -- as of this version -- the 4
     composite z-scores run_block_off_z/run_def_z/pass_block_off_z/pass_def_z
@@ -287,13 +308,20 @@ def refresh_team_defense(team, year, pbp, completed_week, game_number, trench_dn
         if value is not None:
             entry[field] = round(value, 4) if isinstance(value, float) else value
 
+    if window_ctx is not None and len(pbp):
+        # Window mode: TEAM_RATE_FIELDS only (the trench composites stay legacy).
+        for field, value in window_apply.team_values(team, pbp, window_ctx, projection, completed_week).items():
+            entry[field] = round(value, 4)
+
     for raw_field in ("def_sack_rate", "sack_rate_allowed"):
         raw_l4 = l4_actual.get(raw_field)
         if raw_l4 is not None:
             entry[f"{raw_field}_l4"] = round(raw_l4, 4)
 
 
-def refresh(year, completed_week):
+def refresh(year, completed_week, blend_mode="legacy"):
+    if blend_mode not in ("legacy", "window"):
+        raise SystemExit(f"--blend-mode must be 'legacy' or 'window', got {blend_mode!r}")
     game_number = completed_week + 1
     rookie_projections = load_rookie_projections(year)
 
@@ -348,6 +376,13 @@ def refresh(year, completed_week):
     else:
         trench_composites_season, trench_composites_l4 = {}, {}
 
+    window_ctx = None
+    if blend_mode == "window":
+        if completed_week < 4:
+            print(f"WARNING: --blend-mode window with only {completed_week} completed week(s) -- most slots fall back to preseason.")
+        window_ctx = window_apply.build_context(pbp) if len(pbp) else None
+        print(f"Blend mode: window (5-input last-4 + season)")
+
     trench_path = os.path.join(DNA_DIR, "trench_dna.json")
     trench_dna = json.load(open(trench_path))
 
@@ -361,11 +396,11 @@ def refresh(year, completed_week):
         for name, traits in data["traits"].items():
             traits["_name"] = name  # transient, stripped before write
             blend_one_player(traits, pbp, team_totals, team_zone_totals, ngs_pass, ngs_recv,
-                              completed_week, game_number, rookie_projections)
+                              completed_week, game_number, rookie_projections, window_ctx)
 
         detect_starter_flips(data["traits"], pbp, completed_week)
         refresh_team_defense(team, year, pbp, completed_week, game_number, trench_dna,
-                              trench_composites_season, trench_composites_l4)
+                              trench_composites_season, trench_composites_l4, window_ctx)
 
         for traits in data["traits"].values():
             traits.pop("_name", None)
@@ -395,11 +430,17 @@ def refresh(year, completed_week):
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: python refresh_weekly_dna_v_0_1_0.py <year> <completed_week>")
+    args = sys.argv[1:]
+    blend_mode = "legacy"
+    if "--blend-mode" in args:
+        i = args.index("--blend-mode")
+        blend_mode = args[i + 1] if i + 1 < len(args) else ""
+        del args[i:i + 2]
+    if len(args) != 2:
+        print("Usage: python refresh_weekly_dna_v_0_1_0.py <year> <completed_week> [--blend-mode legacy|window]")
         sys.exit(1)
-    year, completed_week = int(sys.argv[1]), int(sys.argv[2])
-    refresh(year, completed_week)
+    year, completed_week = int(args[0]), int(args[1])
+    refresh(year, completed_week, blend_mode)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,34 @@
 <!-- Reverse-chronological session ledger. Newest entry at top. -->
 <!-- Format: ### [YYYY-MM-DD] Handoff from [Model] -->
 
+
+---
+
+### [2026-10-07] Handoff from Claude Sonnet 5.5 (Week 5 rollover fixes + window-blend inputs, behind a switch)
+
+- **Active Task:** Cam: (1) DFS site to Week 5 (main slate was wrong, sims not showing); (2) new input scheme once 4 games exist --
+  season-long + last 4 games as 5 weighted inputs (flat 20s; 16/18/20/22/24; 14/17/20/23/26) -- backtested on 2024+2025, then wired up
+  behind a switch.
+- **Files Modified:** `/api/weeks` -> 1-5 ([src/api/app.py](src/api/app.py)); [data/dk_main_slate_pins.json](data/dk_main_slate_pins.json) +
+  bye-week guard in [src/scrapers/dk_scraper.py](src/scrapers/dk_scraper.py) (+ [tests/test_dk_pin_bye_guard.py](tests/test_dk_pin_bye_guard.py));
+  new [src/data_pipeline/window_blend_v_0_1_0.py](src/data_pipeline/window_blend_v_0_1_0.py),
+  [window_blend_apply_v_0_1_0.py](src/data_pipeline/window_blend_apply_v_0_1_0.py), tests, backtest + PBP cache scripts under
+  [scripts/evaluation/](scripts/evaluation/), results in [docs/eda_outputs/window_blend_backtest/](docs/eda_outputs/window_blend_backtest/);
+  [refresh_weekly_dna_v_0_1_0.py](scripts/roster_management/refresh_weekly_dna_v_0_1_0.py) gains `--blend-mode legacy|window` (default legacy).
+- **Findings:** (1) Week 5 had been pinned to Week 4's DK slate (KC, on bye, in it); pins only grow, so the real slate could never replace it.
+  The in-memory week_projections cache doesn't see pin changes -- needed a backend restart. (2) Backtest (input error, 2024+2025): all three
+  weightings beat today's last-4-only by ~4.5-4.7% and are indistinguishable from each other (recency tilt gives nothing); min-volume helps;
+  mean vs median fill identical. Preseason anchor helps efficiency ratios (50% -> ~-8.8% players, ~-6.4% teams) but HURTS target/carry share
+  (use ~15%). Zones: plain pooled last-8 team games beat every availability/play-count gate and preseason alone (an earlier version of this
+  result was inflated by scoring weeks the player was inactive -- corrected). (3) "Preseason" in the backtest = prior-season actuals, not the
+  hand-tuned 2026 inputs. (4) 11 live roster players carry NaN adot/elusiveness (pre-existing); window mode replaces them.
+- **Verification Performed:** 70 unit tests (blender suites) pass; full refresh dry-run for 2026 week 4 in both modes on temp copies:
+  legacy mode reproduces the live files exactly (0/8665 flat fields differ), window mode finishes with no NaN / no share > 1. NOT run
+  against live rosters or the sims.
+- **Immediate Next Steps for the Next Agent:** Cam to decide whether to run `--blend-mode window` for real (then rerun build_week_overrides /
+  apply_team_week_overrides / sims) and review teammate-opportunity cases by hand (e.g. AJ Brown target_share legacy 0.111 -> window 0.219,
+  preseason 0.275). Rookies, NGS fields, zone catch_rate/cpoe, and trench composites are still legacy-only.
+
 ---
 
 ### [2026-09-30] Handoff from Claude Opus 5.5 (Evaluation dropdown split + Cash Lineups grading vs Levitan)
