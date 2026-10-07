@@ -5,6 +5,30 @@
 
 
 
+
+---
+
+### [2026-10-07, part 3] Handoff from Claude Sonnet 5.5 (Week 5 rebuild: DAL/TB roster changes, restored preseason, designed-run QB shares)
+
+- **Active Task:** Cam: audit scramble-rate tracking; Malik Davis -> IR (Demercado backup); TB starter Jalon Daniels (UDFA rookie) using his Week 4 as his inputs
+  while Mayfield is out; rerun Week 5 after the fixes.
+- **Data edits (season_long sheets, NOT committed):** DAL Davis `ir` (blank return_week = out all season -- Cam did not give a return week), shares zeroed;
+  Demercado = his live blend + Davis's live blend (carry .2818, tgt .05, rz/gl summed), `hand_edit=TRUE`. TB Jalon Daniels `hand_edit=TRUE` with Week-4 values
+  (cpoe 1.2012, sack_rate .0909, scramble_rate .1667, avg_air_yards_per_att 4.1852, TTT 2.8215, designed carry_share .0645, rz_carry_share .2). Baker stays IR (return wk 8);
+  `starter_override=TRUE` set on Daniels in week_05/TB.csv (week-sheet only -- NOT sticky: re-set for weeks 6-7).
+- **Chain run:** `apply_team_season_overrides` (restored the frozen preseason from the sheets -- this repairs the aliasing contamination) -> cleared 44 `hand_edit`
+  flags that were only rz_/gl_ drift vs the polluted preseason (33 TRUE remain: 30 real + 3 manual) -> `refresh_weekly_dna 2026 4 --blend-mode window` ->
+  `build_week_overrides 5` -> `apply_team_week_overrides 5` -> `run_week_sim_2026.py 5` (15 x 10K). Snapshots: `data/eval/2026/blend_shadow/week_5/{legacy,window_v1,window_v2}`.
+- **Scramble-rate audit:** engine rolls `scramble_rate` on EVERY dropback (att+sack+scramble). Real 2026 wk1-4: 4.75%/dropback (2025: 5.13%), ~60% of QB rushes are scrambles,
+  Lamar 62% (2026) / 52% (2025). Stored definition `scr/(scr+att)` omits sacks from the denominator -> ~6% high vs per-dropback (not changed: preseason anchors use the same def).
+  Sim: 1.72 scrambles/team-game vs real 1.66-1.80, 4.50%/dropback vs 4.75% -- aggregate fine, but the tails are COMPRESSED (live Herbert .067 vs real .083, Hurts .069 vs .074,
+  Watson .076 vs .086) because 50% of scramble_rate comes from hand-set preseason values that sit below real for many QBs.
+- **Verification:** QB rushing (starting QBs): 3.08 att/g (real 3.03), 16.9 yds (real 16.7), 0.173 TD/g (real 0.202). Lamar 7.64 -> 5.07 rush att/g (real 2026 ~4.0).
+  Daniels: 31.8 att, 194 pass yds, 9.4 rush att, 56 rush yds, 0.45 rTD, 21.4 DK. DAL: Demercado 1.8 -> 6.9 carries; Williams 12.0 -> 14.5 DK. API serves it.
+- **Watch items:** small-sample QB goal-line shares (no gate, pooled real sneaks): Rodgers 0.36 rTD/g, Daniels 0.45, Maye 0.44 look high. Option: min-sample rule for QB zone shares.
+- **Immediate Next Steps for the Next Agent:** decide QB scramble_rate anchor (e.g. 30% instead of 50%, or a per-QB re-anchor to last-season actuals) after a quick backtest;
+  decide QB zone-share small-sample rule; Phase 2 grading after the games.
+
 ---
 
 ### [2026-10-08] Handoff from Claude Sonnet 5.5 (Legacy QB carry_share fix + splits-aliasing bug)

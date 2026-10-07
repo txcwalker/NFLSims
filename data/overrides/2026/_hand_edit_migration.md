@@ -76,3 +76,7 @@
 - WAS Jacory Croskey-Merritt (active): rz_carry_share 0.465 vs preseason 0.45
 - WAS Jerome Ford (ir): note: uncertain: cut vs IR -- confirm the designation (Cam)
 - WAS Antonio Williams (active): note: 9% tgt: 7/63 WAS targets wk1-2 (~11%), shaded for 2-game sample (Cam 2026-09-24)
+
+## 2026-10-07 update
+
+The rz_/gl_-only flags above were drift in the (aliased) preseason zone values, not real hand edits -- cleared. Remaining pre-marked rows (30) are real: hand-written notes, no preseason value (new signings), or a flat share differing from preseason. Manual edits (TRUE): DAL Malik Davis (IR), DAL Emari Demercado (inherits Davis's role), TB Jalon Daniels (Week-4 inputs).
