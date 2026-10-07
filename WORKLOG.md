@@ -3,6 +3,33 @@
 <!-- Format: ### [YYYY-MM-DD] Handoff from [Model] -->
 
 
+
+---
+
+### [2026-10-07, part 2] Handoff from Claude Sonnet 5.5 (Window-blend Phase 1: week sheets follow the blend; Week 5 resimmed)
+
+- **Active Task:** Cam chose Option A for Week 5 -- Phase 1 of [docs/implementation_plans/window_blend_rollout_plan.md](docs/implementation_plans/window_blend_rollout_plan.md),
+  switch Week 5 to window mode, resim.
+- **Files Modified:** [build_week_overrides_v_0_1_0.py](scripts/roster_management/build_week_overrides_v_0_1_0.py) (live-blend fill + share-sum report),
+  new [add_hand_edit_column_v_0_1_0.py](scripts/roster_management/add_hand_edit_column_v_0_1_0.py), warning in
+  [apply_team_season_overrides_v_0_1_0.py](scripts/roster_management/apply_team_season_overrides_v_0_1_0.py), `hand_edit` in
+  [export_team_season_overrides_v_0_1_0.py](scripts/roster_management/export_team_season_overrides_v_0_1_0.py), QB carry_share rule in
+  [window_blend_apply_v_0_1_0.py](src/data_pipeline/window_blend_apply_v_0_1_0.py) + the refresh script; tests `test_week_sheet_live_fill.py` (4) and
+  one more in `test_window_blend_apply.py`. Data (NOT committed): season_long sheets (+hand_edit), week_05 sheets, current_rosters (window blend),
+  dfs tree, dfs_week_5 parquets, `data/overrides/2026/_hand_edit_migration.md`.
+- **Runbook run:** `refresh_weekly_dna 2026 4 --blend-mode window` (live files) -> `build_week_overrides 5` -> `apply_team_week_overrides 5` ->
+  `run_week_sim_2026.py 5`. Legacy week-5 state saved first in `data/eval/2026/blend_shadow/week_5/legacy/` (window copy beside it; local only).
+- **Findings:** (1) engine renormalizes shares among active players, so team sums off 1.0 don't break sampling (1d is report-only).
+  (2) sheets == frozen preseason for 99.9% of rows, so hand edits are not detectable by value -- 74 rows pre-marked for Cam to review.
+  (3) QB carry_share double counts scrambles (see AGENTS.md section 8); caught by comparing sim QB rush att/g to real (3.98 vs 3.03) -- fixed for window
+  mode only. (4) The big Week 5 projection moves (Flowers -9.6, London -10.8, Maye +6.9) trace to legacy small-sample noise (e.g. Flowers ypc 20.0
+  from one carry); team-level totals barely moved.
+- **Verification Performed:** full test suite passes (+5 new); DFS tree vs live blend: 580/780 equal, 200 differ, all explained;
+  sim: 15 games x 10K, QB rush 3.10/g vs real 3.03; API serves the new numbers, 11 main-slate games.
+- **Immediate Next Steps for the Next Agent:** Cam to review `_hand_edit_migration.md` and clear flags that should follow the blend (then
+  rebuild + apply + resim). Phase 2 (shadow grading of legacy vs window after the games, out-of-sample tuning, league-aggregate audit), then
+  Phase 3 (trench composites first). Fix the legacy QB carry_share double count for rest-of-season sims.
+
 ---
 
 ### [2026-10-07] Handoff from Claude Sonnet 5.5 (Week 5 rollover fixes + window-blend inputs, behind a switch)

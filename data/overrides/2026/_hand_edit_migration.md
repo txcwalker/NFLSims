@@ -1,0 +1,78 @@
+# hand_edit migration (2026-10-07)
+
+74 of 812 season-long rows pre-marked hand_edit=TRUE (sheet value wins over the blend). Clear the flag in the sheet for any row that should FOLLOW the blend.
+
+- ARI Jeremiyah Love (active): rz_carry_share 0.44 vs preseason 0.575
+- ARI Michael Wilson (active): rz_target_share 0.19 vs preseason 0.5
+- ARI Trey McBride (active): rz_target_share 0.28 vs preseason 0.5417
+- ATL Bijan Robinson (active): rz_carry_share 0.645 vs preseason 0.7411; gl_carry_share 0.59 vs preseason 0.75
+- BAL Derrick Henry (active): rz_carry_share 0.6 vs preseason 0.875; gl_carry_share 0.79 vs preseason 0.881
+- BAL Ja'Kobi Lane (ir): note: out ~6 wks (wk3-8), back wk9 (Cam 2026-09-26)
+- BUF Josh Allen (active): gl_carry_share 0.385 vs preseason 0.75
+- BUF James Cook (active): rz_carry_share 0.53 vs preseason 0.7083
+- CAR Chuba Hubbard (active): rz_carry_share 0.375 vs preseason 0.5317
+- CAR Jonathon Brooks (ir): note: IR; earliest return wk7 (Cam 2026-09-26)
+- CHI D'Andre Swift (active): rz_carry_share 0.49 vs preseason 0.4196; gl_carry_share 0.47 vs preseason 0.6597
+- CHI Kyle Monangai (active): rz_carry_share 0.41 vs preseason 0.3318; gl_carry_share 0.435 vs preseason 0.6667
+- CHI Luther Burden (active): rz_target_share 0.23 vs preseason 0.3611
+- CHI Colston Loveland (active): rz_target_share 0.24 vs preseason 0.2153
+- CLE Quinshon Judkins (active): rz_carry_share 0.62 vs preseason 0.7333
+- CLE Dylan Sampson (ir): note: IR, out through 10/11 (maybe longer)
+- DAL Javonte Williams (active): rz_carry_share 0.675 vs preseason 0.6667; gl_carry_share 0.675 vs preseason 0.9583
+- DET Jahmyr Gibbs (active): rz_target_share 0.145 vs preseason 0.3065; rz_carry_share 0.75 vs preseason 0.875; gl_carry_share 0.855 vs preseason 1
+- DET Amon-Ra St Brown (active): rz_target_share 0.31 vs preseason 0.3146
+- DET Cedrick Wilson (ir): note: season-ending IR (Cam)
+- DET Sam LaPorta (active): rz_target_share 0.185 vs preseason 0.2183
+- GB Josh Jacobs (exempt): note: exempt; possible return wk7 (Cam 2026-09-23)
+- GB MarShawn Lloyd (active): rz_carry_share 0.625 vs preseason 0.5583
+- GB Chris Brooks (active): rz_carry_share 0.065 vs preseason 0.3944
+- HOU David Montgomery (active): rz_carry_share 0.63 vs preseason 0.625
+- HOU Jayden Higgins (ir): note: out for the year (Cam)
+- HOU Tank Dell (ir): note: out for the year (Cam)
+- IND Jonathan Taylor (active): rz_carry_share 0.75 vs preseason 0.6875; gl_carry_share 0.73 vs preseason 0.8889
+- IND Darius Slayton (active): note: signed by IND 2026-10-04; efficiency = career DNA (as NYG row). Fills Pierce dee
+- JAX Bhayshul Tuten (active): rz_carry_share 0.455 vs preseason 0.75
+- KC Kenneth Walker (active): rz_carry_share 0.71 vs preseason 0.85; gl_carry_share 0.72 vs preseason 1
+- KC Jason Brownlee (cut): note: nfl.com: off roster -- reassign this share, then delete
+- LA Kyren Williams (active): rz_carry_share 0.565 vs preseason 0.7417
+- LAC Omarion Hampton (active): rz_carry_share 0.57 vs preseason 0.7381
+- LV Ashton Jeanty (active): rz_target_share 0.135 vs preseason 0.5; rz_carry_share 0.74 vs preseason 0.8056; gl_carry_share 0.81 vs preseason 1
+- MIA De'Von Achane (ir): rz_carry_share 0.565 vs preseason 0.5893
+- MIA Ollie Gordon (active): rz_carry_share 0.16 vs preseason 0.6032
+- MIN Aaron Jones (active): rz_carry_share 0.415 vs preseason 0.75
+- MIN Jordan Mason (ir): note: Out 4 wks (thumb) from wk2, reevaluate ~wk6 (Cam 2026-09-19)
+- MIN DeeJay Dallas (active): note: Elevated from practice squad wk2 while Mason out (Cam 2026-09-19)
+- MIN TJ Hockenson (active): rz_target_share 0.135 vs preseason 0.45
+- NE Terrell Jennings (ir): note: season-ending IR (Cam)
+- NE AJ Brown (ir): note: out ~6 wks (Cam 2026-09-16)
+- NO Travis Etienne (ir): note: IR, out thru wk7, wk8 bye -> first game back wk9 (Cam 2026-10-05); healthy share
+- NO Audric Estimé (cut): note: not on NO -- on MIN practice squad (Cam 2026-10-05); orig tgt .03/carry .135/rz 
+- NO CJ Donaldson (active): note: rookie, 53-man ACT per NFL.com; Cam 2026-10-05: ~20% carries / 5% tgt wk4+ w/ Et
+- NO Kendre Miller (active): note: active, RB role w/ Etienne out ~49% of carries wk4+ (was zeros, Cam 2026-10-05)
+- NO Juwan Johnson (active): rz_target_share 0.155 vs preseason 0.3095
+- NYG Jaxson Dart (ir): note: out for the year (Cam 2026-10-03) ; orig carry .14/rz .18/gl .18 moved to Winsto
+- NYG JJ McCarthy (active): note: acquired from MIN (Cam 2026-10-03)
+- NYG Cam Skattebo (active): rz_carry_share 0.395 vs preseason 0.5792
+- NYG Najee Harris (active): rz_carry_share 0.22 vs preseason 0.45
+- NYG Darius Slayton (cut): target_share 0.085 vs preseason 0; carry_share 0.005 vs preseason 0; rz_target_share 0.07 vs preseason 0; gl_target_share 0.05 vs preseason 0
+- NYG Isaiah Likely (active): rz_target_share 0.105 vs preseason 0.5
+- NYJ Omar Cooper (ir): note: Out 4 wks (ankle) from wk2, reevaluate ~wk6 (Cam 2026-09-19)
+- PHI Will Shipley (active): rz_carry_share 0 vs preseason 0.5476
+- PHI Grant Calcaterra (ir): note: IR; shares zeroed 2026-09-29 (was tgt .01/rz .01/gl .015) so Mundt+Ertz get exac
+- PHI Zach Ertz (active): note: signed 2026-09-29 (out of league wks 1-3); efficiency = career te_dna
+- PHI Eli Stowers (active): note: IR wk3 (Cam); shares zeroed 2026-09-29 (was tgt .055/rz .055/gl .075) -- restore
+- PIT Travis Homer (active): note: PS elevation/active wk4 (Dowdle out) - revisit
+- SEA Sam Darnold (ir): note: out wk3 (unlikely to play), back wk4 (Cam 2026-09-23)
+- SEA Drew Lock (active): note: starter - Darnold OUT (Cam 2026-09-16)
+- SEA Emanuel Wilson (active): rz_carry_share 0.09 vs preseason 0.5893; gl_carry_share 0.06 vs preseason 0.5833
+- SEA Jaxon Smith-Njigba (active): rz_target_share 0.31 vs preseason 0.5083
+- SF Christian McCaffrey (active): gl_carry_share 0.66 vs preseason 0.9333
+- SF Kaelon Black (active): rz_carry_share 0.15 vs preseason 0.7222
+- SF De'Zhaun Stribling (ir): note: Out thru ~wk11-12 (ankle, Yahoo injury tracker 2026-09-19) -- used wk11 estimate
+- SF George Kittle (active): rz_target_share 0.165 vs preseason 0.3667
+- TB Baker Mayfield (ir): rz_carry_share 0.02 vs preseason 0.55
+- TB Bucky Irving (active): rz_carry_share 0.565 vs preseason 0.35
+- TEN Tony Pollard (active): rz_carry_share 0.575 vs preseason 0.709; gl_carry_share 0.565 vs preseason 0.75
+- WAS Jacory Croskey-Merritt (active): rz_carry_share 0.465 vs preseason 0.45
+- WAS Jerome Ford (ir): note: uncertain: cut vs IR -- confirm the designation (Cam)
+- WAS Antonio Williams (active): note: 9% tgt: 7/63 WAS targets wk1-2 (~11%), shaded for 2-game sample (Cam 2026-09-24)

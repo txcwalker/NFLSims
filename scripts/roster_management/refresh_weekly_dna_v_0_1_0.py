@@ -151,6 +151,11 @@ def blend_one_player(traits, pbp, team_totals, team_zone_totals, ngs_pass_df, ng
         # Window mode: override the legacy flat values BEFORE they are written, so
         # splits.primary (which mirrors `blended` below) follows too.
         blended.update(window_apply.player_flat_values(traits, pbp, window_ctx, team_totals, completed_week))
+        if traits.get("pos") == "QB":
+            # QB carry_share = designed runs only (scrambles are scramble_rate) -- keep preseason.
+            qb_run = window_apply.qb_designed_run_values(traits)
+            if qb_run["flat"] is not None:
+                blended["carry_share"] = qb_run["flat"]
     for field, value in blended.items():
         if value is not None:
             traits[field] = round(value, 4) if isinstance(value, float) else value
@@ -202,6 +207,10 @@ def blend_one_player(traits, pbp, team_totals, team_zone_totals, ngs_pass_df, ng
             zone_win = window_apply.player_zone_values(traits, window_ctx, team_zone_totals, completed_week).get(zone, {})
             for field, value in zone_win.items():
                 traits["splits"].setdefault(zone, {})[field] = round(value, 4)
+            if traits.get("pos") == "QB":
+                qb_zone = window_apply.qb_designed_run_values(traits)[zone]
+                if qb_zone is not None:
+                    traits["splits"].setdefault(zone, {})["carry_share"] = qb_zone
 
 
 def detect_starter_flips(team_traits, pbp, completed_week, lookback=STARTER_FLIP_LOOKBACK_WEEKS):

@@ -148,7 +148,28 @@ def sync_roster_membership(sheet_rows, skill_dna):
     return zeroed, created
 
 
+def _warn_if_refreshed():
+    """Ordering guard (window-blend rollout Phase 1e): steps 1-2 below write the sheets'
+    PRESEASON values over the live traits' top-level + split fields, which erases the
+    weekly blend for every player. Harmless before week 1; after a refresh it means the
+    refresh MUST be rerun afterwards."""
+    refreshed = []
+    for p in glob.glob(os.path.join(ROSTERS_DIR, "*_traits_2026.json")):
+        try:
+            if int(json.load(open(p, encoding="utf-8")).get("max_week", 0) or 0) >= 1:
+                refreshed.append(os.path.basename(p).split("_")[0])
+        except Exception:
+            pass
+    if refreshed:
+        print(chr(10) + "!" * 78)
+        print(f"WARNING: {len(refreshed)} roster file(s) already carry real-data blends (max_week >= 1).")
+        print("This script overwrites their blended fields with the sheets' preseason values.")
+        print("RERUN refresh_weekly_dna_v_0_1_0.py <year> <completed_week> --blend-mode window AFTERWARDS.")
+        print("!" * 78 + chr(10))
+
+
 def main():
+    _warn_if_refreshed()
     paths = sorted(glob.glob(os.path.join(SEASON_DIR, "*.csv")))
     if not paths:
         print(f"No sheets in {SEASON_DIR} -- run export_team_season_overrides first.")

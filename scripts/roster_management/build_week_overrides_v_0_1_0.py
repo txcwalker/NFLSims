@@ -24,18 +24,65 @@ Usage:
 import os
 import sys
 import glob
+import json
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-from src.data_pipeline.week_roster_v_0_1_0 import resolve_week_rows  # noqa: E402
+from src.data_pipeline.week_roster_v_0_1_0 import resolve_week_rows, is_player_row  # noqa: E402
 from roster_feed_v_0_1_0 import read_rows, write_rows, match_key  # noqa: E402
 from dfs_status_ledger import load_ledger, statuses_for_week  # noqa: E402
+from apply_sheet_helpers_v_0_1_0 import ZONE_COL_MAP  # noqa: E402
 
 SEASON_DIR = os.path.join("data", "overrides", "2026", "season_long")
+LIVE_ROSTERS_DIR = os.path.join("data", "current_rosters")
+SHARE_COLS = ("target_share", "carry_share", "rz_target_share", "rz_carry_share", "gl_target_share", "gl_carry_share")
 WEEK_STATUS_COLS = ("dfs_status", "starter_override")
 
 
-def build_team_week_rows(season_rows, week, existing_week_path=None, ledger=None, team=None):
+def _live_share(traits, col):
+    """The live traits dict's value behind one sheet share column (top level
+    for target_share/carry_share, splits.{redzone,goalline} for rz_*/gl_*)."""
+    if col in ZONE_COL_MAP:
+        zone, field = ZONE_COL_MAP[col]
+        return (traits.get("splits") or {}).get(zone, {}).get(field)
+    return traits.get(col)
+
+
+def fill_live_shares(rows, live_traits):
+    """Inputs: sheet rows (dicts), live_traits {name: traits} from
+    data/current_rosters/{TEAM}_traits_2026.json (the refresh's blend).
+    Output: copies of the rows where every share column of a row that is NOT
+    hand_edit=TRUE and whose player exists in the live traits is replaced by the
+    live blended value.
+    Purpose (window-blend rollout Phase 1b/1c): sheets carry the frozen preseason
+    shares, and apply_team_week_overrides overlays any sheet share that differs
+    from live -- so unmarked players silently got preseason instead of the
+    blend. Filling first means (a) the sheet shows what the sim uses, (b) OUT
+    redistribution (resolve_week_rows) works on live numbers, and (c) the
+    overlay only carries redistribution and hand edits."""
+    by_key = {match_key(n): t for n, t in live_traits.items()}
+    out = []
+    for r in rows:
+        r = dict(r)
+        t = by_key.get(match_key(r.get("player_name", ""))) if r.get("player_name") else None
+        if t is not None and (r.get("hand_edit") or "").strip().upper() != "TRUE":
+            for col in SHARE_COLS:
+                v = _live_share(t, col)
+                if v is not None:
+                    r[col] = repr(float(v))
+        out.append(r)
+    return out
+
+
+def _load_live_traits(team):
+    path = os.path.join(LIVE_ROSTERS_DIR, f"{team}_traits_2026.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)["traits"]
+
+
+def build_team_week_rows(season_rows, week, existing_week_path=None, ledger=None, team=None, live_traits=None):
     """Resolve one team's week sheet from its season_long rows. If
     existing_week_path already has a week sheet, carries forward its
     dfs_status/starter_override values (keyed by match_key(player_name))
@@ -60,7 +107,12 @@ def build_team_week_rows(season_rows, week, existing_week_path=None, ledger=None
             }
             for r in existing_rows if r.get("player_name")
         }
-    rows = [dict(r) for r in season_rows]
+    # Live-blend fill (see fill_live_shares). Needs the team's live traits: passed in,
+    # or loaded from data/current_rosters when `team` is given; with neither, the
+    # sheet's own (preseason) shares are used unchanged -- the pre-2026-10-07 behavior.
+    if live_traits is None and team:
+        live_traits = _load_live_traits(team)
+    rows = fill_live_shares(season_rows, live_traits) if live_traits else [dict(r) for r in season_rows]
     for r in rows:
         ov = overlay.get(match_key(r.get("player_name", "")), {})
         r["dfs_status"] = ov.get("dfs_status", "active")
@@ -72,6 +124,23 @@ def build_team_week_rows(season_rows, week, existing_week_path=None, ledger=None
             if key in sticky:
                 r["dfs_status"] = sticky[key]
     return resolve_week_rows(rows, week)
+
+
+def report_team_share_sums(week_dir):
+    """Report only (Phase 1d, downgraded): the engine renormalizes target/carry shares
+    per zone among active players, so team sums off 1.0 do not break sampling -- but the
+    raw values are also model features, so print the teams that are far off."""
+    odd = []
+    for path in sorted(glob.glob(os.path.join(week_dir, "*.csv"))):
+        if path.endswith("_live.csv"):
+            continue
+        _, rows = read_rows(path)
+        rows = [r for r in rows if is_player_row(r) and (r.get("dfs_status") or "active") != "out"]
+        for col in ("target_share", "carry_share"):
+            tot = sum(float(r[col]) for r in rows if r.get(col) not in (None, ""))
+            if not 0.9 <= tot <= 1.1:
+                odd.append(f"{os.path.basename(path)[:-4]} {col}={tot:.2f}")
+    print(f"Team share sums outside 0.90-1.10 (report only): {', '.join(odd) if odd else 'none'}")
 
 
 def main():
@@ -109,6 +178,7 @@ def main():
         grand_out += sum(len(r["recipients"]) for r in outs)
 
     print(f"\nWrote week {week} sheets to {out_dir}")
+    report_team_share_sums(out_dir)
 
 
 if __name__ == "__main__":

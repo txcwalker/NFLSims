@@ -59,8 +59,12 @@ TUNABLE = PLAYER_RATE_FIELDS + PLAYER_NGS_FIELDS
 RZ_FIELDS = ["rz_target_share", "rz_carry_share", "gl_target_share", "gl_carry_share"]
 ZONE_CSV_SRC = {"rz_target_share": "rz_target_share", "rz_carry_share": "rz_carry_share",
                 "gl_target_share": "five_target_share", "gl_carry_share": "five_carry_share"}
+# hand_edit (2026-10-07, window-blend rollout Phase 1a): TRUE = this row's share values
+# are a deliberate hand-tune and win over the live blend; blank = follow the blend.
+# NOTE this script OVERWRITES the sheets, so any existing hand_edit flags are lost --
+# rerun add_hand_edit_column_v_0_1_0.py afterwards and re-review its migration list.
 COLS = (["player_name", "team", "pos", "player_id", "roster_slot", "return_week", "note"]
-        + TUNABLE + RZ_FIELDS)
+        + TUNABLE + RZ_FIELDS + ["hand_edit"])
 
 
 def load_preseason_by_team():

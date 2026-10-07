@@ -65,3 +65,14 @@ def test_flat_values_match_direct_window_blend():
 def test_player_without_id_returns_nothing():
     pbp = _pbp()
     assert wa.player_flat_values({"pos": "WR"}, pbp, wa.build_context(pbp), {}, 6) == {}
+
+
+def test_qb_carry_share_is_not_blended_from_pbp():
+    """QB carry_share = designed runs only (scrambles are scramble_rate); PBP counts both."""
+    pbp = _pbp()
+    ctx = wa.build_context(pbp)
+    tt = build_team_week_totals(pbp)
+    qb = {"player_id": "qb", "pos": "QB", "preseason_projection": {"carry_share": 0.02,
+                                                                  "splits": {"redzone": {"carry_share": 0.05}}}}
+    assert "carry_share" not in wa.player_flat_values(qb, pbp, ctx, tt, 6)
+    assert wa.qb_designed_run_values(qb) == {"flat": 0.02, "redzone": 0.05, "goalline": None}
