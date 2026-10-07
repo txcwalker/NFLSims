@@ -145,3 +145,14 @@ Needs its own plan and validation; not required for window mode to be correct.
 - **Week 5 sims rerun** (10K x 15 games) on window inputs + live-following sheets. Legacy outputs saved in
   `data/eval/2026/blend_shadow/week_5/legacy/`, window in `.../window/` (local only, gitignored) for Phase 2 grading.
   Per team-game: pass yds 220 -> 228 (real 234.7), total points 43.98 -> 44.56.
+
+## Update 2026-10-08
+
+- **Legacy QB carry_share fixed** (both modes keep QB flat + zone carry_share at preseason).
+- **New bug found + fixed in code: legacy refresh aliased `splits` onto `preseason_projection.splits`** (see AGENTS.md section 8). The data is NOT yet repaired:
+  live `preseason_projection.splits` equals the current splits everywhere. Repair = `apply_team_season_overrides` (restores preseason from the season_long sheets,
+  which still hold the true values) -> `refresh_weekly_dna ... --blend-mode window` -> build/apply week sheets -> resim. Open question before doing it: QB
+  goal-line/red-zone carry_share. Real PBP contains real QB sneaks (designed), so the polluted values are not pure noise: current sim QB rush TD/g is 0.180 vs real 0.202
+  (legacy sim 0.135); with true preseason zone values it will likely drop. Needs a small backtest or a hand decision (Phase 3 item).
+- The `hand_edit` pre-marks that came from rz_/gl_ columns differing from `preseason_projection.splits` are partly contamination -- re-run
+  `add_hand_edit_column_v_0_1_0.py` logic against the restored preseason before relying on the review list.

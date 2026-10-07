@@ -4,6 +4,24 @@
 
 
 
+
+---
+
+### [2026-10-08] Handoff from Claude Sonnet 5.5 (Legacy QB carry_share fix + splits-aliasing bug)
+
+- **Active Task:** Cam: fix the QB carry_share double count in the legacy refresh (morning follow-up), plus where manual overrides live (answered in chat).
+- **Files Modified:** [refresh_weekly_dna_v_0_1_0.py](scripts/roster_management/refresh_weekly_dna_v_0_1_0.py) (QB designed-run rule now applies in
+  both modes; scalar-only flat write), new [tests/test_refresh_blend_one_player.py](tests/test_refresh_blend_one_player.py) (4), AGENTS.md section 8,
+  rollout plan update. No live data changed this session.
+- **Findings:** (1) On identical inputs the QB fix changes ONLY QB flat/primary carry_share (46 QBs) -- verified by running pre-fix vs post-fix legacy on temp copies.
+  (2) NEW: legacy `blend_one_player` aliased `traits["splits"]` onto `preseason_projection["splits"]` (the blend carries the `splits` dict through), so every
+  refresh overwrote the frozen preseason zone values; live files: 8,924/8,926 preseason split values == current. Fixed in code + regression tests; DATA NOT REPAIRED.
+  (3) Effects: QB zone carry_share inflated for some QBs (Rodgers GL 1.0 vs sheet 0.03; Maye 0.5 vs 0.055) and thus in the Week 5 DFS sims for those QBs; aggregate sim
+  QB rush TD/g 0.180 vs real 0.202 so the aggregate is fine; the hand_edit review list's rz/gl flags are partly contamination.
+- **Verification Performed:** full suite; pre-fix vs post-fix legacy dry run (temp copies); aliasing reproduced + test.
+- **Immediate Next Steps for the Next Agent:** Cam to decide on the repair sequence in the plan doc's 2026-10-08 update (restore preseason from sheets -> window refresh
+  -> build/apply week 5 -> resim) and on QB zone carry_share (backtest vs hand-set). Kickoff TB@DAL Thu 8:15pm ET locks that game's sims.
+
 ---
 
 ### [2026-10-07, part 2] Handoff from Claude Sonnet 5.5 (Window-blend Phase 1: week sheets follow the blend; Week 5 resimmed)
