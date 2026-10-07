@@ -330,6 +330,41 @@ def resolve_main_slate_draft_group_id(year: int, week: int, force_refresh: bool 
     draft group, so it stays correct for the rest of the week even after DK's
     live lobby moves on.
 
+def _bye_teams_for_week(year: int, week: int) -> Tuple[set, bool]:
+    """Inputs: year (int), week (int) -- read from data/external/schedule_{year}.csv.
+    Outputs: (teams on bye that week, whether that week is already over) -- both
+    consumed by resolve_main_slate_draft_group_id()'s bye-week guard.
+    Purpose: a team with no game in `week` can't be on that week's real main
+    slate, so a draft group containing one is provably a different week's slate.
+    Never raises; a missing/unreadable schedule returns (set(), True), i.e. the
+    guard is skipped rather than guessing."""
+    import csv
+    from datetime import date
+    path = os.path.join(BASE_DIR, "data", "external", f"schedule_{year}.csv")
+    try:
+        with open(path, newline="") as f:
+            rows = [r for r in csv.DictReader(f) if r.get("game_type") == "REG"]
+        all_teams = {t for r in rows for t in (r["away_team"], r["home_team"])}
+        wk_rows = [r for r in rows if int(r["week"]) == week]
+        if not wk_rows:
+            return set(), True
+        playing = {t for r in wk_rows for t in (r["away_team"], r["home_team"])}
+        week_over = max(r["gameday"] for r in wk_rows) < date.today().isoformat()
+        return all_teams - playing, week_over
+    except Exception:
+        return set(), True
+
+
+def _slate_has_bye_team(draft_group_id: int, bye_teams: set) -> bool:
+    """True only when DK's live draftables for `draft_group_id` list at least one
+    team in `bye_teams`. An unfetchable slate (is_live False, empty team set) is
+    treated as 'no evidence', not as a violation."""
+    if not bye_teams:
+        return False
+    teams = get_dk_salaries(draft_group_id=draft_group_id).get("main_slate_teams") or set()
+    return bool(teams & bye_teams)
+
+
     _find_main_slate_draft_group_id()'s "most CURRENTLY OPEN contests"
     heuristic silently breaks once the real main slate's games lock: DK drops
     locked contests from the live lobby entirely, so that draft group's open-
@@ -372,6 +407,23 @@ def resolve_main_slate_draft_group_id(year: int, week: int, force_refresh: bool 
             pins.setdefault(ykey, {})[wkey] = {
                 "draft_group_id": live_default,
                 "contest_count": live_count,
+    # Bye-week guard (added 2026-10-07): pins only grow, so a pin taken from a
+    # previous week's live default (week 5 was pinned to week 4's group while
+    # that was still the lobby default) could never be outvoted by the real
+    # slate's smaller contest count. A draft group containing a team that has
+    # no game this week is provably the wrong week's slate -- drop such a pin,
+    # and never pin such a candidate. Skipped for manual pins and finished weeks.
+    bye_teams, week_over = _bye_teams_for_week(year, week)
+    if bye_teams and not week_over:
+        if pinned is not None and not pinned.get("manual") and _slate_has_bye_team(pinned["draft_group_id"], bye_teams):
+            print(f"DK scraper: dropping week {week} pin {pinned['draft_group_id']} -- slate includes bye-week team(s).")
+            pins.get(ykey, {}).pop(wkey, None)
+            _save_main_slate_pins(pins)
+            pinned = None
+        if live_default is not None and _slate_has_bye_team(live_default, bye_teams):
+            print(f"DK scraper: live default {live_default} includes week {week} bye team(s) -- not pinning it.")
+            return live_default if pinned is None else pinned["draft_group_id"]
+
                 "pinned_at": time.time(),
             }
             _save_main_slate_pins(pins)
@@ -907,8 +959,8 @@ def get_dk_showdown_salaries(
         "draft_group_id": dg,
         "fetched_at": entry["fetched_at"],
         "teams": sorted(entry["teams"]),
-        "players": sorted(entry["players"].values(), key=lambda p: -p["salary"]),
-        "defense": list(entry["defense"].values()),
+        "players": sorted(filter(_kept, entry["players"].values()), key=lambda p: -p["salary"]),
+        "defense": list(filter(_kept, entry["defense"].values())),
     }
 
 
@@ -920,6 +972,11 @@ def get_dk_contests(draft_group_id: Optional[int] = None, force_refresh: bool = 
     in the same refresh window is free.
 
         {
+    ignored = _load_showdown_ignored()
+
+    def _kept(p: Dict[str, Any]) -> bool:
+        return (re.sub(r"[^a-z]", "", str(p.get("name", "")).lower()), str(p.get("team", "")).upper()) not in ignored
+
           "draft_group_id": int | None,
           "fetched_at": float | None,
           "is_live": bool,
