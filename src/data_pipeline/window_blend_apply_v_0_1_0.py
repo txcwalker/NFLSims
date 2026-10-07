@@ -27,7 +27,11 @@ from src.data_pipeline.rolling_stats_v_0_1_0 import (
 
 FLAT_SCHEME = "flat"
 FILL = "mean"
-PRESEASON_ANCHOR = {"share": 0.15, "ratio": 0.5, "team": 0.5}
+# Cam, 2026-10-07: from four real games on, preseason inputs must have ZERO weight -- everything is 2026 data. Preseason is
+# only a FALLBACK for game slots a player has not played yet (window_blend fills empty slots with it) or for a player with no
+# qualifying game at all. The 2024/2025 backtest favored a 50% anchor on efficiency stats (~4 pts less input error); Cam chose
+# to revisit that in the offseason. Raise these to bring an anchor back.
+PRESEASON_ANCHOR = {"share": 0.0, "ratio": 0.0, "team": 0.0}
 ZONE_WINDOW = 8
 ZONE_FIELDS = ("target_share", "carry_share")
 ID_COLS = ("receiver_player_id", "rusher_player_id", "passer_player_id")
@@ -76,6 +80,13 @@ def _anchored(window_value, preseason, anchor):
     return (1 - anchor) * window_value + anchor * preseason
 
 
+def games_played(traits, ctx, completed_week):
+    """Team games through `completed_week` in which this player appeared in any play."""
+    pid = traits.get("player_id")
+    team_weeks = ctx["team_weeks"].get(ctx["team_of"].get(pid), set())
+    return len([w for w in team_weeks if w <= completed_week and w in ctx["active"].get(pid, ())])
+
+
 def player_flat_values(traits, pbp, ctx, team_totals, completed_week, scheme=FLAT_SCHEME, fill=FILL):
     """Inputs: a veteran's traits dict (needs player_id, pos, preseason_projection),
     PBP, build_context() output, team_totals, completed_week.
@@ -88,14 +99,31 @@ def player_flat_values(traits, pbp, ctx, team_totals, completed_week, scheme=FLA
     log, vol = build_player_game_log(pbp, pid, traits["pos"], team_totals=team_totals)
     team_weeks = ctx["team_weeks"].get(ctx["team_of"].get(pid), set())
     pre_all = traits.get("preseason_projection", {})
+    active = ctx["active"][pid]
+    games_played = len([w for w in team_weeks if w <= completed_week and w in active])
     out = {}
     for field in PLAYER_RATE_FIELDS:
-        if field not in log:
-            continue
         is_share = field in wb.SHARE_FIELDS
+        if field not in log:
+            # A share field with no log means he was on the field but never got a target/carry --
+            # that is a real 0.0, not "unknown" (a WR with no carries must not inherit a preseason carry_share).
+            if not (is_share and games_played >= 1):
+                continue
+        flog, fvol = _clean(log.get(field, {})), _clean(vol.get(field, {}))
         pre = pre_all.get(field)
-        v = wb.window_blend(_clean(log[field]), _clean(vol.get(field, {})), team_weeks, ctx["active"][pid],
-                            completed_week, pre, scheme, is_share, wb.MIN_VOLUME.get(field, 0), fill)
+        mv = wb.MIN_VOLUME.get(field, 0)
+        # Once a player has played 4 games, preseason must have NO influence: slots he cannot fill
+        # (a game under the min-volume bar) use his OWN pooled 2026 value instead. Preseason only
+        # fills for players with < 4 games, or when he has no 2026 sample of this stat at all.
+        own = None
+        if games_played >= 4:
+            if is_share:
+                own = wb.season_value(flog, fvol, team_weeks, active, completed_week, True, 0)
+            else:
+                tot = sum(fvol.get(w, 0) for w in flog if w <= completed_week)
+                own = (sum(flog[w] * fvol.get(w, 0) for w in flog if w <= completed_week) / tot) if tot > 0 else None
+        v = wb.window_blend(flog, fvol, team_weeks, active, completed_week, pre, scheme, is_share, mv, fill,
+                            fill_value=own)
         v = _anchored(v, pre, PRESEASON_ANCHOR["share" if is_share else "ratio"])
         if v is not None:
             out[field] = v

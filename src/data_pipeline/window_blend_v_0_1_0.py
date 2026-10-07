@@ -123,10 +123,13 @@ def season_value(game_values, volume, team_weeks, active_weeks, through_week,
 
 
 def window_blend(game_values, volume, team_weeks, active_weeks, through_week, preseason,
-                 scheme="flat", is_share=False, min_volume=0, fill="mean"):
+                 scheme="flat", is_share=False, min_volume=0, fill="mean", fill_value=None):
     """Inputs: one field's per-week log (+volume), team/active weeks, the
     preseason value (may be None), scheme name or dict, fill rule.
     Output: blended float, or None if there is nothing at all to blend.
+    fill_value (optional): what an EMPTY slot / empty season uses instead of `preseason`
+    -- window_blend_apply passes the player's own pooled 2026 value here once he has
+    played 4 games, so preseason only fills for players who have not (Cam 2026-10-07).
     Purpose: the 5-input weighted sum from the module docstring."""
     sch = SCHEMES[scheme] if isinstance(scheme, str) else scheme
     slots = select_window(game_values, volume, team_weeks, active_weeks, through_week,
@@ -135,9 +138,10 @@ def window_blend(game_values, volume, team_weeks, active_weeks, through_week, pr
                           is_share, min_volume)
     inputs = [(sch["season"], season)] + list(zip(sch["games"], slots))
     num = den = 0.0
+    fallback = fill_value if fill_value is not None else preseason
     for w, v in inputs:
         if v is None:
-            v = preseason
+            v = fallback
         if v is None:
             continue
         num += w * v

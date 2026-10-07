@@ -6,6 +6,19 @@
 
 
 
+
+---
+
+### [2026-10-07, part 4] Handoff from Claude Sonnet 5.5 (Zero preseason weight; Week 5 rerun)
+
+- **Active Task:** Cam: preseason inputs must have no impact once players have 4 games -- all stats strictly 2026. Also asked how the preseason anchor was backtested (answer: prior-season ACTUALS as the "preseason", not his hand inputs).
+- **Files Modified:** [window_blend_apply_v_0_1_0.py](src/data_pipeline/window_blend_apply_v_0_1_0.py) (anchors 0, own-2026 fallback, zero-fill shares, `games_played`), [window_blend_v_0_1_0.py](src/data_pipeline/window_blend_v_0_1_0.py)
+  (`fill_value`), [refresh_weekly_dna_v_0_1_0.py](scripts/roster_management/refresh_weekly_dna_v_0_1_0.py) (zone catch_rate/cpoe fallback), tests (+2), AGENTS.md, rollout plan.
+- **Verification:** x1.5-preseason perturbation on temp copies -- team fields: 0 moves; 4-game players: only `avg_separation_yds` (69, no NGS sample) and `ypc` (84, non-rushers) still depend on preseason. 348 tests pass.
+  Week 5 resimmed (snapshot `week_5/window_v3_nopreseason`): 45.7 pts/game (real 46.2), starting-QB pass yds 228 (real 229), pTD/g 1.88 (real 1.55), QB DK 19.1 (real 17.3).
+- **Findings:** no regression to the mean means small-sample extremes compound: BAL@ATL -- Lamar 31.1 DK / 3.27 pTD (real 4-game avg 20.9 DK, 1.5 pTD) from cpoe 8.2 + Flowers catch .82/YAC 9.7 + ATL def_sack_rate .037.
+- **Immediate Next Steps for the Next Agent:** Cam to decide whether to cap/winsorize extreme inputs, or accept; QB zone-share small-sample rule; scramble_rate definition note (per-dropback vs stored); Phase 2 grading after the games.
+
 ---
 
 ### [2026-10-07, part 3] Handoff from Claude Sonnet 5.5 (Week 5 rebuild: DAL/TB roster changes, restored preseason, designed-run QB shares)

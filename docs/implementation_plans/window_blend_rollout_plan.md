@@ -158,3 +158,10 @@ Needs its own plan and validation; not required for window mode to be correct.
   `add_hand_edit_column_v_0_1_0.py` logic against the restored preseason before relying on the review list.
 
 - **QB carry_share revised same day:** instead of pinning QBs to preseason, QB carry_share (flat + zones) is computed from real DESIGNED runs only (scrambles excluded via `qb_scramble`), in both modes. Live data not yet regenerated with this -- needs the refresh -> week sheets -> resim chain.
+
+## Update 2026-10-07 (evening): zero preseason weight
+
+- Cam's decision: from 4 games on, 2026 data only. `PRESEASON_ANCHOR` = 0 for shares/ratios/team; own-2026 fallback for sub-min-volume games; zero-fill for unearned shares;
+  zone catch_rate/cpoe fall back to his flat 2026 value. Preseason remains only for < 4 games or no 2026 sample. Phase 2 should still grade legacy vs window (and, in the offseason,
+  re-test an anchor using Cam's real preseason inputs -- the 2024/2025 backtest's "preseason" was prior-season ACTUALS).
+- Observed effect on Week 5: league totals closer to real (45.7 vs real 46.2 pts/game), pass yds on target (228 vs 229), but pass TDs +21% vs real and individual QB outliers (Lamar 31.1 DK).

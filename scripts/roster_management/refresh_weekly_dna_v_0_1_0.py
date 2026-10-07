@@ -208,6 +208,13 @@ def blend_one_player(traits, pbp, team_totals, team_zone_totals, ngs_pass_df, ng
             zone_win = window_apply.player_zone_values(traits, window_ctx, team_zone_totals, completed_week).get(zone, {})
             for field, value in zone_win.items():
                 traits["splits"].setdefault(zone, {})[field] = round(value, 4)
+            if window_apply.games_played(traits, window_ctx, completed_week) >= 4:
+                # Zone catch_rate/cpoe with too few zone plays used to fall back to the PRESEASON zone value.
+                # Cam 2026-10-07: from 4 games on preseason has no influence -- use his own flat 2026 value.
+                for field in ("catch_rate", "cpoe"):
+                    if (zone_l4_actual.get(field) is None and zone_season_actual.get(field) is None
+                            and (field in l4_actual or field in season_actual) and blended.get(field) is not None):
+                        traits["splits"].setdefault(zone, {})[field] = round(blended[field], 4)
 
 
 def detect_starter_flips(team_traits, pbp, completed_week, lookback=STARTER_FLIP_LOOKBACK_WEEKS):
