@@ -22,6 +22,8 @@
 - **Immediate Next Steps for the Next Agent:** Cam to decide on the repair sequence in the plan doc's 2026-10-08 update (restore preseason from sheets -> window refresh
   -> build/apply week 5 -> resim) and on QB zone carry_share (backtest vs hand-set). Kickoff TB@DAL Thu 8:15pm ET locks that game's sims.
 
+- **Follow-up (same day, Cam's correction):** the preseason-pinning of QB carry_share threw away real data. Replaced with REAL designed-run shares (non-scramble QB runs) in `rolling_stats_v_0_1_0` (flat + zone logs + zone sample count) and `window_blend_apply` (zone pooling); removed `qb_designed_run_values` and the refresh rules. Dry run on temp copies: mean active-vet-QB flat carry_share legacy 0.029 / window 0.021 (preseason 0.020); e.g. Allen .185, Hurts .085, Lamar .062. Live data NOT regenerated yet.
+
 ---
 
 ### [2026-10-07, part 2] Handoff from Claude Sonnet 5.5 (Window-blend Phase 1: week sheets follow the blend; Week 5 resimmed)

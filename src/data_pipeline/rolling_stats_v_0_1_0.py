@@ -119,6 +119,13 @@ def rolling_volume_for_fields(per_field_volume_values, through_week):
     return season, l4
 
 
+def _designed_runs(runs):
+    """Run plays that are NOT QB scrambles (nflfastR qb_scramble flag; NaN counts as not-a-scramble)."""
+    if "qb_scramble" not in runs.columns:
+        return runs
+    return runs[runs["qb_scramble"].fillna(0) != 1]
+
+
 def build_player_game_log(pbp, player_id, position, team_totals=None):
     """pbp: single-season PBP DataFrame (pass_attempt/rush_attempt rows).
     player_id: gsis_id, matched against the *_player_id columns -- NOT
@@ -213,6 +220,11 @@ def build_player_game_log(pbp, player_id, position, team_totals=None):
         carries_by_week = by_week.size()
         log["ypc"] = by_week["yards_gained"].mean().to_dict()
         volume["ypc"] = carries_by_week.to_dict()
+        if position == "QB":
+            # QB carry_share = DESIGNED runs only (sneaks, tush pushes, QB draws): the engine models
+            # scrambles separately via scramble_rate, so counting them here double counts
+            # (2026-10-08; sim QB rush att/g 3.98 vs real 3.03 when they were included).
+            carries_by_week = _designed_runs(p_run).groupby("week").size()
         if team_totals is not None:
             team = p_run["posteam"].mode().iat[0] if len(p_run["posteam"].mode()) else None
             log["carry_share"] = {
@@ -316,6 +328,8 @@ def build_player_zone_game_log(pbp, player_id, position, team_zone_totals=None):
     # (QB sneaks/scrambles are rusher_player_id rows just like RB carries).
     pbp_run = pbp[pbp["play_type"] == "run"]
     p_run = pbp_run[pbp_run["rusher_player_id"] == player_id]
+    if position == "QB":
+        p_run = _designed_runs(p_run)  # designed runs only -- see build_player_game_log
     if len(p_run) and team_zone_totals is not None:
         for zone, zdf in p_run.groupby("zone"):
             by_week = zdf.groupby("week")
@@ -347,6 +361,8 @@ def rolling_stats_for_player_zones(pbp, player_id, position, through_week, team_
             id_col = "receiver_player_id"
         elif field == "carry_share":
             mask = (pbp_z["play_type"] == "run") & (pbp_z["zone"] == zone) & (pbp_z["week"].isin(window_weeks))
+            if "qb_scramble" in pbp_z.columns:
+                mask &= pbp_z["qb_scramble"].fillna(0) != 1  # designed runs only (scrambles are never a non-QB's)
             id_col = "rusher_player_id"
         else:  # cpoe
             mask = (pbp_z["play_type"] == "pass") & (pbp_z["zone"] == zone) & (pbp_z["week"].isin(window_weeks))

@@ -67,12 +67,36 @@ def test_player_without_id_returns_nothing():
     assert wa.player_flat_values({"pos": "WR"}, pbp, wa.build_context(pbp), {}, 6) == {}
 
 
-def test_qb_carry_share_is_not_blended_from_pbp():
-    """QB carry_share = designed runs only (scrambles are scramble_rate); PBP counts both."""
-    pbp = _pbp()
+def _qb_run_pbp():
+    """Team A, weeks 1-6. Each week 10 run plays: QB 2 scrambles + 1 designed (sneak at the goal line),
+    RB 7 carries (2 of them at the goal line); a scramble also happens at the goal line."""
+    rows = []
+
+    def run(wk, rusher, yl, scr):
+        rows.append(dict(week=wk, play_type="run", posteam="A", defteam="B", receiver_player_id=None,
+                         rusher_player_id=rusher, passer_player_id=None, qb_scramble=scr, yardline_100=yl,
+                         yards_gained=3, complete_pass=0, air_yards=0.0, yards_after_catch=0.0, pass_attempt=0,
+                         sack=0, qb_hit=0, cpoe=0.0, xyac_mean_yardage=0.0))
+    for wk in range(1, 7):
+        run(wk, "qb", 60, 1)
+        run(wk, "qb", 3, 1)            # goal-line scramble
+        run(wk, "qb", 3, 0)            # goal-line sneak (designed)
+        for _ in range(2):
+            run(wk, "rb", 3, 0)
+        for _ in range(5):
+            run(wk, "rb", 60, 0)
+    return pd.DataFrame(rows)
+
+
+def test_qb_carry_share_counts_designed_runs_only_not_scrambles():
+    """Real 2026 designed QB runs (sneaks etc.) are used; scrambles are scramble_rate, not carry_share."""
+    pbp = _qb_run_pbp()
     ctx = wa.build_context(pbp)
     tt = build_team_week_totals(pbp)
-    qb = {"player_id": "qb", "pos": "QB", "preseason_projection": {"carry_share": 0.02,
-                                                                  "splits": {"redzone": {"carry_share": 0.05}}}}
-    assert "carry_share" not in wa.player_flat_values(qb, pbp, ctx, tt, 6)
-    assert wa.qb_designed_run_values(qb) == {"flat": 0.02, "redzone": 0.05, "goalline": None}
+    qb = {"player_id": "qb", "pos": "QB", "preseason_projection": {"carry_share": 0.02}}
+    got = wa.player_flat_values(qb, pbp, ctx, tt, 6)
+    # 1 designed run of the team's 10 run plays (scrambles stay in the denominator) = 0.10 every week
+    assert got["carry_share"] == pytest.approx(0.85 * 0.10 + 0.15 * 0.02)
+    # goal line: 1 sneak of the team's 4 goal-line run plays per week -> pooled 6/24 = 0.25 (scrambles excluded)
+    zt = build_team_week_zone_totals(pbp)
+    assert wa.player_zone_values(qb, ctx, zt, 6)["goalline"]["carry_share"] == pytest.approx(0.25)

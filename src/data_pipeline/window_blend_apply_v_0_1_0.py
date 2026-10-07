@@ -55,7 +55,10 @@ def build_context(pbp):
     z["zone"] = z["yardline_100"].apply(classify_zone)
     z = z[z["zone"].isin(["redzone", "goalline"])]
     for field, idcol, ptype in (("target_share", "receiver_player_id", "pass"), ("carry_share", "rusher_player_id", "run")):
-        g = z[z["play_type"] == ptype].dropna(subset=[idcol]).groupby([idcol, "week", "zone"]).size()
+        zz = z[z["play_type"] == ptype].dropna(subset=[idcol])
+        if field == "carry_share" and "qb_scramble" in zz.columns:
+            zz = zz[zz["qb_scramble"].fillna(0) != 1]  # QB carry_share = designed runs only (scrambles are scramble_rate)
+        g = zz.groupby([idcol, "week", "zone"]).size()
         for (pid, wk, zone), n in g.items():
             zone_counts[(field, pid, int(wk), zone)] = int(n)
     return {"team_weeks": team_weeks, "active": active, "team_of": team_of, "zone_counts": zone_counts}
@@ -89,8 +92,6 @@ def player_flat_values(traits, pbp, ctx, team_totals, completed_week, scheme=FLA
     for field in PLAYER_RATE_FIELDS:
         if field not in log:
             continue
-        if field == "carry_share" and traits.get("pos") == "QB":
-            continue  # see qb_designed_run_values(): handled separately
         is_share = field in wb.SHARE_FIELDS
         pre = pre_all.get(field)
         v = wb.window_blend(_clean(log[field]), _clean(vol.get(field, {})), team_weeks, ctx["active"][pid],
@@ -99,19 +100,6 @@ def player_flat_values(traits, pbp, ctx, team_totals, completed_week, scheme=FLA
         if v is not None:
             out[field] = v
     return out
-
-
-def qb_designed_run_values(traits):
-    """QB carry_share is DESIGNED runs only in the engine (scrambles come from
-    scramble_rate), but PBP carry share counts scrambles -- blending it from PBP
-    double counts them (found 2026-10-07: sim QB rush att/g 2.94 -> 3.98 vs real 3.03).
-    Output: {"flat": preseason carry_share or None, "redzone": ..., "goalline": ...} --
-    the frozen preseason values, which window mode keeps as-is for QBs."""
-    pp = traits.get("preseason_projection") or {}
-    splits = pp.get("splits") or {}
-    return {"flat": pp.get("carry_share"),
-            "redzone": (splits.get("redzone") or {}).get("carry_share"),
-            "goalline": (splits.get("goalline") or {}).get("carry_share")}
 
 
 def player_zone_values(traits, ctx, team_zone_totals, completed_week, window=ZONE_WINDOW):
@@ -129,8 +117,6 @@ def player_zone_values(traits, ctx, team_zone_totals, completed_week, window=ZON
     out = {}
     for zone in ("redzone", "goalline"):
         for field in ZONE_FIELDS:
-            if field == "carry_share" and traits.get("pos") == "QB":
-                continue  # designed-run semantics, see qb_designed_run_values()
             den_key = "team_targets" if field == "target_share" else "team_carries"
             num = sum(ctx["zone_counts"].get((field, pid, w, zone), 0) for w in weeks)
             den = sum((team_zone_totals.get((team, w, zone)) or {}).get(den_key, 0) for w in weeks)

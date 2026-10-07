@@ -156,3 +156,5 @@ Needs its own plan and validation; not required for window mode to be correct.
   (legacy sim 0.135); with true preseason zone values it will likely drop. Needs a small backtest or a hand decision (Phase 3 item).
 - The `hand_edit` pre-marks that came from rz_/gl_ columns differing from `preseason_projection.splits` are partly contamination -- re-run
   `add_hand_edit_column_v_0_1_0.py` logic against the restored preseason before relying on the review list.
+
+- **QB carry_share revised same day:** instead of pinning QBs to preseason, QB carry_share (flat + zones) is computed from real DESIGNED runs only (scrambles excluded via `qb_scramble`), in both modes. Live data not yet regenerated with this -- needs the refresh -> week sheets -> resim chain.
