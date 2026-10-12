@@ -54,6 +54,7 @@ from src.api import paper_store
 from src.api import sim_replay_store
 from src.api import account_store
 from src.api import cash_pool_store
+from src.api import week_freeze
 from src.api.lineup_stats import (
     get_default_payout_structure as _get_default_payout_structure,
     compute_lineup_field_stats_batch as _compute_lineup_field_stats_batch,
@@ -1157,6 +1158,15 @@ def _overlay_live_salaries(players_list: List[Dict[str, Any]], week: int, year: 
 
 @app.get("/api/week_projections")
 def get_week_projections(week: int = 1, year: int = 2026, draft_group_id: Optional[int] = None):
+    """Live computation, except that each game that has already kicked off is
+    served from its frozen entries (data/frozen/, per-game freeze -- see
+    src/api/week_freeze.py). Older whole-week snapshots are served verbatim."""
+    return week_freeze.serve(year, week, "projections",
+                             lambda: _get_week_projections_live(week, year, draft_group_id),
+                             SCHEDULE_CSV_PATH, draft_group_id=draft_group_id)
+
+
+def _get_week_projections_live(week: int = 1, year: int = 2026, draft_group_id: Optional[int] = None):
     """Aggregates all player simulations for the given week from the pre-loaded parquet cache."""
     global ALL_PLAYERS_CACHED
     reload_cache_if_changed()
@@ -1527,6 +1537,38 @@ def _compute_week_projections(week: int, year: int, draft_group_id: Optional[int
 _SIM_ITERATIONS_BY_MTIME: Dict[tuple, int] = {}
 
 
+@app.post("/api/freeze_week")
+def freeze_week_endpoint(week: int, year: int = 2026, force: bool = False,
+                         draft_group_id: Optional[int] = None):
+    """Manual freeze / backfill: snapshots the CURRENT live payloads for a week
+    regardless of lock time (source='backfill'). Skips kinds already frozen
+    unless force=True. Use for weeks that locked before auto-freeze existed.
+    WARNING: force=True overwrites EVERY game, including ones that already
+    kicked off (their live data degrades after kickoff) -- normal updates need
+    no manual freeze, the per-game freeze in week_freeze.serve handles them."""
+    if not draft_group_id and os.path.exists(SCHEDULE_CSV_PATH):
+        sched_df = pd.read_csv(SCHEDULE_CSV_PATH)
+        wk = sched_df[(sched_df["week"] == week) & (sched_df["game_type"] == "REG")]
+        if not wk.empty:
+            draft_group_id = _resolve_main_slate_dg_for(wk, year, None)
+    lock = week_freeze.lock_ts(week, year, SCHEDULE_CSV_PATH)
+    out = {}
+    for kind, fn in (("projections", lambda: _get_week_projections_live(week, year, draft_group_id)),
+                     ("sim_results", lambda: _get_week_sim_results_live(week, year))):
+        if week_freeze.load(year, week, kind) is not None and not force:
+            out[kind] = "already_frozen"
+            continue
+        res = fn()
+        ok = bool(res and res.get("players" if kind == "projections" else "games"))
+        if not ok:
+            out[kind] = "empty_not_frozen"
+            continue
+        week_freeze.save(year, week, kind, res, source="backfill", lock=lock,
+                         draft_group_id=draft_group_id, force=force, per_game=True)
+        out[kind] = "frozen"
+    return {"week": week, "draft_group_id": draft_group_id, **out}
+
+
 @app.get("/api/sim_status")
 def get_sim_status(week: int, year: int = 2026):
     """Cheap poll target (2026-09-23) so the Game Explorer / Showdown pages can
@@ -1582,6 +1624,13 @@ def get_sim_status(week: int, year: int = 2026):
 
 @app.get("/api/week_sim_results")
 def get_week_sim_results(week: int = 1, year: int = 2026):
+    """Per-game frozen results (see get_week_projections)."""
+    return week_freeze.serve(year, week, "sim_results",
+                             lambda: _get_week_sim_results_live(week, year),
+                             SCHEDULE_CSV_PATH)
+
+
+def _get_week_sim_results_live(week: int = 1, year: int = 2026):
     """Prepopulates every game in the week from the cached parquet sim data
     via run_simulation()'s own baseline cache-hit path, so the DFS site can
     show results immediately on load instead of requiring a per-game
