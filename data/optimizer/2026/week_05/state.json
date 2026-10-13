@@ -1,0 +1,645 @@
+{
+  "schema_version": 1,
+  "season": 2026,
+  "week": 5,
+  "updated_at": "2026-10-11T19:08:44.070Z",
+  "slate": {
+    "draft_group_id": 154468,
+    "platform": "DK"
+  },
+  "settings": {
+    "platform": "DK",
+    "contestType": "top_heavy",
+    "contestSize": 13071,
+    "entryFee": 9,
+    "payingPositions": 2780,
+    "payoutStructure": [
+      {
+        "rank_start": 1,
+        "rank_end": 1,
+        "payout": 10000
+      },
+      {
+        "rank_start": 2,
+        "rank_end": 2,
+        "payout": 6000
+      },
+      {
+        "rank_start": 3,
+        "rank_end": 3,
+        "payout": 4000
+      },
+      {
+        "rank_start": 4,
+        "rank_end": 4,
+        "payout": 3000
+      },
+      {
+        "rank_start": 5,
+        "rank_end": 5,
+        "payout": 2000
+      },
+      {
+        "rank_start": 6,
+        "rank_end": 7,
+        "payout": 1500
+      },
+      {
+        "rank_start": 8,
+        "rank_end": 10,
+        "payout": 1000
+      },
+      {
+        "rank_start": 11,
+        "rank_end": 15,
+        "payout": 500
+      },
+      {
+        "rank_start": 16,
+        "rank_end": 25,
+        "payout": 250
+      },
+      {
+        "rank_start": 26,
+        "rank_end": 40,
+        "payout": 150
+      },
+      {
+        "rank_start": 41,
+        "rank_end": 65,
+        "payout": 100
+      },
+      {
+        "rank_start": 66,
+        "rank_end": 100,
+        "payout": 50
+      },
+      {
+        "rank_start": 101,
+        "rank_end": 150,
+        "payout": 40
+      },
+      {
+        "rank_start": 151,
+        "rank_end": 250,
+        "payout": 35
+      },
+      {
+        "rank_start": 251,
+        "rank_end": 450,
+        "payout": 30
+      },
+      {
+        "rank_start": 451,
+        "rank_end": 830,
+        "payout": 25
+      },
+      {
+        "rank_start": 831,
+        "rank_end": 1530,
+        "payout": 20
+      },
+      {
+        "rank_start": 1531,
+        "rank_end": 2780,
+        "payout": 18
+      }
+    ],
+    "nLineups": 150,
+    "minUnique": 2,
+    "includeDstUnique": false,
+    "projThreshold": 3,
+    "flexRB": 0,
+    "flexWR": 0,
+    "flexTE": 0,
+    "flexAny": 100,
+    "maxExposureQB": 15,
+    "maxExposureRB": 65,
+    "maxExposureWR": 65,
+    "maxExposureTE": 40,
+    "maxExposureDST": 25,
+    "contest": {
+      "dk_contest_id": "196420167",
+      "name": "NFL $100K Slant [$10K to 1st, 2x Min Cash]",
+      "entry_fee": 9,
+      "field_size": 13071,
+      "prize_pool": 100000,
+      "paying_positions": 2780
+    }
+  },
+  "prefs": {
+    "autosaveBuilds": true
+  },
+  "overlay": {
+    "players": {
+      "Malik Willis_MIA": {
+        "excluded": true
+      },
+      "Jameis Winston_NYG": {
+        "excluded": true
+      },
+      "Daniel Jones_IND": {
+        "excluded": true
+      },
+      "Justin Herbert_LAC": {
+        "excluded": true
+      },
+      "Cam Ward_TEN": {
+        "excluded": true
+      },
+      "Geno Smith_NYJ": {
+        "excluded": true
+      },
+      "Deshaun Watson_CLE": {
+        "excluded": true,
+        "ownershipPct": 2
+      },
+      "Kyle Juszczyk_SF": {
+        "excluded": true
+      },
+      "Mike Washington_LV": {
+        "excluded": true,
+        "projAdjust": 0,
+        "projAbsolute": null,
+        "ownershipPct": 45
+      },
+      "Najee Harris_NYG": {
+        "excluded": true
+      },
+      "Tyler Badie_DEN": {
+        "excluded": true
+      },
+      "Kaleb Johnson_GB": {
+        "excluded": true
+      },
+      "Kimani Vidal_LAC": {
+        "excluded": true
+      },
+      "Devin Singletary_NYG": {
+        "excluded": true
+      },
+      "Kaelon Black_SF": {
+        "excluded": true
+      },
+      "Jonah Coleman_DEN": {
+        "excluded": true
+      },
+      "Tyjae Spears_TEN": {
+        "excluded": true
+      },
+      "Samaje Perine_CIN": {
+        "excluded": true
+      },
+      "Kyle Monangai_CHI": {
+        "excluded": true
+      },
+      "TreVeyon Henderson_NE": {
+        "excluded": true,
+        "ownershipPct": 2.3
+      },
+      "MarShawn Lloyd_GB": {
+        "excluded": true,
+        "ownershipPct": 0.4
+      },
+      "Keaton Mitchell_LAC": {
+        "excluded": true,
+        "ownershipPct": 5.8
+      },
+      "Rico Dowdle_PIT": {
+        "excluded": true
+      },
+      "Woody Marks_HOU": {
+        "excluded": true
+      },
+      "Isaiah Davis_NYJ": {
+        "excluded": true
+      },
+      "DeeJay Dallas_MIN": {
+        "excluded": true
+      },
+      "Kendre Miller_NO": {
+        "excluded": true
+      },
+      "JK Dobbins_DEN": {
+        "excluded": true
+      },
+      "Raheim Sanders_CLE": {
+        "excluded": true
+      },
+      "Tyler Allgeier_ARI": {
+        "excluded": true
+      },
+      "David Montgomery_HOU": {
+        "excluded": true
+      },
+      "George Holani_SEA": {
+        "excluded": true
+      },
+      "RJ Harvey_DEN": {
+        "excluded": true
+      },
+      "Ollie Gordon_MIA": {
+        "excluded": true
+      },
+      "Tony Pollard_TEN": {
+        "excluded": true
+      },
+      "Jahdae Walker_CHI": {
+        "excluded": true
+      },
+      "Kyle Williams_NE": {
+        "excluded": true
+      },
+      "Tory Horton_SEA": {
+        "excluded": true
+      },
+      "Treylon Burks_WAS": {
+        "excluded": true
+      },
+      "Jaylin Noel_HOU": {
+        "excluded": true
+      },
+      "Jerry Jeudy_CLE": {
+        "excluded": true
+      },
+      "Germie Bernard_PIT": {
+        "excluded": true
+      },
+      "Tim Patrick_NYJ": {
+        "excluded": true
+      },
+      "Darnell Mooney_NYG": {
+        "excluded": true
+      },
+      "Michael Pittman_PIT": {
+        "excluded": true
+      },
+      "Jack Bech_LV": {
+        "excluded": true
+      },
+      "Andrei Iosivas_CIN": {
+        "excluded": true
+      },
+      "Efton Chism_NE": {
+        "excluded": true
+      },
+      "Jared Wayne_HOU": {
+        "excluded": true
+      },
+      "Kayshon Boutte_HOU": {
+        "excluded": true
+      },
+      "Drew Sample_CIN": {
+        "excluded": true
+      },
+      "Mason Taylor_NYJ": {
+        "excluded": true
+      },
+      "Jeremy Ruckert_NYJ": {
+        "excluded": true
+      },
+      "Darnell Washington_PIT": {
+        "excluded": true
+      },
+      "Foster Moreau_HOU": {
+        "excluded": true
+      },
+      "Gunnar Helm_TEN": {
+        "excluded": true
+      },
+      "Pat Freiermuth_PIT": {
+        "excluded": true
+      },
+      "Defense_GB": {
+        "excluded": true
+      },
+      "Defense_MIA": {
+        "excluded": true
+      },
+      "Defense_NO": {
+        "excluded": true
+      },
+      "Defense_LAC": {
+        "excluded": true
+      },
+      "Defense_TEN": {
+        "excluded": true
+      },
+      "Defense_DET": {
+        "excluded": true
+      },
+      "Defense_ARI": {
+        "excluded": true
+      },
+      "Pat Bryant_DEN": {
+        "excluded": true
+      },
+      "Jalen Nailor_LV": {
+        "excluded": true
+      },
+      "Laquon Treadwell_IND": {
+        "excluded": true
+      },
+      "Isaac TeSlaa_DET": {
+        "excluded": true
+      },
+      "Cooper Kupp_SEA": {
+        "excluded": true
+      },
+      "Malachi Fields_NYG": {
+        "excluded": true
+      },
+      "Demarcus Robinson_SF": {
+        "excluded": true
+      },
+      "Myles Price_MIN": {
+        "excluded": true
+      },
+      "DeMario Douglas_NE": {
+        "excluded": true
+      },
+      "Keenan Allen_IND": {
+        "excluded": true
+      },
+      "Isaiah Williams_NYJ": {
+        "excluded": true
+      },
+      "Jauan Jennings_MIN": {
+        "excluded": true
+      },
+      "Wan'Dale Robinson_TEN": {
+        "excluded": true
+      },
+      "Malik Washington_MIA": {
+        "excluded": true
+      },
+      "Kalif Raymond_CHI": {
+        "excluded": true
+      },
+      "Rome Odunze_CHI": {
+        "projAdjust": 2.1,
+        "projAbsolute": null,
+        "excluded": false,
+        "ownershipPct": 4.8
+      },
+      "Mack Hollins_NE": {
+        "excluded": true
+      },
+      "Garrett Wilson_NYJ": {
+        "projAdjust": -4.2,
+        "projAbsolute": null,
+        "ownershipPct": 9.9,
+        "excluded": true
+      },
+      "Alvin Kamara_NO": {
+        "excluded": true
+      },
+      "Omarion Hampton_LAC": {
+        "excluded": true
+      },
+      "Jahmyr Gibbs_DET": {
+        "locked": false,
+        "projAdjust": 1,
+        "projAbsolute": null
+      },
+      "Jaxon Smith-Njigba_SEA": {
+        "locked": false,
+        "ownershipPct": 11.4
+      },
+      "Tai Felton_MIN": {
+        "excluded": true
+      },
+      "Bo Nix_DEN": {
+        "locked": false,
+        "ownershipPct": 1.3,
+        "projAdjust": 2,
+        "projAbsolute": null
+      },
+      "Tre Harris_LAC": {
+        "locked": false,
+        "ownershipPct": 37.5,
+        "projAdjust": -0.6,
+        "projAbsolute": null
+      },
+      "Carnell Tate_TEN": {
+        "locked": false,
+        "projAdjust": -1.3,
+        "projAbsolute": null
+      },
+      "Nico Collins_HOU": {
+        "locked": false,
+        "projAdjust": 1,
+        "projAbsolute": null
+      },
+      "Brock Purdy_SF": {
+        "ownershipPct": 4.5
+      },
+      "Jacoby Brissett_ARI": {
+        "ownershipPct": 25,
+        "locked": false,
+        "excluded": true
+      },
+      "Jared Goff_DET": {
+        "ownershipPct": 15,
+        "excluded": true
+      },
+      "Joe Burrow_CIN": {
+        "ownershipPct": 8.4,
+        "locked": false
+      },
+      "Tyler Shough_NO": {
+        "excluded": true
+      },
+      "Tyson Bagent_CHI": {
+        "ownershipPct": 9.8,
+        "locked": false,
+        "projAdjust": 1,
+        "projAbsolute": null
+      },
+      "Aaron Rodgers_PIT": {
+        "ownershipPct": 2.2,
+        "locked": false,
+        "excluded": true
+      },
+      "Jordan Love_GB": {
+        "ownershipPct": 1.8,
+        "locked": false,
+        "projAdjust": 6,
+        "projAbsolute": null
+      },
+      "Matthew Golden_GB": {
+        "locked": false,
+        "ownershipPct": 8.2,
+        "projAdjust": 2.9,
+        "projAbsolute": null
+      },
+      "Ashton Jeanty_LV": {
+        "excluded": false,
+        "ownershipPct": 8.5,
+        "projAdjust": -1.5,
+        "projAbsolute": null
+      },
+      "D'Andre Swift_CHI": {
+        "projAdjust": -6.1,
+        "projAbsolute": null,
+        "ownershipPct": 24
+      },
+      "Quinshon Judkins_CLE": {
+        "projAdjust": -4,
+        "projAbsolute": null,
+        "ownershipPct": 15.5
+      },
+      "Christian McCaffrey_SF": {
+        "ownershipPct": 11,
+        "excluded": true
+      },
+      "Aaron Jones_MIN": {
+        "ownershipPct": 16.5
+      },
+      "Jonathan Taylor_IND": {
+        "ownershipPct": 9.1
+      },
+      "Emanuel Wilson_SEA": {
+        "ownershipPct": 13.5
+      },
+      "Justin Jefferson_MIN": {
+        "ownershipPct": 7.5,
+        "locked": false,
+        "projAdjust": -0.5,
+        "projAbsolute": null
+      },
+      "Michael Wilson_ARI": {
+        "ownershipPct": 37.5
+      },
+      "KC Concepcion_CLE": {
+        "ownershipPct": 9.8,
+        "projAdjust": 0.6,
+        "projAbsolute": null
+      },
+      "Roschon Johnson_CHI": {
+        "excluded": true
+      },
+      "CJ Donaldson_NO": {
+        "excluded": true
+      },
+      "Tee Higgins_CIN": {
+        "excluded": true,
+        "projAdjust": -2.7,
+        "projAbsolute": null
+      },
+      "Ja'Marr Chase_CIN": {
+        "projAdjust": 4.6,
+        "projAbsolute": null,
+        "locked": false
+      },
+      "Xavier Hutchinson_HOU": {
+        "excluded": true
+      },
+      "Courtland Sutton_DEN": {
+        "excluded": true
+      },
+      "Rashid Shaheed_SEA": {
+        "excluded": true
+      },
+      "Elic Ayomanor_TEN": {
+        "excluded": true
+      },
+      "Dohnte Meyers_CIN": {
+        "excluded": true
+      },
+      "Defense_CIN": {
+        "ownershipPct": 18.4,
+        "projAdjust": 0.3,
+        "projAbsolute": null
+      },
+      "Defense_MIN": {
+        "ownershipPct": 11.2,
+        "projAdjust": 1,
+        "projAbsolute": null
+      },
+      "Defense_WAS": {
+        "projAdjust": 1,
+        "projAbsolute": null,
+        "ownershipPct": 12.1
+      },
+      "Defense_NYG": {
+        "projAdjust": 1,
+        "projAbsolute": null,
+        "ownershipPct": 7
+      },
+      "Christian Watson_GB": {
+        "projAdjust": 3,
+        "projAbsolute": null
+      },
+      "Kyler Murray_MIN": {
+        "excluded": true
+      },
+      "Jameson Williams_DET": {
+        "projAdjust": 3,
+        "projAbsolute": null
+      },
+      "Jayden Daniels_WAS": {
+        "excluded": false,
+        "projAdjust": -3.2,
+        "projAbsolute": null
+      },
+      "Antonio Williams_WAS": {
+        "projAdjust": 2.2,
+        "projAbsolute": null
+      },
+      "Tre Tucker_LV": {
+        "projAdjust": -0.5,
+        "projAbsolute": null
+      },
+      "Cam Skattebo_NYG": {
+        "excluded": true
+      },
+      "Rachaad White_WAS": {
+        "excluded": true
+      },
+      "Mike Evans_SF": {
+        "projAdjust": 1.9,
+        "projAbsolute": null
+      },
+      "Chris Olave_NO": {
+        "projAdjust": -1,
+        "projAbsolute": null
+      },
+      "Dyami Brown_WAS": {
+        "excluded": true
+      },
+      "Isaiah Likely_NYG": {
+        "projAdjust": -1,
+        "projAbsolute": null
+      },
+      "TJ Hockenson_MIN": {
+        "projAdjust": -1,
+        "projAbsolute": null
+      },
+      "Colston Loveland_CHI": {
+        "projAdjust": 1,
+        "projAbsolute": null
+      },
+      "Luther Burden_CHI": {
+        "projAdjust": 0.4,
+        "projAbsolute": null
+      },
+      "Rhamondre Stevenson_NE": {
+        "excluded": true
+      },
+      "Chase Brown_CIN": {
+        "projAdjust": 0.7,
+        "projAbsolute": null
+      },
+      "Amon-Ra St Brown_DET": {
+        "projAdjust": 5,
+        "projAbsolute": null
+      }
+    },
+    "excludedTeams": [],
+    "excludedGames": [],
+    "gameExclusions": {},
+    "ownershipFrozen": false,
+    "ownershipFrozenAt": null
+  }
+}
