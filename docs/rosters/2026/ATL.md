@@ -1,6 +1,6 @@
 # ATL - 2026 Roster
 
-<!-- Generated 2026-09-04 from data/overrides/2026/season_long/ATL.csv. Do not hand-edit; edit the sheet and re-run build_roster_md_v_0_1_0.py. -->
+<!-- Generated 2026-10-08 from data/overrides/2026/season_long/ATL.csv. Do not hand-edit; edit the sheet and re-run build_roster_md_v_0_1_0.py. -->
 
 ## Active roster
 
@@ -30,7 +30,7 @@
 
 ## Practice squad
 
-Cash Jones (RB), Tyler Goodson (RB), Antwane Wells (WR), Dylan Drummond (WR), Vinny Anthony (WR), Jack Velling (TE), Nick Muse (TE)
+Cash Jones (RB), Antwane Wells (WR), Dylan Drummond (WR), Vinny Anthony (WR), Jack Velling (TE), Nick Muse (TE)
 
 ## New to team (0% usage - set a role in the sheet)
 

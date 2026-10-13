@@ -1,6 +1,6 @@
 # DAL - 2026 Roster
 
-<!-- Generated 2026-09-04 from data/overrides/2026/season_long/DAL.csv. Do not hand-edit; edit the sheet and re-run build_roster_md_v_0_1_0.py. -->
+<!-- Generated 2026-10-08 from data/overrides/2026/season_long/DAL.csv. Do not hand-edit; edit the sheet and re-run build_roster_md_v_0_1_0.py. -->
 
 ## Active roster
 
@@ -9,8 +9,8 @@
 - **Dak Prescott** - 1.0% car
 ### RB
 - **Javonte Williams** - 7.0% tgt, 67.5% car, (RZ 8/68, GL 4/68)
-- **Malik Davis** - 3.0% tgt, 19.5% car
-- **Emari Demercado** - 2.0% tgt, 4.5% car  _(new to team)_
+- **Tyler Goodson** - 5.0% tgt, 28.2% car, (RZ 2/27, GL 1/20)
+- **Emari Demercado**
 - **Hunter Luepke**
 ### WR
 - **CeeDee Lamb** - 26.0% tgt, 1.5% car, (RZ 25/2, GL 24/2)
@@ -26,6 +26,7 @@
 
 ## Injured / Reserve
 
+- **Malik Davis** (RB) - IR, out for the season - IR (Cam 2026-10-07); role -> Demercado
 - **DJ Rogers** (TE) - IR, est. return wk 8
 - **Princeton Fant** (TE) - IR, est. return wk 8
 
@@ -35,5 +36,4 @@ Joe Milton (QB), Israel Abanikanda (RB), Anthony Smith (WR), Jordan Hudson (WR),
 
 ## New to team (0% usage - set a role in the sheet)
 
-- Emari Demercado (RB, active)
 - Mitch Van Vooren (TE, practice_squad)

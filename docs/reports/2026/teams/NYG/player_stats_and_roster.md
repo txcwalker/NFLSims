@@ -8,139 +8,155 @@
 
 | Player | Pos | Rush Att | Rush Yds | Rush TDs |
 | :--- | :---: | :---: | :---: | :---: |
-| **Devin Singletary** | RB | 130.0 | 550.0 | 5.0 |
-| **Jaxson Dart** | QB | 112.0 | 566.5 | 5.0 |
-| **Cam Skattebo** | RB | 106.0 | 470.0 | 2.0 |
-| **Tyrone Tracy** | RB | 77.0 | 332.0 | 2.0 |
-| **Patrick Ricard** | RB | 2.0 | 6.0 | 0.0 |
-| **Darius Slayton** | WR | 1.0 | 2.0 | 0.0 |
-| **Malik Nabers** | WR | 1.0 | 3.0 | 0.0 |
-| **Total** | — | 429.0 | 1929.5 | 14.0 |
+| **Cam Skattebo** | RB | 189.0 | 790.0 | 4.0 |
+| **Jaxson Dart** | QB | 104.0 | 543.0 | 4.0 |
+| **Najee Harris** | RB | 93.0 | 404.0 | 2.0 |
+| **Devin Singletary** | RB | 39.0 | 152.0 | 1.0 |
+| **Tyrone Tracy** | RB | 37.0 | 157.0 | 1.0 |
+| **Malik Nabers** | WR | 5.0 | 19.0 | 0.0 |
+| **Patrick Ricard** | RB | 3.0 | 12.0 | 0.0 |
+| **Darius Slayton** | WR | 1.0 | 4.0 | 0.0 |
+| **Darnell Mooney** | WR | 1.0 | 9.0 | 0.0 |
+| **Total** | — | 472.0 | 2090.0 | 12.0 |
 
 **By Targets (season median)**
 
 | Player | Pos | Targets | Rec | Rec Yds | Rec TDs |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Malik Nabers** | WR | 101.0 | 65.0 | 757.0 | 2.0 |
-| **Darnell Mooney** | WR | 85.0 | 53.0 | 599.5 | 3.0 |
-| **Darius Slayton** | WR | 65.0 | 38.5 | 482.0 | 2.0 |
-| **Isaiah Likely** | TE | 43.0 | 32.0 | 298.0 | 2.0 |
-| **Odell Beckham** | WR | 37.0 | 22.0 | 203.0 | 2.0 |
-| **Devin Singletary** | RB | 35.0 | 28.0 | 188.0 | 1.0 |
-| **Theo Johnson** | TE | 22.0 | 14.0 | 127.0 | 1.0 |
-| **Tyrone Tracy** | RB | 19.0 | 15.0 | 91.5 | 1.0 |
-| **Patrick Ricard** | RB | 8.5 | 6.0 | 35.0 | 1.0 |
-| **Cam Skattebo** | RB | 8.0 | 6.0 | 32.0 | 1.0 |
-| **Total** | — | 423.5 | 279.5 | 2813.0 | 16.0 |
+| **Malik Nabers** | WR | 138.0 | 82.0 | 876.0 | 4.0 |
+| **Isaiah Likely** | TE | 66.0 | 45.0 | 447.0 | 4.0 |
+| **Malachi Fields** | WR | 52.0 | 28.0 | 355.0 | 1.0 |
+| **Cam Skattebo** | RB | 49.0 | 39.0 | 286.0 | 2.0 |
+| **Darnell Mooney** | WR | 49.0 | 29.0 | 369.0 | 1.0 |
+| **Darius Slayton** | WR | 33.5 | 19.0 | 228.0 | 1.0 |
+| **Theo Johnson** | TE | 30.0 | 16.0 | 145.5 | 1.0 |
+| **Odell Beckham** | WR | 23.5 | 13.0 | 119.0 | 1.0 |
+| **Tyrone Tracy** | RB | 16.0 | 12.0 | 75.0 | 0.0 |
+| **Devin Singletary** | RB | 15.0 | 12.0 | 73.0 | 1.0 |
+| **Najee Harris** | RB | 14.0 | 10.0 | 74.0 | 0.0 |
+| **Patrick Ricard** | RB | 3.0 | 1.0 | 5.0 | 0.0 |
+| **Total** | — | 489.0 | 306.0 | 3052.5 | 16.0 |
 
 ## Quarterbacks
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Jaxson Dart** | QB2 | Pass Yds | 2841.0 | 3223.9 | 3472.0 | **3625.0** | 3798.5 | 4049.1 | 4420.0 |
-| **Jaxson Dart** | QB2 | Pass TDs | 8.0 | 15.0 | 19.0 | **21.0** | 24.0 | 29.0 | 36.0 |
-| **Jaxson Dart** | QB2 | Cmp % | 56.3 | 58.8 | 60.9 | **62.0** | 63.5 | 65.7 | 71.5 |
-| **Jaxson Dart** | QB2 | INTs | 1.0 | 5.0 | 7.0 | **9.0** | 12.0 | 15.0 | 22.0 |
-| **Jaxson Dart** | QB2 | Std Fantasy | 179.2 | 233.9 | 263.7 | **283.7** | 304.4 | 337.7 | 414.8 |
-| **Jaxson Dart** | QB2 | DK Fantasy | 206.0 | 257.1 | 284.8 | **304.1** | 326.1 | 359.7 | 429.8 |
-| **Team Total** | — | Pass Yds | 2841.0 | 3223.9 | 3472.0 | **3625.0** | 3798.5 | 4049.1 | 4420.0 |
-| **Team Total** | — | Pass TDs | 8.0 | 15.0 | 19.0 | **21.0** | 24.0 | 29.0 | 36.0 |
-| **Team Total** | — | Cmp % | 56.3 | 58.8 | 60.9 | **62.0** | 63.5 | 65.7 | 71.5 |
-| **Team Total** | — | INTs | 1.0 | 5.0 | 7.0 | **9.0** | 12.0 | 15.0 | 22.0 |
-| **Team Total** | — | Std Fantasy | 179.2 | 233.9 | 263.7 | **283.7** | 304.4 | 337.7 | 414.8 |
-| **Team Total** | — | DK Fantasy | 206.0 | 257.1 | 284.8 | **304.1** | 326.1 | 359.7 | 429.8 |
+| **Jaxson Dart** | QB2 | Pass Yds | 2180.0 | 2541.9 | 2742.8 | **2894.5** | 3057.5 | 3266.1 | 3549.0 |
+| **Jaxson Dart** | QB2 | Pass TDs | 10.0 | 14.0 | 17.0 | **20.0** | 22.0 | 26.0 | 33.0 |
+| **Jaxson Dart** | QB2 | Cmp % | 48.2 | 55.1 | 57.4 | **58.9** | 60.4 | 62.8 | 67.9 |
+| **Jaxson Dart** | QB2 | INTs | 1.0 | 4.0 | 7.0 | **9.0** | 11.0 | 14.0 | 21.0 |
+| **Jaxson Dart** | QB2 | Std Fantasy | 156.6 | 196.1 | 223.4 | **242.2** | 260.4 | 290.2 | 336.3 |
+| **Jaxson Dart** | QB2 | DK Fantasy | 182.6 | 214.3 | 240.3 | **259.9** | 276.8 | 306.3 | 349.3 |
+| **Team Total** | — | Pass Yds | 1930.0 | 2291.9 | 2492.8 | **2644.5** | 2807.5 | 3016.1 | 3299.0 |
+| **Team Total** | — | Pass TDs | 7.0 | 11.0 | 14.0 | **17.0** | 19.0 | 23.0 | 30.0 |
+| **Team Total** | — | Cmp % | 48.2 | 55.1 | 57.4 | **58.9** | 60.4 | 62.8 | 67.9 |
+| **Team Total** | — | INTs | 1.0 | 4.0 | 7.0 | **9.0** | 11.0 | 14.0 | 21.0 |
+| **Team Total** | — | Std Fantasy | 131.2 | 170.7 | 198.0 | **216.8** | 235.0 | 264.8 | 310.9 |
+| **Team Total** | — | DK Fantasy | 156.2 | 187.9 | 213.9 | **233.5** | 250.4 | 279.9 | 322.9 |
 
 ## Running Backs
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Cam Skattebo** | RB1 | Rush Att | 74.0 | 88.0 | 98.0 | **106.0** | 113.0 | 124.0 | 134.0 |
-| **Cam Skattebo** | RB1 | Rush Yds | 250.0 | 345.0 | 417.8 | **470.0** | 525.0 | 610.0 | 731.0 |
-| **Cam Skattebo** | RB1 | Rush TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 4.0 | 8.0 |
-| **Cam Skattebo** | RB1 | Receptions | 0.0 | 2.0 | 4.0 | **6.0** | 8.0 | 10.0 | 18.0 |
-| **Cam Skattebo** | RB1 | Std Fantasy | 31.9 | 47.1 | 60.7 | **69.0** | 80.5 | 97.5 | 135.4 |
-| **Cam Skattebo** | RB1 | DK Fantasy | 32.4 | 49.5 | 63.7 | **72.6** | 84.0 | 102.1 | 139.4 |
-| **Devin Singletary** | RB3 | Rush Att | 92.0 | 111.0 | 122.0 | **130.0** | 139.0 | 151.0 | 175.0 |
-| **Devin Singletary** | RB3 | Rush Yds | 313.0 | 421.0 | 493.8 | **550.0** | 610.0 | 690.0 | 891.0 |
-| **Devin Singletary** | RB3 | Rush TDs | 0.0 | 1.0 | 3.0 | **5.0** | 6.0 | 8.0 | 13.0 |
-| **Devin Singletary** | RB3 | Receptions | 13.0 | 20.0 | 25.0 | **28.0** | 32.0 | 37.0 | 49.0 |
-| **Devin Singletary** | RB3 | Std Fantasy | 64.1 | 90.7 | 108.3 | **122.4** | 135.2 | 157.2 | 220.1 |
-| **Devin Singletary** | RB3 | DK Fantasy | 73.6 | 104.0 | 122.8 | **137.2** | 151.9 | 175.5 | 243.6 |
-| **Patrick Ricard** | RB5 | Rush Att | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 5.0 | 7.0 |
-| **Patrick Ricard** | RB5 | Rush Yds | -10.0 | -1.0 | 1.0 | **6.0** | 12.0 | 25.0 | 73.0 |
-| **Patrick Ricard** | RB5 | Rush TDs | 0.0 | 0.0 | 0.0 | **0.0** | 0.0 | 1.0 | 3.0 |
-| **Patrick Ricard** | RB5 | Receptions | 0.0 | 3.0 | 4.0 | **6.0** | 8.0 | 11.0 | 16.0 |
-| **Patrick Ricard** | RB5 | Std Fantasy | 0.1 | 3.5 | 8.4 | **12.5** | 18.1 | 27.5 | 42.8 |
-| **Patrick Ricard** | RB5 | DK Fantasy | 0.1 | 5.6 | 11.0 | **15.7** | 21.7 | 32.5 | 48.8 |
-| **Tyrone Tracy** | RB4 | Rush Att | 53.0 | 62.0 | 70.0 | **77.0** | 83.0 | 93.0 | 105.0 |
-| **Tyrone Tracy** | RB4 | Rush Yds | 172.0 | 233.9 | 291.8 | **332.0** | 377.0 | 453.1 | 595.0 |
-| **Tyrone Tracy** | RB4 | Rush TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 4.0 | 9.0 |
-| **Tyrone Tracy** | RB4 | Receptions | 5.0 | 9.0 | 12.0 | **15.0** | 17.0 | 21.0 | 29.0 |
-| **Tyrone Tracy** | RB4 | Std Fantasy | 29.1 | 42.7 | 54.5 | **64.1** | 75.0 | 90.8 | 125.1 |
-| **Tyrone Tracy** | RB4 | DK Fantasy | 33.1 | 49.3 | 61.6 | **71.8** | 83.7 | 99.9 | 133.6 |
-| **Team Total** | — | Rush Att | 247.0 | 279.0 | 301.0 | **316.0** | 329.2 | 351.0 | 390.0 |
-| **Team Total** | — | Rush Yds | 958.0 | 1137.0 | 1275.8 | **1365.0** | 1462.2 | 1613.2 | 1863.0 |
-| **Team Total** | — | Rush TDs | 1.0 | 4.0 | 6.0 | **8.0** | 10.0 | 13.0 | 19.0 |
-| **Team Total** | — | Receptions | 37.0 | 46.0 | 53.0 | **58.0** | 63.0 | 70.0 | 79.0 |
-| **Team Total** | — | Std Fantasy | 188.6 | 224.5 | 254.6 | **276.4** | 300.0 | 331.8 | 408.7 |
-| **Team Total** | — | DK Fantasy | 214.1 | 254.3 | 285.1 | **308.4** | 332.6 | 366.4 | 448.7 |
+| **Cam Skattebo** | RB1 | Rush Att | 148.0 | 167.0 | 180.0 | **189.0** | 199.0 | 211.0 | 253.0 |
+| **Cam Skattebo** | RB1 | Rush Yds | 534.0 | 644.0 | 726.8 | **790.0** | 846.0 | 935.1 | 1090.0 |
+| **Cam Skattebo** | RB1 | Rush TDs | 1.0 | 2.0 | 3.0 | **4.0** | 5.0 | 7.0 | 14.0 |
+| **Cam Skattebo** | RB1 | Receptions | 22.0 | 30.0 | 35.0 | **39.0** | 43.0 | 49.0 | 61.0 |
+| **Cam Skattebo** | RB1 | Std Fantasy | 102.8 | 124.3 | 141.6 | **155.5** | 169.1 | 190.3 | 260.5 |
+| **Cam Skattebo** | RB1 | DK Fantasy | 124.6 | 148.3 | 168.4 | **183.1** | 198.6 | 222.6 | 297.0 |
+| **Devin Singletary** | RB4 | Rush Att | 23.0 | 30.0 | 35.0 | **39.0** | 43.0 | 48.0 | 54.0 |
+| **Devin Singletary** | RB4 | Rush Yds | 64.0 | 95.0 | 127.0 | **152.0** | 180.0 | 226.0 | 288.0 |
+| **Devin Singletary** | RB4 | Rush TDs | 0.0 | 0.0 | 0.0 | **1.0** | 1.0 | 3.0 | 5.0 |
+| **Devin Singletary** | RB4 | Receptions | 5.0 | 7.0 | 10.0 | **12.0** | 14.0 | 16.0 | 21.0 |
+| **Devin Singletary** | RB4 | Std Fantasy | 20.9 | 27.7 | 35.4 | **41.0** | 47.5 | 59.0 | 75.1 |
+| **Devin Singletary** | RB4 | DK Fantasy | 24.4 | 32.9 | 40.9 | **47.0** | 54.0 | 65.8 | 82.1 |
+| **Najee Harris** | RB2 | Rush Att | 62.0 | 77.0 | 86.0 | **93.0** | 100.0 | 110.0 | 126.0 |
+| **Najee Harris** | RB2 | Rush Yds | 231.0 | 303.0 | 362.0 | **404.0** | 454.2 | 524.0 | 632.0 |
+| **Najee Harris** | RB2 | Rush TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 5.0 | 7.0 |
+| **Najee Harris** | RB2 | Receptions | 2.0 | 6.0 | 8.0 | **10.0** | 13.0 | 16.0 | 26.0 |
+| **Najee Harris** | RB2 | Std Fantasy | 29.4 | 47.1 | 58.4 | **67.6** | 79.0 | 95.4 | 124.2 |
+| **Najee Harris** | RB2 | DK Fantasy | 31.9 | 51.6 | 63.6 | **73.6** | 85.6 | 102.8 | 130.7 |
+| **Patrick Ricard** | RB5 | Rush Att | 0.0 | 1.0 | 2.0 | **3.0** | 5.0 | 7.0 | 10.0 |
+| **Patrick Ricard** | RB5 | Rush Yds | -8.0 | 0.0 | 5.0 | **12.0** | 22.0 | 39.0 | 100.0 |
+| **Patrick Ricard** | RB5 | Rush TDs | 0.0 | 0.0 | 0.0 | **0.0** | 0.0 | 1.0 | 2.0 |
+| **Patrick Ricard** | RB5 | Receptions | 0.0 | 0.0 | 1.0 | **1.0** | 2.0 | 4.0 | 7.0 |
+| **Patrick Ricard** | RB5 | Std Fantasy | -1.7 | 0.4 | 1.8 | **3.2** | 6.4 | 12.9 | 26.2 |
+| **Patrick Ricard** | RB5 | DK Fantasy | -0.8 | 0.5 | 2.3 | **4.0** | 7.3 | 14.3 | 28.7 |
+| **Tyrone Tracy** | RB3 | Rush Att | 18.0 | 27.0 | 33.0 | **37.0** | 41.0 | 48.0 | 57.0 |
+| **Tyrone Tracy** | RB3 | Rush Yds | 58.0 | 96.0 | 130.0 | **157.0** | 190.2 | 244.0 | 342.0 |
+| **Tyrone Tracy** | RB3 | Rush TDs | 0.0 | 0.0 | 0.0 | **1.0** | 1.0 | 2.0 | 4.0 |
+| **Tyrone Tracy** | RB3 | Receptions | 3.0 | 7.0 | 10.0 | **12.0** | 14.0 | 18.0 | 23.0 |
+| **Tyrone Tracy** | RB3 | Std Fantasy | 11.7 | 22.0 | 29.4 | **36.1** | 43.6 | 56.1 | 77.9 |
+| **Tyrone Tracy** | RB3 | DK Fantasy | 13.2 | 26.8 | 35.0 | **42.5** | 50.6 | 63.5 | 86.9 |
+| **Team Total** | — | Rush Att | 225.0 | 257.0 | 277.0 | **290.0** | 304.0 | 327.0 | 360.0 |
+| **Team Total** | — | Rush Yds | 895.0 | 1050.9 | 1178.0 | **1269.5** | 1359.0 | 1497.1 | 1699.0 |
+| **Team Total** | — | Rush TDs | 1.0 | 3.0 | 5.0 | **7.0** | 9.0 | 12.0 | 16.0 |
+| **Team Total** | — | Receptions | 39.0 | 52.0 | 59.0 | **64.5** | 70.0 | 77.0 | 90.0 |
+| **Team Total** | — | Std Fantasy | 167.8 | 213.7 | 242.8 | **263.2** | 285.0 | 318.5 | 359.3 |
+| **Team Total** | — | DK Fantasy | 199.3 | 246.7 | 276.3 | **299.1** | 322.2 | 357.9 | 403.8 |
 
 ## Wide Receivers & Tight Ends
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Darius Slayton** | WR4 | Targets | 42.0 | 52.0 | 60.0 | **65.0** | 71.0 | 79.0 | 89.0 |
-| **Darius Slayton** | WR4 | Receptions | 21.0 | 29.0 | 34.0 | **38.5** | 42.0 | 49.0 | 61.0 |
-| **Darius Slayton** | WR4 | Rec Yds | 172.0 | 319.9 | 414.8 | **482.0** | 554.0 | 665.0 | 851.0 |
-| **Darius Slayton** | WR4 | Rec TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 4.0 | 8.0 |
-| **Darius Slayton** | WR4 | Std Fantasy | 32.2 | 53.1 | 68.0 | **79.0** | 90.7 | 107.9 | 147.7 |
-| **Darius Slayton** | WR4 | DK Fantasy | 44.7 | 68.4 | 86.7 | **98.7** | 112.1 | 134.2 | 172.7 |
-| **Darnell Mooney** | WR3 | Targets | 59.0 | 71.0 | 79.0 | **85.0** | 92.0 | 101.0 | 116.0 |
-| **Darnell Mooney** | WR3 | Receptions | 30.0 | 42.0 | 49.0 | **53.0** | 58.0 | 66.0 | 76.0 |
-| **Darnell Mooney** | WR3 | Rec Yds | 333.0 | 422.9 | 526.8 | **599.5** | 669.0 | 779.0 | 941.0 |
-| **Darnell Mooney** | WR3 | Rec TDs | 0.0 | 1.0 | 2.0 | **3.0** | 4.0 | 6.0 | 10.0 |
-| **Darnell Mooney** | WR3 | Std Fantasy | 56.7 | 74.5 | 91.7 | **105.1** | 117.5 | 136.1 | 176.7 |
-| **Darnell Mooney** | WR3 | DK Fantasy | 72.2 | 96.8 | 117.9 | **133.2** | 149.0 | 171.5 | 218.7 |
-| **Isaiah Likely** | TE1 | Targets | 24.0 | 32.0 | 38.0 | **43.0** | 47.0 | 54.0 | 67.0 |
-| **Isaiah Likely** | TE1 | Receptions | 16.0 | 22.0 | 27.0 | **32.0** | 35.0 | 41.0 | 51.0 |
-| **Isaiah Likely** | TE1 | Rec Yds | 121.0 | 186.0 | 253.0 | **298.0** | 346.0 | 422.0 | 589.0 |
-| **Isaiah Likely** | TE1 | Rec TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 5.0 | 8.0 |
-| **Isaiah Likely** | TE1 | Std Fantasy | 23.6 | 37.4 | 49.2 | **59.0** | 68.7 | 85.4 | 110.1 |
-| **Isaiah Likely** | TE1 | DK Fantasy | 34.2 | 49.9 | 63.7 | **74.8** | 86.2 | 104.6 | 130.1 |
-| **Malik Nabers** | WR1 | Targets | 72.0 | 85.0 | 95.0 | **101.0** | 108.0 | 120.0 | 137.0 |
-| **Malik Nabers** | WR1 | Receptions | 44.0 | 53.0 | 60.0 | **65.0** | 70.0 | 78.0 | 91.0 |
-| **Malik Nabers** | WR1 | Rec Yds | 427.0 | 559.0 | 673.0 | **757.0** | 836.0 | 981.0 | 1166.0 |
-| **Malik Nabers** | WR1 | Rec TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 5.0 | 10.0 |
-| **Malik Nabers** | WR1 | Std Fantasy | 70.8 | 92.5 | 110.5 | **122.8** | 136.7 | 158.6 | 200.5 |
-| **Malik Nabers** | WR1 | DK Fantasy | 95.0 | 120.5 | 142.6 | **157.9** | 175.0 | 202.2 | 248.5 |
-| **Odell Beckham** | WR5 | Targets | 20.0 | 26.0 | 32.0 | **37.0** | 41.0 | 47.0 | 59.0 |
-| **Odell Beckham** | WR5 | Receptions | 10.0 | 14.0 | 18.0 | **22.0** | 25.0 | 30.0 | 39.0 |
-| **Odell Beckham** | WR5 | Rec Yds | 52.0 | 116.0 | 160.8 | **203.0** | 244.0 | 320.0 | 426.0 |
-| **Odell Beckham** | WR5 | Rec TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 4.0 | 7.0 |
-| **Odell Beckham** | WR5 | Std Fantasy | 12.9 | 23.3 | 33.1 | **41.3** | 50.7 | 63.3 | 101.6 |
-| **Odell Beckham** | WR5 | DK Fantasy | 18.4 | 31.7 | 42.7 | **52.4** | 63.0 | 76.8 | 118.6 |
-| **Theo Johnson** | WR6 | Targets | 9.0 | 15.0 | 19.0 | **22.0** | 25.0 | 30.0 | 39.0 |
-| **Theo Johnson** | WR6 | Receptions | 4.0 | 9.0 | 12.0 | **14.0** | 17.0 | 21.0 | 28.0 |
-| **Theo Johnson** | WR6 | Rec Yds | 12.0 | 61.0 | 98.0 | **127.0** | 159.0 | 212.1 | 298.0 |
-| **Theo Johnson** | WR6 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 5.0 |
-| **Theo Johnson** | WR6 | Std Fantasy | 3.3 | 12.5 | 19.8 | **25.7** | 32.8 | 43.5 | 64.7 |
-| **Theo Johnson** | WR6 | DK Fantasy | 6.3 | 17.5 | 26.1 | **33.0** | 40.8 | 52.8 | 78.2 |
-| **Team Total** | — | Targets | 400.0 | 426.0 | 448.0 | **465.0** | 480.0 | 501.0 | 559.0 |
-| **Team Total** | — | Receptions | 249.0 | 271.0 | 287.0 | **298.0** | 309.0 | 327.0 | 355.0 |
-| **Team Total** | — | Rec Yds | 2519.0 | 2854.9 | 3086.0 | **3241.0** | 3407.0 | 3621.1 | 4121.0 |
-| **Team Total** | — | Rec TDs | 5.0 | 11.0 | 15.0 | **17.0** | 20.0 | 24.0 | 31.0 |
-| **Team Total** | — | Std Fantasy | 433.5 | 507.3 | 548.7 | **575.7** | 606.6 | 649.2 | 714.7 |
-| **Team Total** | — | DK Fantasy | 566.0 | 650.2 | 698.5 | **730.5** | 766.4 | 817.7 | 906.1 |
+| **Darius Slayton** | WR4 | Targets | 17.0 | 25.0 | 30.0 | **33.5** | 37.0 | 44.0 | 54.0 |
+| **Darius Slayton** | WR4 | Receptions | 6.0 | 12.0 | 16.0 | **19.0** | 22.0 | 26.0 | 34.0 |
+| **Darius Slayton** | WR4 | Rec Yds | 49.0 | 122.0 | 184.8 | **228.0** | 276.0 | 359.0 | 476.0 |
+| **Darius Slayton** | WR4 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 6.0 |
+| **Darius Slayton** | WR4 | Std Fantasy | 11.5 | 21.8 | 31.5 | **38.7** | 46.8 | 60.8 | 81.9 |
+| **Darius Slayton** | WR4 | DK Fantasy | 14.5 | 29.0 | 40.2 | **48.4** | 57.6 | 73.7 | 97.2 |
+| **Darnell Mooney** | WR2 | Targets | 30.0 | 38.0 | 45.0 | **49.0** | 54.0 | 61.0 | 70.0 |
+| **Darnell Mooney** | WR2 | Receptions | 14.0 | 22.0 | 26.0 | **29.0** | 33.0 | 38.0 | 46.0 |
+| **Darnell Mooney** | WR2 | Rec Yds | 158.0 | 254.0 | 322.8 | **369.0** | 421.0 | 506.0 | 617.0 |
+| **Darnell Mooney** | WR2 | Rec TDs | 0.0 | 0.0 | 1.0 | **1.0** | 2.0 | 4.0 | 6.0 |
+| **Darnell Mooney** | WR2 | Std Fantasy | 27.7 | 41.9 | 53.6 | **62.1** | 71.4 | 86.0 | 114.7 |
+| **Darnell Mooney** | WR2 | DK Fantasy | 34.7 | 53.6 | 67.3 | **76.3** | 87.4 | 104.1 | 135.7 |
+| **Isaiah Likely** | TE1 | Targets | 46.0 | 56.0 | 62.0 | **66.0** | 71.0 | 78.0 | 92.0 |
+| **Isaiah Likely** | TE1 | Receptions | 27.0 | 36.0 | 41.0 | **45.0** | 49.0 | 54.0 | 66.0 |
+| **Isaiah Likely** | TE1 | Rec Yds | 261.0 | 331.0 | 393.0 | **447.0** | 505.0 | 580.0 | 748.0 |
+| **Isaiah Likely** | TE1 | Rec TDs | 2.0 | 2.0 | 3.0 | **4.0** | 5.0 | 6.0 | 10.0 |
+| **Isaiah Likely** | TE1 | Std Fantasy | 50.8 | 67.9 | 79.1 | **88.6** | 99.3 | 114.1 | 138.5 |
+| **Isaiah Likely** | TE1 | DK Fantasy | 68.3 | 90.6 | 104.2 | **115.7** | 127.9 | 145.0 | 171.8 |
+| **Malachi Fields** | WR3 | Targets | 34.0 | 42.0 | 48.0 | **52.0** | 57.0 | 64.0 | 75.0 |
+| **Malachi Fields** | WR3 | Receptions | 15.0 | 20.0 | 24.8 | **28.0** | 31.0 | 36.0 | 47.0 |
+| **Malachi Fields** | WR3 | Rec Yds | 140.0 | 230.9 | 298.8 | **355.0** | 413.0 | 510.0 | 653.0 |
+| **Malachi Fields** | WR3 | Rec TDs | 0.0 | 0.0 | 1.0 | **1.0** | 2.0 | 4.0 | 7.0 |
+| **Malachi Fields** | WR3 | Std Fantasy | 27.1 | 37.5 | 49.1 | **58.8** | 68.4 | 83.6 | 105.4 |
+| **Malachi Fields** | WR3 | DK Fantasy | 35.1 | 48.5 | 62.0 | **73.1** | 83.8 | 101.9 | 123.5 |
+| **Malik Nabers** | WR1 | Targets | 100.0 | 119.0 | 130.0 | **138.0** | 145.0 | 156.0 | 181.0 |
+| **Malik Nabers** | WR1 | Receptions | 53.0 | 68.0 | 76.0 | **82.0** | 87.0 | 96.0 | 113.0 |
+| **Malik Nabers** | WR1 | Rec Yds | 497.0 | 680.0 | 793.8 | **876.0** | 963.2 | 1094.1 | 1278.0 |
+| **Malik Nabers** | WR1 | Rec TDs | 0.0 | 1.0 | 3.0 | **4.0** | 6.0 | 8.0 | 12.0 |
+| **Malik Nabers** | WR1 | Std Fantasy | 93.3 | 122.7 | 140.7 | **155.9** | 171.6 | 196.9 | 228.4 |
+| **Malik Nabers** | WR1 | DK Fantasy | 119.8 | 160.2 | 183.0 | **202.2** | 220.8 | 251.2 | 290.4 |
+| **Odell Beckham** | WR6 | Targets | 7.0 | 16.0 | 20.0 | **23.5** | 27.0 | 32.0 | 47.0 |
+| **Odell Beckham** | WR6 | Receptions | 2.0 | 8.0 | 11.0 | **13.0** | 16.0 | 20.0 | 33.0 |
+| **Odell Beckham** | WR6 | Rec Yds | 0.0 | 54.0 | 87.0 | **119.0** | 152.2 | 210.0 | 309.0 |
+| **Odell Beckham** | WR6 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 5.0 |
+| **Odell Beckham** | WR6 | Std Fantasy | 3.2 | 11.8 | 18.5 | **24.9** | 32.1 | 42.9 | 69.5 |
+| **Odell Beckham** | WR6 | DK Fantasy | 4.2 | 16.2 | 24.4 | **31.5** | 39.6 | 52.1 | 86.0 |
+| **Theo Johnson** | WR5 | Targets | 16.0 | 22.0 | 27.0 | **30.0** | 33.0 | 38.0 | 47.0 |
+| **Theo Johnson** | WR5 | Receptions | 6.0 | 11.0 | 14.0 | **16.0** | 19.0 | 23.0 | 31.0 |
+| **Theo Johnson** | WR5 | Rec Yds | 17.0 | 80.0 | 115.0 | **145.5** | 185.0 | 236.0 | 327.0 |
+| **Theo Johnson** | WR5 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 6.0 |
+| **Theo Johnson** | WR5 | Std Fantasy | 9.7 | 15.7 | 22.5 | **28.5** | 35.5 | 46.3 | 75.6 |
+| **Theo Johnson** | WR5 | DK Fantasy | 14.2 | 21.6 | 29.7 | **36.5** | 44.6 | 57.3 | 91.1 |
+| **Team Total** | — | Targets | 256.0 | 295.9 | 315.0 | **329.0** | 344.0 | 366.0 | 387.0 |
+| **Team Total** | — | Receptions | 147.0 | 170.9 | 185.0 | **195.0** | 205.0 | 218.0 | 242.0 |
+| **Team Total** | — | Rec Yds | 1532.0 | 1853.9 | 2047.0 | **2184.0** | 2329.0 | 2511.1 | 2792.0 |
+| **Team Total** | — | Rec TDs | 4.0 | 8.0 | 11.0 | **14.0** | 16.0 | 19.0 | 25.0 |
+| **Team Total** | — | Std Fantasy | 296.6 | 342.5 | 372.2 | **399.6** | 425.5 | 462.2 | 518.7 |
+| **Team Total** | — | DK Fantasy | 370.9 | 434.8 | 470.2 | **502.2** | 534.9 | 576.9 | 636.2 |
 
 ## Defense & Special Teams
 
 | DST Team | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Defense** | Sacks | 26.0 | 31.0 | 37.0 | **42.0** | 46.0 | 52.0 | 64.0 |
-| **Defense** | INTs | 1.0 | 4.0 | 7.0 | **9.0** | 11.0 | 14.0 | 20.0 |
-| **Defense** | Fumble Rec | 0.0 | 1.0 | 3.0 | **4.0** | 6.0 | 8.0 | 12.0 |
+| **Defense** | Sacks | 17.0 | 25.0 | 30.0 | **34.0** | 38.0 | 43.0 | 54.0 |
+| **Defense** | INTs | 1.0 | 3.0 | 5.0 | **7.0** | 9.0 | 12.0 | 17.0 |
+| **Defense** | Fumble Rec | 0.0 | 1.0 | 2.0 | **4.0** | 5.0 | 7.0 | 12.0 |
 | **Defense** | TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 5.0 |
-| **Defense** | Pts Allowed | 264.0 | 335.9 | 372.0 | **398.5** | 426.0 | 466.0 | 531.0 |
-| **Defense** | Std Fantasy | 29.0 | 50.0 | 66.0 | **79.0** | 92.0 | 110.0 | 144.0 |
-| **Defense** | DK Fantasy | 29.0 | 50.0 | 66.0 | **79.0** | 92.0 | 110.0 | 144.0 |
+| **Defense** | Pts Allowed | 244.0 | 294.0 | 328.0 | **353.0** | 380.0 | 422.0 | 479.0 |
+| **Defense** | Std Fantasy | 14.0 | 33.0 | 48.0 | **60.0** | 71.0 | 89.0 | 123.0 |
+| **Defense** | DK Fantasy | 14.0 | 33.0 | 48.0 | **60.0** | 71.0 | 89.0 | 123.0 |
 

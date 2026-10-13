@@ -8,154 +8,139 @@
 
 | Player | Pos | Rush Att | Rush Yds | Rush TDs |
 | :--- | :---: | :---: | :---: | :---: |
-| **Javonte Williams** | RB | 300.0 | 1359.0 | 9.0 |
-| **Emari Demercado** | RB | 34.0 | 161.0 | 0.0 |
-| **KaVontae Turpin** | WR | 23.0 | 102.0 | 1.0 |
-| **Malik Davis** | RB | 22.0 | 104.0 | 0.0 |
-| **Dak Prescott** | QB | 18.0 | 108.0 | 1.0 |
-| **CeeDee Lamb** | WR | 13.0 | 57.0 | 0.0 |
-| **Hunter Luepke** | RB | 8.0 | 35.0 | 0.0 |
-| **George Pickens** | WR | 3.0 | 9.0 | 0.0 |
-| **Total** | — | 421.0 | 1935.0 | 11.0 |
+| **Javonte Williams** | RB | 277.0 | 1223.5 | 9.0 |
+| **Malik Davis** | RB | 68.0 | 303.0 | 2.0 |
+| **Dak Prescott** | QB | 26.0 | 157.5 | 1.0 |
+| **KaVontae Turpin** | WR | 21.0 | 92.0 | 1.0 |
+| **Emari Demercado** | RB | 20.0 | 83.5 | 0.0 |
+| **CeeDee Lamb** | WR | 6.0 | 20.0 | 0.0 |
+| **George Pickens** | WR | 2.0 | 5.0 | 0.0 |
+| **Total** | — | 420.0 | 1884.5 | 13.0 |
 
 **By Targets (season median)**
 
 | Player | Pos | Targets | Rec | Rec Yds | Rec TDs |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **CeeDee Lamb** | WR | 137.0 | 91.0 | 1102.0 | 8.0 |
-| **George Pickens** | WR | 107.5 | 67.0 | 976.0 | 7.0 |
-| **Jake Ferguson** | TE | 61.0 | 42.0 | 414.0 | 4.0 |
-| **Javonte Williams** | RB | 53.0 | 41.0 | 306.0 | 3.0 |
-| **KaVontae Turpin** | WR | 49.0 | 35.0 | 372.5 | 4.0 |
-| **Jonathan Mingo** | WR | 27.0 | 17.0 | 199.0 | 1.0 |
-| **Luke Schoonmaker** | TE | 14.0 | 10.0 | 109.0 | 0.0 |
-| **Emari Demercado** | RB | 13.0 | 10.0 | 74.0 | 0.0 |
-| **Ryan Flournoy** | WR | 13.0 | 9.0 | 98.0 | 1.0 |
-| **Hunter Luepke** | RB | 6.0 | 5.0 | 37.0 | 0.0 |
-| **Brevyn Spann-Ford** | TE | 5.0 | 3.0 | 31.0 | 0.0 |
-| **Malik Davis** | RB | 2.0 | 2.0 | 8.0 | 0.0 |
-| **Total** | — | 487.5 | 332.0 | 3726.5 | 28.0 |
+| **CeeDee Lamb** | WR | 137.0 | 97.0 | 1247.0 | 10.0 |
+| **George Pickens** | WR | 121.0 | 78.0 | 974.0 | 7.0 |
+| **Jake Ferguson** | TE | 73.0 | 51.0 | 523.0 | 7.0 |
+| **Ryan Flournoy** | WR | 68.0 | 44.0 | 465.0 | 3.0 |
+| **Javonte Williams** | RB | 43.0 | 34.0 | 231.0 | 2.0 |
+| **KaVontae Turpin** | WR | 34.0 | 23.0 | 277.0 | 2.0 |
+| **Luke Schoonmaker** | TE | 20.0 | 14.0 | 146.0 | 1.0 |
+| **Camden Brown** | WR | 15.0 | 10.0 | 124.0 | 1.0 |
+| **Malik Davis** | RB | 12.0 | 8.0 | 55.0 | 0.0 |
+| **Emari Demercado** | RB | 8.0 | 6.0 | 43.0 | 0.0 |
+| **Total** | — | 531.0 | 365.0 | 4085.0 | 33.0 |
 
 ## Quarterbacks
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Dak Prescott** | QB | Pass Yds | 3228.0 | 3523.7 | 3790.8 | **3974.5** | 4154.2 | 4428.1 | 4800.0 |
-| **Dak Prescott** | QB | Pass TDs | 16.0 | 25.0 | 29.0 | **32.0** | 35.0 | 40.0 | 47.0 |
-| **Dak Prescott** | QB | Cmp % | 58.5 | 61.3 | 63.1 | **64.5** | 65.9 | 67.7 | 71.2 |
-| **Dak Prescott** | QB | INTs | 0.0 | 4.0 | 6.0 | **8.0** | 10.0 | 13.0 | 18.0 |
-| **Dak Prescott** | QB | Std Fantasy | 181.2 | 229.2 | 257.5 | **277.0** | 296.2 | 328.1 | 365.6 |
-| **Dak Prescott** | QB | DK Fantasy | 200.2 | 250.4 | 277.1 | **297.8** | 317.7 | 354.2 | 401.1 |
-| **Team Total** | — | Pass Yds | 3228.0 | 3523.7 | 3790.8 | **3974.5** | 4154.2 | 4428.1 | 4800.0 |
-| **Team Total** | — | Pass TDs | 16.0 | 25.0 | 29.0 | **32.0** | 35.0 | 40.0 | 47.0 |
-| **Team Total** | — | Cmp % | 58.5 | 61.3 | 63.1 | **64.5** | 65.9 | 67.7 | 71.2 |
-| **Team Total** | — | INTs | 0.0 | 4.0 | 6.0 | **8.0** | 10.0 | 13.0 | 18.0 |
-| **Team Total** | — | Std Fantasy | 181.2 | 229.2 | 257.5 | **277.0** | 296.2 | 328.1 | 365.6 |
-| **Team Total** | — | DK Fantasy | 200.2 | 250.4 | 277.1 | **297.8** | 317.7 | 354.2 | 401.1 |
+| **Dak Prescott** | QB | Pass Yds | 3553.0 | 3811.8 | 4036.0 | **4201.0** | 4363.5 | 4594.1 | 4968.0 |
+| **Dak Prescott** | QB | Pass TDs | 21.0 | 28.0 | 32.0 | **35.0** | 38.0 | 43.0 | 49.0 |
+| **Dak Prescott** | QB | Cmp % | 56.7 | 60.8 | 63.0 | **64.6** | 66.2 | 68.2 | 70.8 |
+| **Dak Prescott** | QB | INTs | 2.0 | 4.0 | 6.0 | **8.0** | 10.0 | 13.0 | 19.0 |
+| **Dak Prescott** | QB | Std Fantasy | 227.3 | 264.5 | 288.9 | **306.6** | 326.0 | 352.4 | 382.7 |
+| **Dak Prescott** | QB | DK Fantasy | 249.6 | 285.3 | 310.7 | **330.3** | 350.5 | 378.9 | 419.7 |
+| **Team Total** | — | Pass Yds | 2823.0 | 3081.8 | 3306.0 | **3471.0** | 3633.5 | 3864.1 | 4238.0 |
+| **Team Total** | — | Pass TDs | 14.0 | 21.0 | 25.0 | **28.0** | 31.0 | 36.0 | 42.0 |
+| **Team Total** | — | Cmp % | 56.7 | 60.8 | 63.0 | **64.6** | 66.2 | 68.2 | 70.8 |
+| **Team Total** | — | INTs | 1.0 | 3.0 | 5.0 | **7.0** | 9.0 | 12.0 | 18.0 |
+| **Team Total** | — | Std Fantasy | 166.2 | 203.4 | 227.8 | **245.5** | 264.9 | 291.3 | 321.6 |
+| **Team Total** | — | DK Fantasy | 184.5 | 220.2 | 245.6 | **265.2** | 285.4 | 313.8 | 354.6 |
 
 ## Running Backs
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Emari Demercado** | RB3 | Rush Att | 16.0 | 25.0 | 30.0 | **34.0** | 38.0 | 44.0 | 54.0 |
-| **Emari Demercado** | RB3 | Rush Yds | 22.0 | 93.0 | 132.8 | **161.0** | 191.0 | 238.0 | 348.0 |
-| **Emari Demercado** | RB3 | Rush TDs | 0.0 | 0.0 | 0.0 | **0.0** | 1.0 | 2.0 | 5.0 |
-| **Emari Demercado** | RB3 | Receptions | 3.0 | 6.0 | 8.0 | **10.0** | 13.0 | 16.0 | 23.0 |
-| **Emari Demercado** | RB3 | Std Fantasy | 7.0 | 19.6 | 27.6 | **34.0** | 41.9 | 52.9 | 81.6 |
-| **Emari Demercado** | RB3 | DK Fantasy | 11.0 | 24.2 | 32.4 | **39.4** | 47.8 | 60.2 | 89.6 |
-| **Hunter Luepke** | RB4 | Rush Att | 1.0 | 4.0 | 7.0 | **8.0** | 10.0 | 14.0 | 19.0 |
-| **Hunter Luepke** | RB4 | Rush Yds | -4.0 | 9.0 | 24.0 | **35.0** | 52.0 | 82.0 | 157.0 |
-| **Hunter Luepke** | RB4 | Rush TDs | 0.0 | 0.0 | 0.0 | **0.0** | 1.0 | 1.0 | 4.0 |
-| **Hunter Luepke** | RB4 | Receptions | 0.0 | 2.0 | 4.0 | **5.0** | 7.0 | 9.0 | 14.0 |
-| **Hunter Luepke** | RB4 | Std Fantasy | 2.2 | 5.0 | 9.3 | **14.0** | 19.6 | 28.5 | 49.5 |
-| **Hunter Luepke** | RB4 | DK Fantasy | 2.8 | 6.2 | 11.4 | **16.6** | 22.7 | 33.1 | 54.5 |
-| **Javonte Williams** | RB1 | Rush Att | 233.0 | 265.0 | 286.0 | **300.0** | 315.0 | 338.0 | 378.0 |
-| **Javonte Williams** | RB1 | Rush Yds | 979.0 | 1133.8 | 1262.8 | **1359.0** | 1459.0 | 1620.0 | 1896.0 |
-| **Javonte Williams** | RB1 | Rush TDs | 0.0 | 4.0 | 7.0 | **9.0** | 10.0 | 13.0 | 19.0 |
-| **Javonte Williams** | RB1 | Receptions | 23.0 | 31.0 | 37.0 | **41.0** | 45.0 | 52.0 | 65.0 |
-| **Javonte Williams** | RB1 | Std Fantasy | 170.2 | 202.3 | 230.0 | **250.6** | 271.8 | 306.9 | 351.7 |
-| **Javonte Williams** | RB1 | DK Fantasy | 198.2 | 232.8 | 262.7 | **286.5** | 310.4 | 351.9 | 396.0 |
-| **Malik Davis** | RB2 | Rush Att | 9.0 | 15.0 | 19.0 | **22.0** | 26.0 | 32.0 | 38.0 |
-| **Malik Davis** | RB2 | Rush Yds | 18.0 | 52.0 | 80.0 | **104.0** | 128.0 | 172.0 | 253.0 |
-| **Malik Davis** | RB2 | Rush TDs | 0.0 | 0.0 | 0.0 | **0.0** | 1.0 | 2.0 | 3.0 |
-| **Malik Davis** | RB2 | Receptions | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 5.0 | 8.0 |
-| **Malik Davis** | RB2 | Std Fantasy | 1.8 | 6.8 | 11.2 | **15.3** | 20.4 | 29.3 | 48.4 |
-| **Malik Davis** | RB2 | DK Fantasy | 1.8 | 7.5 | 12.1 | **16.5** | 21.8 | 31.3 | 50.4 |
-| **Team Total** | — | Rush Att | 287.0 | 326.0 | 350.0 | **366.0** | 381.0 | 408.0 | 459.0 |
-| **Team Total** | — | Rush Yds | 1238.0 | 1414.0 | 1558.0 | **1667.5** | 1781.0 | 1958.2 | 2239.0 |
-| **Team Total** | — | Rush TDs | 2.0 | 5.0 | 8.0 | **10.0** | 12.0 | 15.0 | 20.0 |
-| **Team Total** | — | Receptions | 37.0 | 50.0 | 57.0 | **61.0** | 67.0 | 75.0 | 92.0 |
-| **Team Total** | — | Std Fantasy | 233.7 | 268.5 | 298.0 | **322.6** | 348.0 | 381.5 | 439.1 |
-| **Team Total** | — | DK Fantasy | 272.7 | 308.2 | 342.5 | **369.0** | 397.4 | 435.7 | 501.6 |
+| **Emari Demercado** | RB3 | Rush Att | 8.0 | 15.0 | 18.0 | **20.0** | 23.0 | 27.0 | 36.0 |
+| **Emari Demercado** | RB3 | Rush Yds | 13.0 | 47.0 | 66.0 | **83.5** | 103.0 | 136.0 | 203.0 |
+| **Emari Demercado** | RB3 | Rush TDs | 0.0 | 0.0 | 0.0 | **0.0** | 1.0 | 2.0 | 3.0 |
+| **Emari Demercado** | RB3 | Receptions | 1.0 | 3.0 | 5.0 | **6.0** | 8.0 | 11.0 | 16.0 |
+| **Emari Demercado** | RB3 | Std Fantasy | 4.7 | 10.4 | 15.4 | **20.5** | 26.1 | 36.5 | 56.6 |
+| **Emari Demercado** | RB3 | DK Fantasy | 6.2 | 12.7 | 18.5 | **24.0** | 30.0 | 40.3 | 61.1 |
+| **Javonte Williams** | RB1 | Rush Att | 225.0 | 249.0 | 265.0 | **277.0** | 289.0 | 307.0 | 348.0 |
+| **Javonte Williams** | RB1 | Rush Yds | 891.0 | 1035.7 | 1144.0 | **1223.5** | 1303.0 | 1429.1 | 1666.0 |
+| **Javonte Williams** | RB1 | Rush TDs | 3.0 | 5.0 | 7.0 | **9.0** | 10.0 | 13.0 | 17.0 |
+| **Javonte Williams** | RB1 | Receptions | 18.0 | 26.0 | 31.0 | **34.0** | 37.0 | 42.0 | 48.0 |
+| **Javonte Williams** | RB1 | Std Fantasy | 151.7 | 184.8 | 209.2 | **223.1** | 239.2 | 266.5 | 307.8 |
+| **Javonte Williams** | RB1 | DK Fantasy | 177.2 | 213.2 | 238.9 | **254.6** | 272.8 | 302.4 | 348.2 |
+| **Malik Davis** | RB2 | Rush Att | 40.0 | 54.0 | 62.0 | **68.0** | 74.0 | 82.0 | 102.0 |
+| **Malik Davis** | RB2 | Rush Yds | 137.0 | 209.9 | 259.0 | **303.0** | 349.0 | 420.0 | 575.0 |
+| **Malik Davis** | RB2 | Rush TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 4.0 | 8.0 |
+| **Malik Davis** | RB2 | Receptions | 1.0 | 4.0 | 6.0 | **8.0** | 11.0 | 14.0 | 20.0 |
+| **Malik Davis** | RB2 | Std Fantasy | 19.9 | 34.4 | 44.9 | **53.0** | 62.4 | 77.9 | 102.4 |
+| **Malik Davis** | RB2 | DK Fantasy | 22.4 | 38.1 | 49.0 | **57.6** | 67.5 | 83.3 | 108.9 |
+| **Team Total** | — | Rush Att | 251.0 | 281.0 | 303.0 | **318.0** | 333.0 | 354.0 | 398.0 |
+| **Team Total** | — | Rush Yds | 1004.0 | 1199.9 | 1339.5 | **1428.0** | 1528.2 | 1692.1 | 1891.0 |
+| **Team Total** | — | Rush TDs | 2.0 | 5.0 | 7.0 | **9.0** | 11.0 | 14.0 | 20.0 |
+| **Team Total** | — | Receptions | 20.0 | 29.0 | 35.0 | **39.0** | 43.0 | 49.0 | 58.0 |
+| **Team Total** | — | Std Fantasy | 152.0 | 208.6 | 235.2 | **253.8** | 273.4 | 306.2 | 377.7 |
+| **Team Total** | — | DK Fantasy | 174.5 | 233.9 | 264.1 | **285.8** | 305.8 | 341.1 | 427.2 |
 
 ## Wide Receivers & Tight Ends
 
 | Player | Slot | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Brevyn Spann-Ford** | WR7 | Targets | 0.0 | 2.0 | 3.0 | **5.0** | 6.0 | 9.0 | 15.0 |
-| **Brevyn Spann-Ford** | WR7 | Receptions | 0.0 | 1.0 | 2.0 | **3.0** | 5.0 | 7.0 | 12.0 |
-| **Brevyn Spann-Ford** | WR7 | Rec Yds | -5.0 | 1.0 | 16.0 | **31.0** | 51.0 | 85.0 | 188.0 |
-| **Brevyn Spann-Ford** | WR7 | Rec TDs | 0.0 | 0.0 | 0.0 | **0.0** | 0.0 | 1.0 | 3.0 |
-| **Brevyn Spann-Ford** | WR7 | Std Fantasy | 0.0 | 0.8 | 3.2 | **5.7** | 9.5 | 16.0 | 25.3 |
-| **Brevyn Spann-Ford** | WR7 | DK Fantasy | 0.0 | 1.4 | 4.5 | **7.7** | 11.8 | 19.2 | 33.8 |
-| **CeeDee Lamb** | WR1 | Targets | 105.0 | 118.0 | 130.0 | **137.0** | 146.0 | 157.0 | 182.0 |
-| **CeeDee Lamb** | WR1 | Receptions | 64.0 | 76.0 | 85.0 | **91.0** | 98.0 | 107.0 | 129.0 |
-| **CeeDee Lamb** | WR1 | Rec Yds | 668.0 | 848.0 | 999.0 | **1102.0** | 1212.2 | 1366.0 | 1602.0 |
-| **CeeDee Lamb** | WR1 | Rec TDs | 0.0 | 4.0 | 6.0 | **8.0** | 10.0 | 13.0 | 20.0 |
-| **CeeDee Lamb** | WR1 | Std Fantasy | 129.7 | 164.2 | 191.1 | **211.7** | 231.9 | 263.0 | 315.3 |
-| **CeeDee Lamb** | WR1 | DK Fantasy | 167.2 | 207.6 | 241.6 | **266.8** | 292.1 | 331.2 | 399.8 |
-| **George Pickens** | WR2 | Targets | 69.0 | 91.0 | 101.0 | **107.5** | 114.0 | 127.0 | 150.0 |
-| **George Pickens** | WR2 | Receptions | 44.0 | 54.0 | 62.0 | **67.0** | 73.0 | 82.0 | 93.0 |
-| **George Pickens** | WR2 | Rec Yds | 544.0 | 732.0 | 860.8 | **976.0** | 1081.0 | 1238.1 | 1564.0 |
-| **George Pickens** | WR2 | Rec TDs | 0.0 | 3.0 | 5.0 | **7.0** | 9.0 | 12.0 | 17.0 |
-| **George Pickens** | WR2 | Std Fantasy | 92.0 | 129.1 | 155.3 | **175.6** | 194.7 | 225.7 | 298.2 |
-| **George Pickens** | WR2 | DK Fantasy | 121.0 | 161.8 | 192.0 | **215.1** | 239.2 | 275.5 | 369.2 |
-| **Jake Ferguson** | TE1 | Targets | 34.0 | 48.0 | 56.0 | **61.0** | 67.0 | 75.0 | 95.0 |
-| **Jake Ferguson** | TE1 | Receptions | 23.0 | 32.0 | 38.0 | **42.0** | 47.0 | 54.0 | 73.0 |
-| **Jake Ferguson** | TE1 | Rec Yds | 163.0 | 283.9 | 357.0 | **414.0** | 478.0 | 568.1 | 735.0 |
-| **Jake Ferguson** | TE1 | Rec TDs | 0.0 | 1.0 | 3.0 | **4.0** | 5.0 | 8.0 | 11.0 |
-| **Jake Ferguson** | TE1 | Std Fantasy | 40.2 | 59.0 | 75.2 | **86.9** | 100.3 | 120.6 | 148.9 |
-| **Jake Ferguson** | TE1 | DK Fantasy | 52.3 | 77.4 | 95.6 | **108.7** | 124.6 | 147.1 | 183.4 |
-| **Jonathan Mingo** | WR8 | Targets | 13.0 | 19.0 | 23.0 | **27.0** | 30.0 | 36.0 | 45.0 |
-| **Jonathan Mingo** | WR8 | Receptions | 5.0 | 11.0 | 14.0 | **17.0** | 20.0 | 24.0 | 32.0 |
-| **Jonathan Mingo** | WR8 | Rec Yds | 27.0 | 109.0 | 157.0 | **199.0** | 243.2 | 307.0 | 492.0 |
-| **Jonathan Mingo** | WR8 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 1.0 | 2.0 | 4.0 |
-| **Jonathan Mingo** | WR8 | Std Fantasy | 11.0 | 17.8 | 25.3 | **32.3** | 40.4 | 51.8 | 81.2 |
-| **Jonathan Mingo** | WR8 | DK Fantasy | 15.5 | 23.8 | 32.6 | **41.3** | 50.4 | 63.1 | 95.2 |
-| **KaVontae Turpin** | WR4 | Targets | 29.0 | 37.0 | 44.0 | **49.0** | 54.0 | 62.0 | 75.0 |
-| **KaVontae Turpin** | WR4 | Receptions | 19.0 | 26.0 | 31.0 | **35.0** | 40.0 | 46.0 | 56.0 |
-| **KaVontae Turpin** | WR4 | Rec Yds | 93.0 | 215.9 | 307.0 | **372.5** | 452.0 | 564.0 | 773.0 |
-| **KaVontae Turpin** | WR4 | Rec TDs | 0.0 | 1.0 | 2.0 | **4.0** | 5.0 | 7.0 | 13.0 |
-| **KaVontae Turpin** | WR4 | Std Fantasy | 34.2 | 58.9 | 78.0 | **93.2** | 107.6 | 132.4 | 181.9 |
-| **KaVontae Turpin** | WR4 | DK Fantasy | 45.7 | 74.0 | 95.5 | **111.5** | 127.8 | 156.4 | 205.4 |
-| **Luke Schoonmaker** | WR5 | Targets | 5.0 | 9.0 | 12.0 | **14.0** | 17.0 | 20.0 | 31.0 |
-| **Luke Schoonmaker** | WR5 | Receptions | 2.0 | 5.0 | 8.0 | **10.0** | 12.0 | 15.0 | 23.0 |
-| **Luke Schoonmaker** | WR5 | Rec Yds | 5.0 | 42.0 | 76.0 | **109.0** | 143.0 | 198.0 | 326.0 |
-| **Luke Schoonmaker** | WR5 | Rec TDs | 0.0 | 0.0 | 0.0 | **0.0** | 1.0 | 2.0 | 5.0 |
-| **Luke Schoonmaker** | WR5 | Std Fantasy | 2.9 | 7.6 | 13.8 | **18.6** | 25.2 | 36.7 | 67.6 |
-| **Luke Schoonmaker** | WR5 | DK Fantasy | 4.9 | 10.6 | 17.9 | **23.9** | 31.2 | 43.7 | 78.6 |
-| **Ryan Flournoy** | WR3 | Targets | 2.0 | 8.0 | 10.0 | **13.0** | 15.0 | 19.0 | 25.0 |
-| **Ryan Flournoy** | WR3 | Receptions | 1.0 | 5.0 | 7.0 | **9.0** | 11.0 | 14.0 | 22.0 |
-| **Ryan Flournoy** | WR3 | Rec Yds | 1.0 | 35.0 | 69.0 | **98.0** | 133.0 | 189.0 | 306.0 |
-| **Ryan Flournoy** | WR3 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 1.0 | 2.0 | 4.0 |
-| **Ryan Flournoy** | WR3 | Std Fantasy | 1.6 | 6.7 | 12.7 | **18.5** | 24.9 | 35.1 | 56.2 |
-| **Ryan Flournoy** | WR3 | DK Fantasy | 2.6 | 9.6 | 16.8 | **23.0** | 30.6 | 41.7 | 64.2 |
-| **Team Total** | — | Targets | 367.0 | 400.0 | 422.0 | **438.0** | 454.0 | 476.0 | 508.0 |
-| **Team Total** | — | Receptions | 236.0 | 265.0 | 282.0 | **293.0** | 305.0 | 321.0 | 343.0 |
-| **Team Total** | — | Rec Yds | 2680.0 | 3096.6 | 3351.0 | **3513.5** | 3677.5 | 3940.2 | 4307.0 |
-| **Team Total** | — | Rec TDs | 12.0 | 20.0 | 25.0 | **27.0** | 31.0 | 36.0 | 45.0 |
-| **Team Total** | — | Std Fantasy | 527.5 | 602.4 | 653.3 | **686.2** | 718.3 | 775.1 | 860.7 |
-| **Team Total** | — | DK Fantasy | 668.0 | 751.6 | 812.7 | **851.0** | 888.9 | 954.6 | 1057.2 |
+| **Camden Brown** | WR6 | Targets | 6.0 | 9.0 | 12.0 | **15.0** | 17.0 | 21.0 | 31.0 |
+| **Camden Brown** | WR6 | Receptions | 2.0 | 5.0 | 8.0 | **10.0** | 12.0 | 15.0 | 20.0 |
+| **Camden Brown** | WR6 | Rec Yds | 12.0 | 52.0 | 88.0 | **124.0** | 158.0 | 215.0 | 289.0 |
+| **Camden Brown** | WR6 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 1.0 | 3.0 | 5.0 |
+| **Camden Brown** | WR6 | Std Fantasy | 1.7 | 9.1 | 15.6 | **21.4** | 28.8 | 41.0 | 58.2 |
+| **Camden Brown** | WR6 | DK Fantasy | 4.1 | 12.2 | 20.0 | **26.5** | 34.4 | 47.6 | 67.2 |
+| **CeeDee Lamb** | WR1 | Targets | 106.0 | 121.0 | 131.0 | **137.0** | 144.0 | 156.0 | 173.0 |
+| **CeeDee Lamb** | WR1 | Receptions | 76.0 | 83.0 | 91.0 | **97.0** | 103.0 | 112.0 | 122.0 |
+| **CeeDee Lamb** | WR1 | Rec Yds | 894.0 | 1025.0 | 1154.8 | **1247.0** | 1349.0 | 1505.0 | 1715.0 |
+| **CeeDee Lamb** | WR1 | Rec TDs | 3.0 | 6.0 | 8.0 | **10.0** | 12.0 | 14.0 | 20.0 |
+| **CeeDee Lamb** | WR1 | Std Fantasy | 164.6 | 193.4 | 217.6 | **233.6** | 253.6 | 282.1 | 331.3 |
+| **CeeDee Lamb** | WR1 | DK Fantasy | 208.6 | 243.8 | 273.2 | **293.9** | 317.4 | 352.2 | 410.6 |
+| **George Pickens** | WR2 | Targets | 95.0 | 105.0 | 114.0 | **121.0** | 128.0 | 137.0 | 152.0 |
+| **George Pickens** | WR2 | Receptions | 58.0 | 66.0 | 73.0 | **78.0** | 83.0 | 92.0 | 101.0 |
+| **George Pickens** | WR2 | Rec Yds | 619.0 | 766.0 | 883.0 | **974.0** | 1079.2 | 1222.1 | 1397.0 |
+| **George Pickens** | WR2 | Rec TDs | 0.0 | 3.0 | 5.0 | **7.0** | 9.0 | 11.0 | 15.0 |
+| **George Pickens** | WR2 | Std Fantasy | 105.7 | 139.0 | 161.1 | **179.7** | 197.2 | 226.6 | 275.4 |
+| **George Pickens** | WR2 | DK Fantasy | 141.7 | 177.9 | 205.3 | **228.1** | 249.2 | 285.6 | 342.4 |
+| **Jake Ferguson** | TE1 | Targets | 51.0 | 61.0 | 68.0 | **73.0** | 79.0 | 87.0 | 96.0 |
+| **Jake Ferguson** | TE1 | Receptions | 30.0 | 42.0 | 48.0 | **51.0** | 56.0 | 62.0 | 75.0 |
+| **Jake Ferguson** | TE1 | Rec Yds | 250.0 | 383.0 | 467.0 | **523.0** | 589.0 | 686.0 | 955.0 |
+| **Jake Ferguson** | TE1 | Rec TDs | 3.0 | 4.0 | 6.0 | **7.0** | 8.0 | 11.0 | 14.0 |
+| **Jake Ferguson** | TE1 | Std Fantasy | 54.0 | 90.1 | 106.6 | **117.7** | 129.4 | 152.4 | 191.0 |
+| **Jake Ferguson** | TE1 | DK Fantasy | 71.0 | 113.5 | 132.5 | **145.1** | 159.3 | 184.9 | 238.5 |
+| **KaVontae Turpin** | WR4 | Targets | 16.0 | 25.0 | 30.0 | **34.0** | 38.0 | 44.0 | 54.0 |
+| **KaVontae Turpin** | WR4 | Receptions | 12.0 | 16.0 | 20.0 | **23.0** | 26.0 | 32.0 | 42.0 |
+| **KaVontae Turpin** | WR4 | Rec Yds | 67.0 | 156.0 | 223.8 | **277.0** | 343.2 | 448.0 | 623.0 |
+| **KaVontae Turpin** | WR4 | Rec TDs | 0.0 | 0.0 | 1.0 | **2.0** | 3.0 | 5.0 | 9.0 |
+| **KaVontae Turpin** | WR4 | Std Fantasy | 27.7 | 47.8 | 59.7 | **70.0** | 83.4 | 101.1 | 141.1 |
+| **KaVontae Turpin** | WR4 | DK Fantasy | 33.7 | 57.2 | 71.2 | **81.9** | 97.0 | 118.2 | 159.1 |
+| **Luke Schoonmaker** | WR5 | Targets | 9.0 | 13.0 | 17.0 | **20.0** | 23.0 | 27.0 | 36.0 |
+| **Luke Schoonmaker** | WR5 | Receptions | 3.0 | 8.0 | 11.0 | **14.0** | 16.0 | 20.0 | 28.0 |
+| **Luke Schoonmaker** | WR5 | Rec Yds | 46.0 | 75.0 | 115.0 | **146.0** | 180.0 | 245.1 | 382.0 |
+| **Luke Schoonmaker** | WR5 | Rec TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 7.0 |
+| **Luke Schoonmaker** | WR5 | Std Fantasy | 6.8 | 13.6 | 21.5 | **28.4** | 36.5 | 48.9 | 72.9 |
+| **Luke Schoonmaker** | WR5 | DK Fantasy | 8.3 | 18.4 | 27.5 | **35.6** | 44.3 | 57.9 | 82.4 |
+| **Ryan Flournoy** | WR3 | Targets | 45.0 | 57.0 | 63.0 | **68.0** | 73.0 | 79.0 | 93.0 |
+| **Ryan Flournoy** | WR3 | Receptions | 21.0 | 35.0 | 40.0 | **44.0** | 48.0 | 54.0 | 67.0 |
+| **Ryan Flournoy** | WR3 | Rec Yds | 155.0 | 336.0 | 408.0 | **465.0** | 528.0 | 624.1 | 800.0 |
+| **Ryan Flournoy** | WR3 | Rec TDs | 0.0 | 1.0 | 2.0 | **3.0** | 4.0 | 6.0 | 11.0 |
+| **Ryan Flournoy** | WR3 | Std Fantasy | 32.0 | 62.0 | 76.1 | **87.0** | 98.1 | 118.2 | 160.7 |
+| **Ryan Flournoy** | WR3 | DK Fantasy | 42.5 | 81.5 | 96.8 | **109.2** | 122.9 | 145.4 | 189.7 |
+| **Team Total** | — | Targets | 326.0 | 355.0 | 374.0 | **388.0** | 401.0 | 423.0 | 455.0 |
+| **Team Total** | — | Receptions | 219.0 | 237.0 | 252.0 | **262.0** | 273.0 | 288.0 | 308.0 |
+| **Team Total** | — | Rec Yds | 2505.0 | 2784.9 | 3019.0 | **3184.5** | 3346.0 | 3559.1 | 3984.0 |
+| **Team Total** | — | Rec TDs | 14.0 | 19.0 | 23.0 | **26.0** | 29.0 | 34.0 | 40.0 |
+| **Team Total** | — | Std Fantasy | 489.4 | 543.6 | 588.6 | **621.0** | 653.6 | 697.7 | 801.9 |
+| **Team Total** | — | DK Fantasy | 617.7 | 677.4 | 732.0 | **769.1** | 807.1 | 860.3 | 973.9 |
 
 ## Defense & Special Teams
 
 | DST Team | Stat | Min | 5th Pct | 25th Pct | Median | 75th Pct | 95th Pct | Max |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Defense** | Sacks | 24.0 | 31.0 | 37.0 | **41.0** | 47.0 | 53.0 | 68.0 |
-| **Defense** | INTs | 1.0 | 5.0 | 7.0 | **9.0** | 11.0 | 14.0 | 25.0 |
-| **Defense** | Fumble Rec | 0.0 | 2.0 | 3.0 | **4.0** | 6.0 | 8.0 | 14.0 |
-| **Defense** | TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 6.0 |
-| **Defense** | Pts Allowed | 246.0 | 290.0 | 324.0 | **349.0** | 375.0 | 409.0 | 480.0 |
-| **Defense** | Std Fantasy | 42.0 | 64.0 | 81.0 | **93.0** | 106.0 | 127.0 | 164.0 |
-| **Defense** | DK Fantasy | 42.0 | 64.0 | 81.0 | **93.0** | 106.0 | 127.0 | 164.0 |
+| **Defense** | Sacks | 17.0 | 23.0 | 28.0 | **32.0** | 36.0 | 42.0 | 52.0 |
+| **Defense** | INTs | 0.0 | 4.0 | 6.0 | **8.0** | 10.0 | 13.0 | 18.0 |
+| **Defense** | Fumble Rec | 0.0 | 1.0 | 2.0 | **3.0** | 5.0 | 7.0 | 10.0 |
+| **Defense** | TDs | 0.0 | 0.0 | 0.0 | **1.0** | 2.0 | 3.0 | 5.0 |
+| **Defense** | Pts Allowed | 185.0 | 244.0 | 275.0 | **298.0** | 321.0 | 350.0 | 401.0 |
+| **Defense** | Std Fantasy | 24.0 | 46.0 | 62.0 | **73.0** | 84.0 | 102.0 | 140.0 |
+| **Defense** | DK Fantasy | 24.0 | 46.0 | 62.0 | **73.0** | 84.0 | 102.0 | 140.0 |
 
