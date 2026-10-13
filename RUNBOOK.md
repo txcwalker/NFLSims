@@ -48,6 +48,7 @@ Run top to bottom. Order matters: each group feeds the next.
 | # | Task | How | Mode | Depends on |
 |---|---|---|---|---|
 | C1 | Build the `<W>` override sheets from season_long + status ledger | `scripts/roster_management/build_week_overrides_v_0_1_0.py <W>` | manual | A1 |
+| C1a | Hand-check the `<W>` share sheets: every column sums to 1.0, no out/practice-squad player holds share, review SPIKE flags (C1 now normalizes shares automatically) | `scripts/roster_management/audit_week_shares_v_0_1_0.py <W> [TEAM] [--flags-only]` | manual | C1 |
 | C2 | Compile the sheets into the DFS roster tree (also applies the hand-edited `data/overrides/2026/qb_rate_overrides.csv` -- QB cpoe / air yards / sack / scramble overrides) | `scripts/roster_management/apply_team_week_overrides_v_0_1_0.py <W>` | manual | C1 |
 | C3 | Run the week sim (feeds optimizers + ownership inputs) | `scripts/simulation_runners/run_week_sim_2026.py <W>` (10k iterations default) | manual | C2 |
 | C4 | **Shortcut for A1 + C1 → C3 + verify.** One command: refresh DNA through `<W-1>`, build sheets, compile rosters, run the sim, confirm the DFS API lists week `<W>` (flags `--skip-refresh`, `--skip-sim`). The DFS site picks the week up on its own: `/api/weeks` lists every week that has both `dfs_week_N_*.parquet` files, so no code edit or restart is needed (hardcoded list removed 2026-10-13) | `scripts/roster_management/setup_week_v_0_1_0.py <W>` | manual | nflverse has published `<W-1>` data |
