@@ -220,6 +220,19 @@ OPEN_FIELD_CALIBRATION_OFFSET = 0.0
 #   disrupt the pass game" (real r ~0.4-0.5), an explicit stopgap until a real
 #   coverage / EPA-allowed feature exists. Backtrack: 0.0.
 QB_CPOE_COMPLETION_GAIN = 1.4
+
+# PACE_MODE_DEFAULT: team pace/no-huddle switch ('off' | 'pace' | 'nh' | 'both'); the env var
+# NFL_SIM_PACE_MODE overrides it. 'pace' (huddle tempo only) is the default: Week 5 test improved
+# team-snap corr 0.297->0.332 / RMSE 4.82->4.75; 'nh' did not help, so it stays opt-in. See _apply_team_pace and scripts/eda/analyze_team_pace.py.
+PACE_MODE_DEFAULT = "pace"
+
+# PACE_NUDGE_SECONDS: global calibration nudge added to every pace-pool draw (see the long note in
+# _sample_pace_runoff). Was a hardcoded +5s while the pool still contained ~10% non-snap rows (PATs,
+# penalty no-plays, punts, kneels, spikes); the pool was rebuilt with real pass/run snaps only on
+# 2026-10-08, which raised its mean from 33.2s to 36.6s, so the nudge was re-fit to +3s: Week 5 slate
+# (15 games x 600) gave +1s 130.17, +2s 127.20, +3s 124.30 combined plays/game vs the 123.82 target
+# (env var NFL_SIM_PACE_NUDGE overrides, for the calibration harness).
+PACE_NUDGE_SECONDS = int(os.environ.get("NFL_SIM_PACE_NUDGE", "3"))
 PASS_DEF_COMPLETION_SCALE = 0.015
 
 
@@ -423,6 +436,19 @@ class NFLGameEngine:
 
         self.pass_mult_away_off = 1.00 + qb_diff_away_off * 0.04
         self.pass_mult_home_off = 1.00 + qb_diff_home_off * 0.04
+
+        # Per-team offensive gain boost (2026-10-11, manual game-total calibration).
+        # Env NFL_SIM_GAIN_BOOST="DET:1.25,ARI:1.18" multiplies that team's POSITIVE
+        # pass and rush gains. Unset (the default) = 1.0 for everyone, so every other
+        # game is unchanged. Used to pull one game's mean total toward a hand-picked
+        # number; the multipliers are tuned empirically, not fit to data.
+        _boost = {}
+        for _kv in os.environ.get("NFL_SIM_GAIN_BOOST", "").split(","):
+            if ":" in _kv:
+                _k, _v = _kv.split(":")
+                _boost[_k.strip().upper()] = float(_v)
+        self.gain_boost_away = _boost.get(str(away_team).upper(), 1.0)
+        self.gain_boost_home = _boost.get(str(home_team).upper(), 1.0)
 
         # Gate 2b (v0.4.0): sack-probability correction using real
         # pass-block/pass-rush composites (pass_block_off_z, pass_def_z --
@@ -732,6 +758,28 @@ class NFLGameEngine:
             away_team: _proe_to_logit_offset(get_coach_proe(away_team, self.year)),
             home_team: _proe_to_logit_offset(get_coach_proe(home_team, self.year))
         }
+
+        # Team-specific pace / no-huddle tendencies (experimental, 2026-10-08).
+        # data/dna/team_pace_{year}.json from refresh_team_pace_v_0_1_0.py; absent file
+        # or PACE_MODE 'off' leaves the league-wide pace pools untouched.
+        self.pace_mode = os.environ.get("NFL_SIM_PACE_MODE", PACE_MODE_DEFAULT)
+        self.team_pace_tab = {}
+        self.league_nh_rate = np.zeros(3)
+        self.nh_log_effect = 0.0
+        pace_path = f"data/dna/team_pace_{self.year}.json"
+        if self.pace_mode != "off" and os.path.exists(pace_path):
+            with open(pace_path, "r") as f:
+                pace_json = json.load(f)
+            meta = pace_json["_metadata"]
+            self.nh_log_effect = float(meta["nh_log_effect"])
+            sits = ("neutral", "trail2", "lead2")
+            self.league_nh_rate = np.array([meta["league_nh_rate"][s] for s in sits])
+            for tm in (away_team, home_team):
+                row = pace_json["teams"].get(tm, {})
+                self.team_pace_tab[tm] = {
+                    "pace": np.array([row.get(f"pace_{s}", 0.0) for s in sits]),
+                    "nh": np.array([row.get(f"nh_{s}", meta["league_nh_rate"][s]) for s in sits]),
+                }
 
         # Precompute DNA splits lookup maps for the loaded teams to avoid deep
         # splits lookups inside the high-frequency loops.
@@ -2115,6 +2163,7 @@ class NFLGameEngine:
 
                         # Total gain = air yards + yac, scaled by pass multipliers to raise totals and widen spreads
                         pass_multipliers = np.where(self.possession_is_away[is_complete], self.pass_mult_away_off, self.pass_mult_home_off)
+                        pass_multipliers = pass_multipliers * np.where(self.possession_is_away[is_complete], self.gain_boost_away, self.gain_boost_home)
                         raw_gain = play_air_yards[is_complete] + yac
                         play_gain[is_complete] = np.clip(np.round(raw_gain * pass_multipliers).astype(np.int32), -10, self.yardline_100[is_complete])
 
@@ -2300,6 +2349,8 @@ class NFLGameEngine:
                         np.random.choice(self.rush_positive_pool, size=np.sum(is_rescued))
                     ).astype(np.int32)
 
+            run_boost = np.where(self.possession_is_away[is_run], self.gain_boost_away, self.gain_boost_home)
+            gain = np.where(gain > 0, np.round(gain * run_boost).astype(np.int32), gain)
             gain = np.clip(gain, -10, self.yardline_100[is_run])
             play_gain[is_run] = gain
 
@@ -2998,7 +3049,38 @@ class NFLGameEngine:
         # stated 60-63/team acceptable range. Propagates into OOB's runoff
         # too (draws from this same pool before its reduction) — intentional,
         # it's a broad "time between plays" adjustment, not play-type-specific.
-        return np.round(result).astype(np.int32) + 5
+        result = self._apply_team_pace(result, mask, row_group, score_diff)
+        return np.round(result).astype(np.int32) + PACE_NUDGE_SECONDS
+
+    def _apply_team_pace(self, result, mask, row_group, score_diff):
+        """Inputs: result (float runoff draws for `mask`'s lanes, from the league pools), mask
+        (lanes), row_group (time-window labels, same order), score_diff (posteam perspective).
+        Output: result scaled by the possessing team's pace tendencies.
+        Purpose: 'pace' multiplies by exp(team huddle-tempo delta for the game state); 'nh'
+        draws a no-huddle flag at the team's rate for the game state and scales by
+        exp(nh_log_effect) if no-huddle else by the mean-preserving huddle factor; 'both' does
+        both. Game states: neutral |diff|<=8, trail2 diff<=-9, lead2 diff>=9. Never applied in
+        the last 2:00 of Q2/Q4 (clock strategy is modelled explicitly there)."""
+        if self.pace_mode == "off" or not self.team_pace_tab:
+            return result
+        sit = np.where(np.abs(score_diff) <= 8, 0, np.where(score_diff <= -9, 1, 2))
+        live = ~np.isin(row_group, ["Q2 <2:00", "Q4 <2:00"])
+        away = self.possession_is_away[mask]
+        a, h = self.team_pace_tab.get(self.away_team), self.team_pace_tab.get(self.home_team)
+        if a is None or h is None:
+            return result
+        log_mult = np.zeros(len(result))
+        if self.pace_mode in ("pace", "both"):
+            log_mult += np.where(away, a["pace"][sit], h["pace"][sit])
+        if self.pace_mode in ("nh", "both"):
+            rate = np.where(away, a["nh"][sit], h["nh"][sit])
+            lg = self.league_nh_rate[sit]
+            is_nh = np.random.random(len(result)) < rate
+            # mean-preserving at the LEAGUE rate: lg*d_nh + (1-lg)*d_hud = 0
+            d_nh = self.nh_log_effect
+            d_hud = -lg * d_nh / (1.0 - lg)
+            log_mult += np.where(is_nh, d_nh, d_hud)
+        return np.where(live, result * np.exp(log_mult), result)
 
     def _run_clock(self, seconds, mask):
         # Two-minute warning (clock_physics_v020): automatic, free stoppage the

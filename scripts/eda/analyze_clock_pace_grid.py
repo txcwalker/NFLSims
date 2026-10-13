@@ -81,7 +81,17 @@ def analyze_clock_pace_grid():
         (df['game_clock_elapsed'].notna()) &
         (df['game_clock_elapsed'] >= 0) &
         (df['game_clock_elapsed'] <= 60) &
-        (df['prev_play_type'].isin(off_types))
+        (df['prev_play_type'].isin(off_types)) &
+        # 2026-10-08: the CURRENT play must be a real scrimmage snap. This pool is only ever drawn for
+        # normal pass/run snaps in game_engine._sample_pace_runoff, but the cohort used to filter only the
+        # PREVIOUS play, so rows whose current play was an extra point (3,806 of 2021-25's 117k), a
+        # penalty 'no_play' (5,071), a punt/field goal, a kneel or a spike were in the pool -- ~10% of it was
+        # <=6s of non-snap time (PAT / penalty / special-teams timing). Spikes, kneels, punts and field goals
+        # are modelled explicitly elsewhere in the engine (strategic phase, special-teams branches), so
+        # they are cut here, not just trimmed. Late-game hurry-up behaviour (tied/trailing in Q4/OT) lives
+        # in the pool's own Q4 time-window x margin cells, which are built from real pass/run snaps and
+        # are kept; the engine's explicit spike/kneel/timeout logic is untouched.
+        (df['play_type'].isin(['pass', 'run']))
     ].copy()
 
     running_clock_df = valid_df[~valid_df['prev_clock_stopped'] & ~valid_df['possession_change']].copy()

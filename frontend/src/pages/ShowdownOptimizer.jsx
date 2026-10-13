@@ -175,9 +175,71 @@ function buildShowdownPool(simRes) {
   return pool.sort((a, b) => b.projection - a.projection);
 }
 
+// DK's real Showdown cap. settings.maxSalary can only go BELOW it (forces our
+// lineups to leave salary on the table); the backend's synthetic field and
+// the "over cap" warning always use this real number.
+const DK_SALARY_CAP = 50000;
+
+// ─── Post-generation lineup filter (2026-09-29) ──────────────────────────────
+// Ownership cuts applied AFTER lineups come back, not solver constraints: a
+// lineup failing any set threshold is dropped from the table, exposures,
+// portfolio tiles and the CSV export (a real portfolio cut -- unlike the
+// exposure drill-down, which is view-only). null = threshold off.
+//   maxSumOwn -- max summed ownership % (CPT own + 5 FLEX own)
+//   minOneIn  -- product ownership must be at least as rare as "1 in X"
+//   maxDupe   -- max estimated duplicates (field size x product ownership)
+const DEFAULT_LINEUP_FILTER = { maxSumOwn: null, minOneIn: null, maxDupe: null };
+
+/** Does lineup `lu` pass the ownership filter `f`? Inputs: backend lineup
+ *  object, DEFAULT_LINEUP_FILTER-shaped object. Output: bool. A lineup
+ *  without product_ownership (older saved slot) is judged on the rest only. */
+function passesLineupFilter(lu, f) {
+  if (f.maxSumOwn != null && (lu.total_ownership ?? 0) > f.maxSumOwn) return false;
+  if (f.maxDupe != null && (lu.dupe_est ?? 0) > f.maxDupe) return false;
+  if (f.minOneIn != null && lu.product_ownership != null && lu.product_ownership > 1 / f.minOneIn) return false;
+  return true;
+}
+
+/** Product ownership as "1 in X" (Input: probability float; Output: str),
+ *  e.g. 2.5e-6 -> "1 in 400K". The raw numbers (~1e-7) are unreadable. */
+function fmtOneIn(p) {
+  if (p == null) return '—';
+  if (!(p > 0)) return '1 in ∞';
+  const x = 1 / p;
+  if (x >= 1e9) return `1 in ${(x / 1e9).toFixed(1)}B`;
+  if (x >= 1e6) return `1 in ${(x / 1e6).toFixed(1)}M`;
+  if (x >= 1e3) return `1 in ${Math.round(x / 1e3)}K`;
+  return `1 in ${Math.round(x)}`;
+}
+
+/** Stable identity for a lineup (Input: lineup; Output: str "CPT|flex,flex..").
+ *  Keys the paper-trade ✓ map so a flag stays on ITS lineup when the table is
+ *  re-sorted, drilled into, or ownership-filtered (was keyed by row index). */
+const lineupSig = (lu) => {
+  const cpt = lu.players.find(p => p.slot === 'CPT');
+  const flex = lu.players.filter(p => p.slot === 'FLEX').map(p => `${p.name}_${p.team}`).sort();
+  return `${cpt ? `${cpt.name}_${cpt.team}` : ''}|${flex.join(',')}`;
+};
+
+/** How many of the 6 players (captain included) are from the AWAY team.
+ *  Inputs: lineup, away team abbr. Output: int 1-5 (DK requires both teams).
+ *  Builds are always read away-first: 4 = "4-2" = 4 away / 2 home. */
+const awayCountOf = (lu, away) => lu.players.filter(p => p.team === away).length;
+const BUILD_AWAY_COUNTS = [5, 4, 3, 2, 1];
+
 const DEFAULT_SETTINGS = {
   contestType: 'top_heavy',
   objective: 'blend',       // 'blend' | 'mean' | 'median' | 'ceiling' — see objectiveProjection
+  maxSalary: DK_SALARY_CAP, // max salary OUR lineups may use (<= DK_SALARY_CAP)
+  minSalary: 0,             // min salary OUR lineups must use (0 = no floor; <= maxSalary)
+  // Per-lineup caps on defenses / kickers (captain slot included). '' = no limit.
+  maxDstK: '',              // DST + K combined
+  maxDst: '',               // DST alone
+  maxK: '',                 // K alone
+  // Build minimums: { [away count 1-5]: min % of lineups (0-100) }, blank =
+  // no minimum. Floors only -- the solver forces a build only when it falls
+  // behind pace; see optimize_showdown's _pick_forced_build.
+  buildMinimums: {},
   nLineups: 20,
   minUnique: 2,
   maxExposure: 60,
@@ -278,7 +340,11 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
   // ── Paper trading (Phase 3): flag a lineup as "I'm actually entering this".
   // score_paper_entries.py settles it later against a dropped-in standings CSV.
   const [paperDefaults, setPaperDefaults] = useState({ contestName: '', entryFee: 20, maxEntries: 1 });
-  const [savedPaperIds, setSavedPaperIds] = useState({}); // { [row idx]: entry_id }
+  const [savedPaperIds, setSavedPaperIds] = useState({}); // { [lineupSig]: entry_id }
+  // Post-generation ownership cut (see DEFAULT_LINEUP_FILTER). Saved with the
+  // workspace slot; the full generated set is kept underneath so loosening a
+  // threshold never needs a re-optimize.
+  const [lineupFilter, setLineupFilter] = useState(DEFAULT_LINEUP_FILTER);
   const [paperStatus, setPaperStatus] = useState('');
 
   const patchPlayer = (id, patch) =>
@@ -614,8 +680,8 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
   // the slate (chalk / contrarian / stack) can be kept side by side.
   const slateKey = gameId ? `showdown_${gameId}` : null;
   const workspaceSnapshot = useMemo(() => ({
-    edits, frozenOwn, settings, labRows, lineups, portfolio, notes, resultsMode, view, scenario,
-  }), [edits, frozenOwn, settings, labRows, lineups, portfolio, notes, resultsMode, view, scenario]);
+    edits, frozenOwn, settings, labRows, lineups, portfolio, notes, resultsMode, view, scenario, lineupFilter,
+  }), [edits, frozenOwn, settings, labRows, lineups, portfolio, notes, resultsMode, view, scenario, lineupFilter]);
   const onHydrateWorkspace = (data) => {
     // Reset to defaults (not a same-key merge) when the slot has nothing
     // saved for a field -- an empty slot must actually look empty, not
@@ -630,6 +696,7 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
     setResultsMode(data.resultsMode || 'optimize');
     setView((data.lineups || []).length ? (data.view || 'pool') : 'pool');
     setScenario(data.scenario || null);
+    setLineupFilter({ ...DEFAULT_LINEUP_FILTER, ...(data.lineupFilter || {}) });
     setExpanded(null);
   };
   const workspace = useWorkspaceSlots(slateKey, selectedWeek, 2026, workspaceSnapshot, onHydrateWorkspace);
@@ -661,9 +728,21 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
       };
     });
 
+  // Build minimums as lineup counts for the current # Lineups -- rounds UP
+  // exactly like the backend's _build_quotas, so the hint and the 400 agree.
+  // Output: [{ away, pct, count }] for every build with a minimum set.
+  const buildMinQuotas = BUILD_AWAY_COUNTS
+    .map(a => ({ away: a, pct: +(settings.buildMinimums?.[a] || 0) }))
+    .filter(q => q.pct > 0)
+    .map(q => ({ ...q, count: Math.ceil((q.pct / 100) * settings.nLineups - 1e-9) }));
+  const buildMinTotal = buildMinQuotas.reduce((s, q) => s + q.count, 0);
+
   const handleOptimize = async () => {
     setError('');
     if (activeCount < 6) { setError('Need at least 6 non-excluded players.'); return; }
+    if (buildMinTotal > settings.nLineups) {
+      setError(`Build minimums need ${buildMinTotal} lineups but # Lineups is ${settings.nLineups}.`); return;
+    }
     if (cptLockCount > 1) { setError('Only one player can be locked as captain.'); return; }
     if (cptEligibleCount < 1) { setError('At least one player must be eligible for the captain pool.'); return; }
     setIsOptimizing(true);
@@ -673,7 +752,12 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
         week: selectedWeek,
         players: buildPlayersPayload(false),
         n_lineups: settings.nLineups,
-        salary_cap: 50000,
+        salary_cap: Math.min(DK_SALARY_CAP, Math.max(1, settings.maxSalary || DK_SALARY_CAP)),
+        min_salary: Math.min(Math.max(0, settings.minSalary || 0), Math.min(DK_SALARY_CAP, Math.max(1, settings.maxSalary || DK_SALARY_CAP))),
+        // Blank = no limit (omitted); otherwise clamp to 0-6 lineup slots.
+        ...Object.fromEntries([['max_dst_k', settings.maxDstK], ['max_dst', settings.maxDst], ['max_k', settings.maxK]]
+          .filter(([, v]) => v !== '' && v != null && !Number.isNaN(+v))
+          .map(([k, v]) => [k, Math.min(6, Math.max(0, Math.round(+v)))])),
         contest_type: settings.contestType,
         min_unique_players: settings.minUnique,
         max_exposure: settings.maxExposure / 100,
@@ -689,6 +773,12 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
         // (see GameDistribution's onSelect) instead of all 1000 -- "given this
         // game plays out in this range, which lineups actually do well".
         iteration_filter: scenario?.idx || undefined,
+        // % -> fraction, blanks/zeros dropped; away_team tells the backend
+        // which side the "4" in a 4-2 build counts.
+        ...(buildMinQuotas.length ? {
+          build_minimums: Object.fromEntries(buildMinQuotas.map(q => [q.away, q.pct / 100])),
+          away_team: activeGame?.away_team,
+        } : {}),
       };
       const res = await ApiService.optimizeShowdown(payload);
       if (!res || !res.lineups) { setError('Optimizer returned nothing — is the backend running?'); return; }
@@ -730,7 +820,7 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
         game_id: gameId,
         week: selectedWeek,
         players: buildPlayersPayload(true),
-        salary_cap: 50000,
+        salary_cap: DK_SALARY_CAP, // Lab scores hand lineups -- nothing to constrain
         contest_type: settings.contestType,
         entry_fee: settings.entryFee,
         total_entries: settings.fieldSize,
@@ -779,48 +869,171 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
     };
     const res = await ApiService.savePaperEntry(slateId, entry, selectedWeek);
     if (res && res.entry_id) {
-      setSavedPaperIds(m => ({ ...m, [idx]: res.entry_id }));
+      setSavedPaperIds(m => ({ ...m, [lineupSig(lu)]: res.entry_id }));
       setPaperStatus(`📝 Saved "${lu.label || `Lineup ${idx + 1}`}" into ${paperDefaults.contestName}`);
     } else {
       setPaperStatus('Save failed — is the backend running?');
     }
   };
 
+  // ── Ownership cut + build tagging ───────────────────────────────────────────
+  // `keptLineups` = generated lineups that pass the ownership filter, each
+  // tagged with `build_away` (away-team players incl. CPT) for the Build
+  // column/sort. EVERYTHING downstream -- exposures, portfolio tiles, the
+  // drill-down, the table, the CSV export -- reads keptLineups, never
+  // `lineups`, so a filtered-out lineup is really out of the portfolio.
+  const awayTeam = activeGame?.away_team;
+  const homeTeam = activeGame?.home_team;
+  const filterActive = lineupFilter.maxSumOwn != null || lineupFilter.minOneIn != null || lineupFilter.maxDupe != null;
+  const keptLineups = useMemo(
+    () => lineups
+      .filter(lu => passesLineupFilter(lu, lineupFilter))
+      .map(lu => ({ ...lu, build_away: awayTeam ? awayCountOf(lu, awayTeam) : null })),
+    [lineups, lineupFilter, awayTeam],
+  );
+
+  /** Portfolio tiles recomputed over the kept set -- the backend's `portfolio`
+   *  describes every generated lineup, which is stale once the filter cuts.
+   *  Input: kept lineups + backend portfolio. Output: portfolio-shaped object.
+   *  Eff. lineups mirrors the backend (n x (1 - mean pairwise overlap / 6));
+   *  coverage reuses the backend's pool size (used players / coverage_score). */
+  const viewPortfolio = useMemo(() => {
+    if (!portfolio || !filterActive) return portfolio;
+    const ls = keptLineups;
+    const n = ls.length;
+    const mean = (f) => (n ? ls.reduce((s, l) => s + (l[f] ?? 0), 0) / n : 0);
+    const max = (f) => (n ? Math.max(...ls.map(l => l[f] ?? 0)) : 0);
+    const members = ls.map(l => new Set(l.players.map(p => `${p.name}_${p.team}`)));
+    let simSum = 0, pairs = 0;
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      let shared = 0; members[i].forEach(k => { if (members[j].has(k)) shared++; });
+      simSum += shared / 6; pairs++;
+    }
+    const allUsed = new Set(lineups.flatMap(l => l.players.map(p => `${p.name}_${p.team}`)));
+    const poolN = portfolio.coverage_score > 0 ? allUsed.size / portfolio.coverage_score : allUsed.size;
+    const used = new Set(members.flatMap(m => [...m]));
+    const r2 = (v) => Math.round(v * 100) / 100;
+    return {
+      ...portfolio,
+      n_generated: n,
+      total_ev_pct: r2(mean('ev_pct')),
+      avg_total_ownership: Math.round(mean('total_ownership') * 10) / 10,
+      unique_captains: new Set(ls.map(l => l.cpt_name)).size,
+      effective_lineup_count: Math.round(n * (1 - (pairs ? simSum / pairs : 0)) * 10) / 10,
+      coverage_score: poolN ? Math.round((used.size / poolN) * 1000) / 1000 : 0,
+      avg_top1_pct: r2(mean('top1_pct')), best_top1_pct: r2(max('top1_pct')),
+      avg_top01_pct: r2(mean('top01_pct')), best_top01_pct: r2(max('top01_pct')),
+      avg_first_pct: Math.round(mean('first_pct') * 1000) / 1000, best_first_pct: max('first_pct'),
+    };
+  }, [portfolio, filterActive, keptLineups, lineups]);
+
   // ── Portfolio exposure roll-up ──────────────────────────────────────────────
+  // Output per player: { key, name, team, pos, flex, cpt, total, totalPct,
+  //   cptPct, salary (FLEX), projection (FLEX), flexOwn, cptOwn, fieldOwn,
+  //   leverage, cptLeverage }. Salary/projection/ownership come from the
+  //   lineups themselves (what the run was scored with); the pool is only a
+  //   fallback for a slot the player never filled (e.g. never captained ->
+  //   no CPT own on any lineup). CPT slot salary/projection are 1.5x, so
+  //   they're converted back to the FLEX base.
+  //   fieldOwn = flexOwn + cptOwn: FLEX own is a per-player share of the
+  //   5-FLEX group and CPT own of the captain slot, which are mutually
+  //   exclusive, so their sum is the field's "in the lineup at all" rate --
+  //   the apples-to-apples comparison for totalPct.
   const exposures = useMemo(() => {
-    if (!lineups.length) return [];
+    if (!keptLineups.length) return [];
+    const poolById = new Map(pool.map(p => [p.id, p]));
     const map = {};
-    for (const lu of lineups) {
+    for (const lu of keptLineups) {
       for (const pl of lu.players) {
         const k = `${pl.name}_${pl.team}`;
-        map[k] = map[k] || { key: k, name: pl.name, team: pl.team, pos: pl.pos, flex: 0, cpt: 0 };
-        if (pl.slot === 'CPT') map[k].cpt += 1; else map[k].flex += 1;
+        map[k] = map[k] || { key: k, name: pl.name, team: pl.team, pos: pl.pos, flex: 0, cpt: 0,
+          salary: null, projection: null, flexOwn: null, cptOwn: null };
+        const e = map[k];
+        if (pl.slot === 'CPT') {
+          e.cpt += 1;
+          if (e.cptOwn == null && pl.ownership_pct != null) e.cptOwn = pl.ownership_pct;
+          if (e.salary == null) e.salary = pl.base_salary ?? (pl.salary != null ? Math.round(pl.salary / 1.5) : null);
+          if (e.projection == null && pl.projection != null) e.projection = round1(pl.projection / 1.5);
+        } else {
+          e.flex += 1;
+          if (e.flexOwn == null && pl.ownership_pct != null) e.flexOwn = pl.ownership_pct;
+          e.salary = pl.base_salary ?? pl.salary ?? e.salary;
+          if (pl.projection != null) e.projection = pl.projection;
+        }
       }
     }
-    const n = lineups.length;
+    const n = keptLineups.length;
     return Object.values(map)
-      .map(e => ({ ...e, total: e.cpt + e.flex, totalPct: ((e.cpt + e.flex) / n) * 100, cptPct: (e.cpt / n) * 100 }))
+      .map(e => {
+        const pp = poolById.get(e.key);
+        const o = pp ? ownOf(pp) : {};
+        const flexOwn = e.flexOwn ?? o.flex ?? null;
+        const cptOwn = e.cptOwn ?? o.cpt ?? null;
+        const totalPct = ((e.cpt + e.flex) / n) * 100;
+        const cptPct = (e.cpt / n) * 100;
+        const fieldOwn = flexOwn != null || cptOwn != null ? (flexOwn || 0) + (cptOwn || 0) : null;
+        return {
+          ...e,
+          salary: e.salary ?? pp?.salary ?? 0,
+          projection: e.projection ?? pp?.projection ?? 0,
+          flexOwn, cptOwn, fieldOwn,
+          total: e.cpt + e.flex, totalPct, cptPct,
+          leverage: fieldOwn != null ? totalPct - fieldOwn : null,
+          cptLeverage: cptOwn != null ? cptPct - cptOwn : null,
+        };
+      })
       .sort((a, b) => b.total - a.total);
-  }, [lineups]);
+  }, [keptLineups, pool, frozenOwn]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Portfolio Exposure panel controls (mirrors Optimizer.jsx's classic panel)
+  const [expSearch, setExpSearch] = useState('');
+  const [expPos, setExpPos] = useState('ALL');
+  const [expSort, setExpSort] = useState({ field: 'totalPct', asc: false });
+  /** exposures narrowed by the search box + position tab and sorted by the
+   *  panel's sort buttons. null values (no ownership data) sort last. */
+  const filteredExposures = useMemo(() => {
+    const q = expSearch.trim().toLowerCase();
+    const { field, asc } = expSort;
+    return exposures
+      .filter(e => (expPos === 'ALL' || e.pos === expPos)
+        && (!q || e.name.toLowerCase().includes(q) || e.team.toLowerCase().includes(q)))
+      .sort((a, b) => {
+        const av = a[field], bv = b[field];
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        return asc ? av - bv : bv - av;
+      });
+  }, [exposures, expSearch, expPos, expSort]);
 
   const sortedLineups = useMemo(() => {
-    const arr = [...lineups];
+    const arr = [...keptLineups];
     const { field, asc } = resSort;
     arr.sort((a, b) => {
       const av = a[field] ?? 0, bv = b[field] ?? 0;
       return asc ? av - bv : bv - av;
     });
     return arr;
-  }, [lineups, resSort]);
+  }, [keptLineups, resSort]);
+
+  /** Build distribution of the kept portfolio: { [awayCount]: n } for 5..1. */
+  const buildCounts = useMemo(() => {
+    const c = {};
+    for (const lu of keptLineups) if (lu.build_away != null) c[lu.build_away] = (c[lu.build_away] || 0) + 1;
+    return c;
+  }, [keptLineups]);
 
   // ── Exposure drill-down (ported from Optimizer.jsx's classic version) ─────
   // Click an exposure row to show only lineups containing that player; click
   // their CPT% to require them *as captain*. Selection keys:
   //   `${name}_${team}`      -> player in any slot
   //   `${name}_${team}|CPT`  -> player in the CPT slot
-  // Multiple selections combine with ALL / ANY (drillMode). Exports keep using
-  // the full sortedLineups.
+  // Multiple selections combine with ALL / ANY (drillMode). Clicking a build
+  // chip (5-1 .. 1-5) narrows further to that build (drillBuild = away
+  // count, AND-ed with the player keys). Exports keep using the full
+  // sortedLineups -- the drill-down is view-only; the ownership filter is the cut.
   const [drillKeys, setDrillKeys] = useState(() => new Set());
+  const [drillBuild, setDrillBuild] = useState(null); // away-team count, or null
   const [drillMode, setDrillMode] = useState('all'); // 'all' | 'any'
   const [pairPosFilter, setPairPosFilter] = useState('ALL');
   const baseKey = (pl) => `${pl.name}_${pl.team}`;
@@ -846,7 +1059,8 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
       return next.size === prev.size ? prev : next;
     });
   }, [exposures]);
-  useEffect(() => { setExpanded(null); }, [drillKeys, drillMode]);
+  useEffect(() => { setExpanded(null); }, [drillKeys, drillMode, drillBuild]);
+  const drillActive = drillKeys.size > 0 || drillBuild != null;
 
   /** Does lineup `lu` satisfy one selection key? Input: lineup, key string. Output: bool. */
   const lineupHas = (lu, key) => {
@@ -856,16 +1070,19 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
   };
 
   /** Lineups shown in the results table -- all of sortedLineups when nothing is
-   * selected, else those matching ALL/ANY of drillKeys. */
+   * selected, else those matching ALL/ANY of drillKeys (and drillBuild, if set). */
   const displayedLineups = useMemo(() => {
-    if (drillKeys.size === 0) return sortedLineups;
+    if (!drillActive) return sortedLineups;
     const keys = [...drillKeys];
-    return sortedLineups.filter(lu => (drillMode === 'all' ? keys.every(k => lineupHas(lu, k)) : keys.some(k => lineupHas(lu, k))));
-  }, [sortedLineups, drillKeys, drillMode]); // eslint-disable-line react-hooks/exhaustive-deps
+    return sortedLineups.filter(lu =>
+      (drillBuild == null || lu.build_away === drillBuild)
+      && (keys.length === 0 || (drillMode === 'all' ? keys.every(k => lineupHas(lu, k)) : keys.some(k => lineupHas(lu, k)))));
+  }, [sortedLineups, drillKeys, drillMode, drillBuild, drillActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Mean per-lineup metrics over a lineup set (subset vs whole-portfolio compare).
    * Input: lineup array. Output: { n, ev_pct, portfolio_score, itm_pct, top1_pct,
-   *   top01_pct, first_pct, total_ownership, projected_score, total_salary } (null if absent).
+   *   top01_pct, first_pct, total_ownership, projected_score, p95, total_salary } (null if absent).
+   * p95 = mean lineup_p95 (sim 95th-percentile lineup score), projection if absent.
    * Salary stays here (unlike classic) -- showdown builds vary a lot in cap usage. */
   const summarizeLineups = (ls) => {
     const avg = (f) => {
@@ -875,12 +1092,14 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
     const out = { n: ls.length };
     ['ev_pct', 'portfolio_score', 'itm_pct', 'top1_pct', 'top01_pct', 'first_pct', 'total_ownership', 'projected_score', 'total_salary']
       .forEach(f => { out[f] = avg(f); });
+    const p95s = ls.map(l => l.lineup_p95 ?? l.projected_score).filter(v => v != null && isFinite(v));
+    out.p95 = p95s.length ? p95s.reduce((s, v) => s + v, 0) / p95s.length : null;
     return out;
   };
   const portfolioAvg = useMemo(() => summarizeLineups(sortedLineups), [sortedLineups]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectionAvg = useMemo(
-    () => (drillKeys.size ? summarizeLineups(displayedLineups) : null),
-    [displayedLineups, drillKeys] // eslint-disable-line react-hooks/exhaustive-deps
+    () => (drillActive ? summarizeLineups(displayedLineups) : null),
+    [displayedLineups, drillActive] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   /** "Most paired with": every non-selected player in the filtered lineups.
@@ -888,7 +1107,7 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
    *   count desc. pairPct = % of filtered lineups they're in (any slot);
    *   exposure = their Tot% across all lineups; lift = pairPct - exposure (pp). */
   const pairedPlayers = useMemo(() => {
-    if (drillKeys.size === 0 || displayedLineups.length === 0) return [];
+    if (!drillActive || displayedLineups.length === 0) return [];
     const selectedBases = new Set([...drillKeys].map(k => k.replace(/\|CPT$/, '')));
     const expByKey = new Map(exposures.map(e => [e.key, e]));
     const counts = new Map();
@@ -905,10 +1124,10 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
       const pairPct = (c.count / n) * 100;
       return { key: k, name: e.pos === 'DST' ? `${e.team} DST` : e.name, pos: e.pos, team: e.team, ...c, pairPct, exposure: e.totalPct ?? 0, lift: pairPct - (e.totalPct ?? 0) };
     }).sort((a, b) => b.count - a.count || b.lift - a.lift);
-  }, [displayedLineups, drillKeys, exposures]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [displayedLineups, drillKeys, drillActive, exposures]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleResSort = (field) =>
-    setResSort(s => (s.field === field ? { field, asc: !s.asc } : { field, asc: field === 'total_ownership' || field === 'dupe_est' }));
+    setResSort(s => (s.field === field ? { field, asc: !s.asc } : { field, asc: field === 'total_ownership' || field === 'dupe_est' || field === 'product_ownership' }));
 
   // DK's bulk-upload format wants a draftableId (slot-specific — CPT and FLEX
   // ids differ) in each cell: "Name (id)". The backend hands each lineup
@@ -919,6 +1138,8 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
   // is always DK's real upload format; a row missing an id falls back to a
   // plain name for just that slot, and the count is surfaced via alert() so a
   // bad upload doesn't happen unnoticed (mirrors Optimizer.jsx's exportDkUploadCSV).
+  // Exports sortedLineups = the ownership-filtered (kept) set, NOT the view-only
+  // drill-down subset (displayedLineups).
   const exportCSV = () => {
     const nm = p => (p.pos === 'DST' ? `${p.team} DST` : p.name);
     const header = 'CPT,FLEX,FLEX,FLEX,FLEX,FLEX';
@@ -1084,6 +1305,71 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
               <div><label style={labelStyle}>CPT max exp %</label>
                 <input type="number" min={5} max={100} style={inputStyle} value={settings.cptMaxExposure}
                   onChange={e => setSettings(s => ({ ...s, cptMaxExposure: +e.target.value }))} /></div>
+              <div><label style={labelStyle} title="Every generated lineup must cost at most this much. Can only go below DK's $50,000 cap. The simulated field still builds up to $50k.">Max salary $</label>
+                <input type="number" min={1000} max={DK_SALARY_CAP} step={100} style={{
+                    ...inputStyle,
+                    color: (settings.maxSalary ?? DK_SALARY_CAP) < DK_SALARY_CAP ? '#eab308' : inputStyle.color,
+                  }}
+                  value={settings.maxSalary ?? DK_SALARY_CAP}
+                  onChange={e => setSettings(s => ({ ...s, maxSalary: Math.min(DK_SALARY_CAP, +e.target.value) }))} /></div>
+              <div><label style={labelStyle} title="Every generated lineup must cost at least this much (captain counts at 1.5x). 0 = no floor. Capped at Max salary. Too high a floor can make the pool infeasible.">Min salary $</label>
+                <input type="number" min={0} max={DK_SALARY_CAP} step={100} style={{
+                    ...inputStyle,
+                    color: (settings.minSalary ?? 0) > 0 ? '#eab308' : inputStyle.color,
+                  }}
+                  value={settings.minSalary ?? 0}
+                  onChange={e => setSettings(s => ({ ...s, minSalary: Math.max(0, Math.min(DK_SALARY_CAP, +e.target.value || 0)) }))} /></div>
+            </div>
+
+            <div style={{ ...sectionTitleStyle, marginTop: '18px' }}
+              title="Most defenses / kickers any ONE generated lineup may hold (captain slot counts). Blank = no limit. All three apply together, e.g. DST+K 1 allows a defense or a kicker but never both.">
+              DST / K limits (per lineup)
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              {[['maxDstK', 'DST + K', 'Most defenses + kickers combined in one lineup.'],
+                ['maxDst', 'DST', 'Most defenses in one lineup.'],
+                ['maxK', 'K', 'Most kickers in one lineup.']].map(([key, label, tip]) => (
+                <div key={key}><label style={labelStyle} title={tip}>Max {label}</label>
+                  <input type="number" min={0} max={6} step={1} placeholder="—" style={{
+                      ...inputStyle,
+                      color: settings[key] !== '' && settings[key] != null ? '#eab308' : inputStyle.color,
+                    }}
+                    value={settings[key] ?? ''}
+                    onChange={e => setSettings(s => ({ ...s, [key]: e.target.value === '' ? '' : Math.max(0, Math.min(6, Math.round(+e.target.value) || 0)) }))} /></div>
+              ))}
+            </div>
+
+            <div style={{ ...sectionTitleStyle, marginTop: '18px' }}
+              title="Minimum share of lineups for each build (players per team, captain included, away team first). Blank = no minimum. Everything not owed to a minimum is left to the optimizer.">
+              Build minimums{activeGame ? ` · ${activeGame.away_team}-${activeGame.home_team}` : ''}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '5px' }}>
+              {BUILD_AWAY_COUNTS.map(a => {
+                const q = buildMinQuotas.find(x => x.away === a);
+                return (
+                  <div key={a}>
+                    <label style={{ ...labelStyle, textAlign: 'center' }}>{a}-{6 - a}</label>
+                    <input type="number" min={0} max={100} step={5} placeholder="—"
+                      value={settings.buildMinimums?.[a] ?? ''}
+                      onChange={e => setSettings(s => {
+                        const bm = { ...(s.buildMinimums || {}) };
+                        if (e.target.value === '' || +e.target.value <= 0) delete bm[a];
+                        else bm[a] = Math.min(100, +e.target.value);
+                        return { ...s, buildMinimums: bm };
+                      })}
+                      style={{ ...inputStyle, padding: '4px 5px', textAlign: 'center',
+                        borderColor: q ? 'rgba(0,242,254,0.4)' : 'rgba(255,255,255,0.1)' }} />
+                    <div style={{ fontSize: '0.64rem', textAlign: 'center', color: 'var(--text-muted)', minHeight: '0.9rem' }}>
+                      {q ? `≥${q.count}` : ''}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: '0.7rem', marginTop: '2px', color: buildMinTotal > settings.nLineups ? '#ef4444' : 'var(--text-muted)' }}>
+              {buildMinQuotas.length
+                ? `% of lineups, rounded up · ${buildMinTotal} of ${settings.nLineups} owed, the rest is up to the math`
+                : '% of lineups per build, blank = no minimum'}
             </div>
 
             <div style={{ ...sectionTitleStyle, marginTop: '18px' }}>Leverage</div>
@@ -1302,6 +1588,7 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                     <th style={{ padding: '6px 5px' }}>Pos</th>
                     <th style={{ padding: '6px 5px' }}>Salary</th>
                     <th style={{ padding: '6px 5px' }}>Proj</th>
+                    <th style={{ padding: '6px 5px', whiteSpace: 'nowrap' }} title="Projection per $1,000 of salary. Same at CPT (1.5x points at 1.5x salary).">Pts/$1K</th>
                     <th style={{ padding: '6px 5px' }} title="Solver-objective points under the current Objective setting (GPP blend / 95% ceiling / median). This is what the ILP maximises.">Obj</th>
                     <th style={{ padding: '6px 5px' }} title="Captain scoring = 1.5× projection">CPT Proj</th>
                     <th style={{ padding: '6px 5px' }}>Ceil</th>
@@ -1376,6 +1663,9 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                               }}>↺</button>
                           )}
                         </div>
+                      </td>
+                      <td style={{ padding: '4px 5px', fontWeight: 600, color: 'var(--text-main)' }}>
+                        {p.salary > 0 && p.projection != null ? (p.projection / (p.salary / 1000)).toFixed(2) : '—'}
                       </td>
                       <td style={{
                         padding: '4px 5px', fontWeight: 600,
@@ -1453,42 +1743,46 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                 <div>
                   <h2 style={{ margin: 0, fontSize: '1rem' }}>
                     {resultsMode === 'lab' ? '✍️ Lineup Lab' : 'Portfolio Summary'}
-                    {portfolio.iteration_filter_frac != null && (
+                    {viewPortfolio.iteration_filter_frac != null && (
                       <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#eab308', background: 'rgba(234,179,8,0.14)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '20px', padding: '2px 9px', marginLeft: '8px', verticalAlign: 'middle' }}
-                        title={`Scored only against the ${portfolio.iteration_filter_n} sims from the Game Read box-select, not the full field`}>
-                        🎯 conditioned · {(portfolio.iteration_filter_frac * 100).toFixed(1)}% of games
+                        title={`Scored only against the ${viewPortfolio.iteration_filter_n} sims from the Game Read box-select, not the full field`}>
+                        🎯 conditioned · {(viewPortfolio.iteration_filter_frac * 100).toFixed(1)}% of games
                       </span>
                     )}
                   </h2>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                     {resultsMode === 'lab'
-                      ? `${portfolio.n_generated} hand-built lineup${portfolio.n_generated === 1 ? '' : 's'} scored`
-                      : `${portfolio.n_generated} lineups${portfolio.n_generated < portfolio.n_requested ? ` (${portfolio.n_requested} requested)` : ''}`}
-                    {portfolio.field_source && (
+                      ? `${viewPortfolio.n_generated} hand-built lineup${viewPortfolio.n_generated === 1 ? '' : 's'} scored`
+                      : filterActive
+                        ? `${keptLineups.length} of ${lineups.length} lineups pass the ownership filter`
+                        : `${viewPortfolio.n_generated} lineups${viewPortfolio.n_generated < viewPortfolio.n_requested ? ` (${viewPortfolio.n_requested} requested)` : ''}`}
+                    {viewPortfolio.field_source && (
                       <span title="Sim slice the EV / Top% / 1st% were scored against">
-                        {' · '}field: {portfolio.field_source === 'independent_draws'
+                        {' · '}field: {viewPortfolio.field_source === 'independent_draws'
                           ? 'independent draws (rough)'
-                          : portfolio.field_source.replace('_', '-')}
-                        {portfolio.n_sims ? ` · ${(portfolio.n_sims / 1000).toFixed(0)}k sims` : ''}
+                          : viewPortfolio.field_source.replace('_', '-')}
+                        {viewPortfolio.n_sims ? ` · ${(viewPortfolio.n_sims / 1000).toFixed(0)}k sims` : ''}
                       </span>
                     )}
                   </div>
                 </div>
-                <button onClick={exportCSV} style={{
-                  padding: '7px 14px', background: 'rgba(0,242,254,0.1)', color: 'var(--accent-primary)',
-                  border: '1px solid rgba(0,242,254,0.25)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem',
-                }}>↓ Export CSV</button>
+                <button onClick={exportCSV} disabled={!keptLineups.length}
+                  title={filterActive ? 'Exports only the lineups that pass the ownership filter (the player/build drill-down is ignored)' : 'Exports every generated lineup (the player/build drill-down is ignored)'}
+                  style={{
+                    padding: '7px 14px', background: 'rgba(0,242,254,0.1)', color: 'var(--accent-primary)',
+                    border: '1px solid rgba(0,242,254,0.25)', borderRadius: '8px', cursor: keptLineups.length ? 'pointer' : 'not-allowed', fontWeight: 600, fontSize: '0.82rem',
+                  }}>↓ Export CSV{filterActive ? ` (${keptLineups.length} of ${lineups.length})` : ''}</button>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))', gap: '10px' }}>
                 {[
-                  { label: 'Portfolio EV%', value: `${portfolio.total_ev_pct > 0 ? '+' : ''}${portfolio.total_ev_pct}%`, color: evColor(portfolio.total_ev_pct) },
-                  { label: 'Avg Total Own%', value: `${portfolio.avg_total_ownership}%`, color: ownColor(portfolio.avg_total_ownership) },
-                  { label: 'Unique Captains', value: portfolio.unique_captains, color: 'var(--accent-primary)' },
-                  { label: 'Eff. Lineups', value: `${portfolio.effective_lineup_count}/${portfolio.n_generated}`, color: 'var(--text-white)' },
-                  { label: 'Coverage', value: portfolio.coverage_score?.toFixed(2), color: 'var(--text-white)' },
-                  { label: 'Top 1% avg', value: `${portfolio.avg_top1_pct ?? '—'}%`, color: 'var(--text-white)', title: `best lineup ${portfolio.best_top1_pct}%` },
-                  { label: 'Top 0.1% avg', value: `${portfolio.avg_top01_pct ?? '—'}%`, color: 'var(--text-white)', title: `best lineup ${portfolio.best_top01_pct}%` },
-                  { label: '1st place best', value: `${portfolio.best_first_pct ?? '—'}%`, color: 'var(--accent-primary)', title: `portfolio avg ${portfolio.avg_first_pct}% · share of sims a lineup beats the whole synthetic field` },
+                  { label: 'Portfolio EV%', value: `${viewPortfolio.total_ev_pct > 0 ? '+' : ''}${viewPortfolio.total_ev_pct}%`, color: evColor(viewPortfolio.total_ev_pct) },
+                  { label: 'Avg Total Own%', value: `${viewPortfolio.avg_total_ownership}%`, color: ownColor(viewPortfolio.avg_total_ownership) },
+                  { label: 'Unique Captains', value: viewPortfolio.unique_captains, color: 'var(--accent-primary)' },
+                  { label: 'Eff. Lineups', value: `${viewPortfolio.effective_lineup_count}/${viewPortfolio.n_generated}`, color: 'var(--text-white)' },
+                  { label: 'Coverage', value: viewPortfolio.coverage_score?.toFixed(2), color: 'var(--text-white)' },
+                  { label: 'Top 1% avg', value: `${viewPortfolio.avg_top1_pct ?? '—'}%`, color: 'var(--text-white)', title: `best lineup ${viewPortfolio.best_top1_pct}%` },
+                  { label: 'Top 0.1% avg', value: `${viewPortfolio.avg_top01_pct ?? '—'}%`, color: 'var(--text-white)', title: `best lineup ${viewPortfolio.best_top01_pct}%` },
+                  { label: '1st place best', value: `${viewPortfolio.best_first_pct ?? '—'}%`, color: 'var(--accent-primary)', title: `portfolio avg ${viewPortfolio.avg_first_pct}% · share of sims a lineup beats the whole synthetic field` },
                 ].map(({ label, value, color, title }) => (
                   <div key={label} title={title} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
                     <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
@@ -1521,6 +1815,83 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                 Generated Lineups ({selectionAvg ? `${displayedLineups.length} of ${sortedLineups.length}` : sortedLineups.length})
               </h2>
 
+              {/* Ownership cut (real portfolio cut: table, exposures, tiles, export) */}
+              {(() => {
+                const numIn = (field, width, placeholder, title) => (
+                  <input type="number" min={0} value={lineupFilter[field] ?? ''} placeholder={placeholder} title={title}
+                    onChange={e => setLineupFilter(f => ({ ...f, [field]: e.target.value === '' ? null : +e.target.value }))}
+                    style={{ ...inputStyle, width, padding: '3px 6px', fontSize: '0.74rem',
+                      borderColor: lineupFilter[field] != null ? 'rgba(234,179,8,0.5)' : 'rgba(255,255,255,0.1)' }} />
+                );
+                const lbl = { fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' };
+                return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 14px', marginBottom: '10px', padding: '8px 10px', borderRadius: '8px',
+                    background: filterActive ? 'rgba(234,179,8,0.06)' : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${filterActive ? 'rgba(234,179,8,0.25)' : 'rgba(255,255,255,0.06)'}` }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: filterActive ? '#eab308' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Ownership cut</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={lbl}>Sum own ≤</span>
+                      {numIn('maxSumOwn', '64px', 'any', 'Max summed ownership % (CPT own + 5 FLEX own)')}
+                      <span style={lbl}>%</span>
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={lbl}>Product own rarer than 1 in</span>
+                      {numIn('minOneIn', '96px', 'any', 'Keep lineups whose product ownership (chance a random field entry is this exact lineup) is at most 1 / this number. e.g. 100000 keeps lineups rarer than 1 in 100K.')}
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={lbl}>Dupes ≤</span>
+                      {numIn('maxDupe', '60px', 'any', 'Max estimated duplicates (field size × product ownership). Assumes the field picks players independently, so it undercounts chalky lineups -- best for ranking, not as an absolute count.')}
+                    </span>
+                    {filterActive && (
+                      <>
+                        <span style={{ fontSize: '0.72rem', color: keptLineups.length ? '#eab308' : '#ef4444', fontWeight: 600 }}>
+                          {keptLineups.length} of {lineups.length} pass
+                        </span>
+                        <button onClick={() => setLineupFilter(DEFAULT_LINEUP_FILTER)}
+                          style={{ marginLeft: 'auto', padding: '2px 9px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.7rem' }}>
+                          Clear cut
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Build breakdown of the kept portfolio -- click a build to drill into it */}
+              {awayTeam && keptLineups.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginRight: '2px' }}
+                    title="Players per team in each lineup, captain included, away team first">
+                    Builds · {awayTeam}-{homeTeam}
+                  </span>
+                  {BUILD_AWAY_COUNTS.map(a => {
+                    const c = buildCounts[a] || 0;
+                    const on = drillBuild === a;
+                    // Minimum this run was generated with (backend report); after an
+                    // ownership cut the kept count can fall below it -- shown in amber.
+                    const req = (portfolio?.build_minimums || []).find(b => b.away_count === a)?.required;
+                    return (
+                      <button key={a} disabled={!c && !on} onClick={() => setDrillBuild(on ? null : a)}
+                        title={`${a} ${awayTeam} + ${6 - a} ${homeTeam}: ${c} of ${keptLineups.length} lineups. Click to show only these.`}
+                        style={{
+                          padding: '2px 9px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 600, border: '1px solid',
+                          cursor: c || on ? 'pointer' : 'default', opacity: c || on ? 1 : 0.35,
+                          background: on ? 'rgba(0,242,254,0.15)' : 'rgba(255,255,255,0.03)',
+                          color: on ? 'var(--accent-primary)' : 'var(--text-white)',
+                          borderColor: on ? 'rgba(0,242,254,0.4)' : 'rgba(255,255,255,0.08)',
+                        }}>
+                        {a}-{6 - a} <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{c} · {Math.round((c / keptLineups.length) * 100)}%</span>
+                        {req != null && (
+                          <span title={`Minimum requested: ${req}`} style={{ marginLeft: '4px', fontSize: '0.64rem', color: c >= req ? '#22c55e' : '#f59e0b' }}>
+                            min {req}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Exposure drill-down: selected players, subset-vs-portfolio averages, top pairings */}
               {selectionAvg && (() => {
                 const pill = (active) => ({
@@ -1548,6 +1919,7 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                   { label: 'Avg 1st%', v: selectionAvg.first_pct, base: portfolioAvg.first_pct, fmt: v => `${v.toFixed(2)}%` },
                   { label: 'Avg Own%', v: selectionAvg.total_ownership, base: portfolioAvg.total_ownership, fmt: v => `${v.toFixed(1)}%`, color: ownColor },
                   { label: 'Avg Proj', v: selectionAvg.projected_score, base: portfolioAvg.projected_score, fmt: v => v.toFixed(1) },
+                  { label: 'Avg P95', v: selectionAvg.p95, base: portfolioAvg.p95, fmt: v => v.toFixed(1) },
                   { label: 'Avg Salary', v: selectionAvg.total_salary, base: portfolioAvg.total_salary, fmt: v => `$${Math.round(v).toLocaleString()}` },
                 ].filter(s => s.v != null);
                 return (
@@ -1566,7 +1938,16 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                             style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.72rem', padding: '0 3px' }}>✕</button>
                         </span>
                       ))}
-                      <button onClick={() => setDrillKeys(new Set())} style={{ ...pill(false), marginLeft: 'auto', padding: '2px 9px', fontSize: '0.7rem' }}>Clear filter</button>
+                      {drillBuild != null && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.74rem', fontWeight: 600, padding: '2px 4px 2px 8px', borderRadius: '20px', background: 'rgba(0,242,254,0.1)', border: '1px solid rgba(0,242,254,0.35)' }}>
+                          {drillKeys.size > 0 && <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>in</span>}
+                          {drillBuild}-{6 - drillBuild} build
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{awayTeam}-{homeTeam}</span>
+                          <button onClick={() => setDrillBuild(null)} title="Remove"
+                            style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.72rem', padding: '0 3px' }}>✕</button>
+                        </span>
+                      )}
+                      <button onClick={() => { setDrillKeys(new Set()); setDrillBuild(null); }} style={{ ...pill(false), marginLeft: 'auto', padding: '2px 9px', fontSize: '0.7rem' }}>Clear filter</button>
                     </div>
 
                     {selectionAvg.n === 0 ? (
@@ -1650,7 +2031,8 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                       <th style={{ padding: '6px 5px' }}>CPT</th>
                       <th style={{ padding: '6px 5px' }}>FLEX ×5</th>
                       {[
-                        ['total_ownership', 'Own%'], ['projected_score', 'Proj'], ['ev_pct', 'EV%'],
+                        ['build_away', 'Build'], ['total_ownership', 'Own%'], ['product_ownership', 'Prod Own'],
+                        ['projected_score', 'Proj'], ['ev_pct', 'EV%'],
                         ['itm_pct', 'ITM%'], ['top1_pct', 'Top1%'], ['top01_pct', 'Top.1%'],
                         ['first_pct', '1st%'], ['dupe_est', 'Dupe~'], ['total_salary', 'Salary'],
                       ].map(([f, l]) => (
@@ -1658,7 +2040,10 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                           title={f === 'first_pct'
                             ? 'Share of sims this lineup outscored every build in the 1,200-lineup synthetic field — "best possible build" rate, not contest win %'
                             : f === 'top1_pct' ? 'Share of sims this lineup lands in the field\'s top 1%'
-                            : f === 'top01_pct' ? 'Share of sims this lineup lands in the field\'s top 0.1%' : undefined}>
+                            : f === 'top01_pct' ? 'Share of sims this lineup lands in the field\'s top 0.1%'
+                            : f === 'build_away' ? `Players per team, captain included, ${awayTeam || 'away'} first`
+                            : f === 'product_ownership' ? 'Product ownership: chance a random field entry is this exact lineup (CPT own × 5 FLEX owns). Rarer = less dupe risk.'
+                            : undefined}>
                           {l} {resSort.field === f ? (resSort.asc ? '↑' : '↓') : ''}
                         </th>
                       ))}
@@ -1667,7 +2052,7 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                   </thead>
                   <tbody>
                     {selectionAvg && displayedLineups.length === 0 && (
-                      <tr><td colSpan={13} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>No lineups match the selected players.</td></tr>
+                      <tr><td colSpan={15} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>No lineups match the selected players / build.</td></tr>
                     )}
                     {displayedLineups.map((lu, idx) => {
                       const cpt = lu.players.find(p => p.slot === 'CPT');
@@ -1694,7 +2079,15 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                             <td style={{ padding: '6px 5px', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
                               {flex.map((p, i) => <Fragment key={i}>{i > 0 && ', '}{nm(p, i)}</Fragment>)}
                             </td>
+                            <td style={{ padding: '6px 5px', whiteSpace: 'nowrap', color: 'var(--text-main)' }}
+                              title={lu.build_away != null ? `${lu.build_away} ${awayTeam} + ${6 - lu.build_away} ${homeTeam}` : undefined}>
+                              {lu.build_away != null ? `${lu.build_away}-${6 - lu.build_away}` : '—'}
+                            </td>
                             <td style={{ padding: '6px 5px', fontWeight: 700, color: ownColor(lu.total_ownership) }}>{lu.total_ownership}%</td>
+                            <td style={{ padding: '6px 5px', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}
+                              title={lu.product_ownership != null ? lu.product_ownership.toExponential(2) : 'Re-optimize to compute (older saved results)'}>
+                              {fmtOneIn(lu.product_ownership)}
+                            </td>
                             <td style={{ padding: '6px 5px', color: 'var(--accent-green)', fontWeight: 600 }}>{lu.projected_score}</td>
                             <td style={{ padding: '6px 5px', color: evColor(lu.ev_pct), fontWeight: 600 }}>{lu.ev_pct > 0 ? '+' : ''}{lu.ev_pct}%</td>
                             <td style={{ padding: '6px 5px' }}>{lu.itm_pct}%</td>
@@ -1705,12 +2098,12 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                               {lu.first_pct != null ? `${lu.first_pct}%` : '—'}
                             </td>
                             <td style={{ padding: '6px 5px', color: lu.dupe_est > 5 ? '#ef4444' : 'var(--text-muted)' }}>{lu.dupe_est}</td>
-                            <td style={{ padding: '6px 5px', color: lu.total_salary > 50000 ? '#ef4444' : 'var(--text-main)' }}
-                              title={lu.over_salary_cap ? `$${(lu.total_salary - 50000).toLocaleString()} over the $50k cap — DK would reject this lineup` : undefined}>
+                            <td style={{ padding: '6px 5px', color: lu.total_salary > DK_SALARY_CAP ? '#ef4444' : 'var(--text-main)' }}
+                              title={lu.over_salary_cap ? `$${(lu.total_salary - DK_SALARY_CAP).toLocaleString()} over the $50k cap — DK would reject this lineup` : undefined}>
                               ${lu.total_salary?.toLocaleString()}{lu.over_salary_cap ? ' ⚠' : ''}
                             </td>
                             <td style={{ padding: '6px 5px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                              {savedPaperIds[idx] ? (
+                              {savedPaperIds[lineupSig(lu)] ? (
                                 <span title="Saved as a paper entry" style={{ color: 'var(--accent-primary)' }}>✓</span>
                               ) : (
                                 <button onClick={() => savePaperEntry(lu, idx)}
@@ -1723,7 +2116,7 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
                           </tr>
                           {isOpen && (
                             <tr>
-                              <td colSpan={13} style={{ padding: '8px', background: 'rgba(0,0,0,0.2)' }}>
+                              <td colSpan={15} style={{ padding: '8px', background: 'rgba(0,0,0,0.2)' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '6px' }}>
                                   {lu.players.map((p, pi) => (
                                     <div key={pi} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '8px 10px', border: `1px solid ${(POS_COLORS[p.pos] || '#888')}22` }}>
@@ -1770,38 +2163,126 @@ export default function ShowdownOptimizer({ allSimResults = {}, games = [], sele
               </div>
             </div>
 
-            {/* Exposure */}
-            <div style={{ ...cardStyle }}>
-              <h2 style={{ margin: '0 0 10px 0', fontSize: '1rem' }}>Exposure</h2>
-              <div className="table-container" style={{ maxHeight: '72vh', overflowY: 'auto' }}>
-                <table style={{ fontSize: '0.76rem', width: '100%' }}>
-                  <thead><tr style={{ textAlign: 'left' }}>
-                    <th style={{ padding: '5px' }}>Player</th><th style={{ padding: '5px' }}>Tot%</th><th style={{ padding: '5px' }}>CPT%</th>
-                  </tr></thead>
-                  <tbody>
-                    {exposures.map(e => {
-                      const anySel = drillKeys.has(e.key);
-                      const cptSel = drillKeys.has(`${e.key}|CPT`);
-                      return (
-                        <tr key={e.key} onClick={() => toggleDrill(e.key)}
-                          title={anySel ? 'Click to remove from the lineup filter' : 'Click to show only lineups with this player (click CPT% to require them at captain)'}
-                          style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', background: anySel || cptSel ? 'rgba(0,242,254,0.08)' : undefined }}>
-                          <td style={{ padding: '4px 5px', whiteSpace: 'nowrap', fontWeight: anySel || cptSel ? 700 : undefined }}>
-                            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: TEAM_COLORS[e.team] || '#888', marginRight: '5px' }} />
+            {/* Portfolio Exposure -- classic-style card panel (Optimizer.jsx), showdown-
+                adapted: an ALL bar (any slot, tick = field FLEX+CPT own) and a CPT bar
+                (tick = field CPT own). Click the card = filter to lineups with the player
+                in any slot; click the CPT bar = filter to them AS captain. */}
+            <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '1rem' }}>Portfolio Exposure</h2>
+                <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 600 }}>{exposures.length} Players</span>
+              </div>
+              <input type="text" placeholder="Search portfolio..." value={expSearch}
+                onChange={e => setExpSearch(e.target.value)} style={inputStyle} />
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                {['ALL', 'QB', 'RB', 'WR', 'TE', ...(exposures.some(e => e.pos === 'K') ? ['K'] : []), 'DST'].map(pos => {
+                  const on = expPos === pos;
+                  return (
+                    <button key={pos} onClick={() => setExpPos(pos)} style={{
+                      padding: '2px 6px', borderRadius: '20px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600, border: '1px solid',
+                      background: on ? 'rgba(0,242,254,0.15)' : 'rgba(255,255,255,0.03)',
+                      color: on ? 'var(--accent-primary)' : 'var(--text-muted)',
+                      borderColor: on ? 'var(--accent-primary)' : 'rgba(255,255,255,0.08)',
+                    }}>{pos}</button>
+                  );
+                })}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                <span>Sort:</span>
+                {[
+                  ['totalPct', 'Exposure'], ['cptPct', 'CPT'], ['leverage', 'Leverage'],
+                  ['cptLeverage', 'CPT Lev'], ['salary', 'Salary'], ['projection', 'Proj'],
+                ].map(([field, label]) => {
+                  const on = expSort.field === field;
+                  return (
+                    <button key={field}
+                      onClick={() => setExpSort(s => (s.field === field ? { field, asc: !s.asc } : { field, asc: false }))}
+                      style={{
+                        background: on ? 'rgba(255,255,255,0.08)' : 'transparent', border: 'none', cursor: 'pointer',
+                        color: on ? 'var(--text-white)' : 'var(--text-muted)', padding: '2px 6px', borderRadius: '4px',
+                        fontSize: '0.7rem', fontWeight: on ? 700 : 500,
+                      }}>
+                      {label} {on ? (expSort.asc ? '↑' : '↓') : ''}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ maxHeight: '72vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+                {filteredExposures.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0', fontSize: '0.8rem' }}>No players match filters</div>
+                ) : filteredExposures.map(e => {
+                  const posColor = POS_COLORS[e.pos] || '#888';
+                  const anySel = drillKeys.has(e.key);
+                  const cptSel = drillKeys.has(`${e.key}|CPT`);
+                  const sel = anySel || cptSel;
+                  const baseBg = sel ? 'rgba(0,242,254,0.08)' : 'rgba(255,255,255,0.02)';
+                  const lev = (v) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`);
+                  const levColor = (v) => (v == null ? 'var(--text-muted)' : v > 0 ? 'var(--accent-green)' : 'var(--accent-red)');
+                  /** One exposure bar. Inputs: pct (bar width), tick (field own %,
+                   *  or null), CSS background, centered label, tick tooltip. Output: JSX. */
+                  const bar = (pct, tick, color, label, tickTitle) => (
+                    <div style={{ position: 'relative', height: '15px', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden', flex: 1 }}>
+                      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(pct, 100)}%`, background: color, borderRadius: '4px', transition: 'width 0.4s ease' }} />
+                      {tick != null && tick > 0 && tick <= 100 && (
+                        <div title={tickTitle} style={{ position: 'absolute', left: `${tick}%`, top: 0, bottom: 0, width: '2px', backgroundColor: 'rgba(255,255,255,0.7)', boxShadow: '0 0 4px #fff', zIndex: 2 }} />
+                      )}
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-white)', textShadow: '0 1px 2px rgba(0,0,0,0.8)', zIndex: 3 }}>
+                        {label}
+                      </div>
+                    </div>
+                  );
+                  return (
+                    <div key={e.key} onClick={() => toggleDrill(e.key)}
+                      title={anySel ? 'Click to remove from the lineup filter' : 'Click to show only lineups with this player (click the CPT bar to require them at captain)'}
+                      style={{
+                        background: baseBg, border: `1px solid ${sel ? 'rgba(0,242,254,0.45)' : 'rgba(255,255,255,0.04)'}`,
+                        borderRadius: '8px', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '5px',
+                        cursor: 'pointer', transition: 'background 0.2s',
+                      }}
+                      onMouseEnter={ev => { ev.currentTarget.style.background = sel ? 'rgba(0,242,254,0.12)' : 'rgba(255,255,255,0.04)'; }}
+                      onMouseLeave={ev => { ev.currentTarget.style.background = baseBg; }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                          <span style={{ fontSize: '0.62rem', fontWeight: 700, padding: '1px 4px', borderRadius: '3px', background: `${posColor}15`, color: posColor }}>{e.pos}</span>
+                          <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: TEAM_COLORS[e.team] || '#888', flexShrink: 0 }} />
+                          <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {e.pos === 'DST' ? `${e.team} DST` : e.name}
-                          </td>
-                          <td style={{ padding: '4px 5px', fontWeight: 600, color: anySel ? 'var(--accent-primary)' : undefined }}>{e.totalPct.toFixed(0)}%</td>
-                          <td onClick={ev => { ev.stopPropagation(); if (e.cpt > 0) toggleDrill(`${e.key}|CPT`); }}
-                            title={e.cpt > 0 ? (cptSel ? 'Click to remove the CPT filter' : 'Click to show only lineups with this player at captain') : 'Never captained in this portfolio'}
-                            style={{ padding: '4px 5px', color: 'var(--accent-primary)', cursor: e.cpt > 0 ? 'pointer' : 'default',
-                              ...(cptSel ? { background: 'rgba(0,242,254,0.2)', fontWeight: 800, borderRadius: '4px' } : {}) }}>
-                            {e.cptPct.toFixed(0)}%
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{e.team}</span>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>${(e.salary || 0).toLocaleString()}</div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-muted)', gap: '6px' }}>
+                        <span>Proj: <strong style={{ color: 'var(--accent-primary)' }}>{e.projection}</strong></span>
+                        {e.fieldOwn != null ? (
+                          <>
+                            <span title="Field FLEX own / field CPT own">Own: <strong>{e.flexOwn != null ? round1(e.flexOwn) : '—'}%</strong> / <strong style={{ color: '#00f2fe' }}>{e.cptOwn != null ? round1(e.cptOwn) : '—'}%</strong></span>
+                            <span title="Total exposure minus field (FLEX + CPT) ownership">Lev: <strong style={{ color: levColor(e.leverage) }}>{lev(e.leverage)}</strong></span>
+                          </>
+                        ) : <span>No ownership data</span>}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '0.6rem', width: '26px', color: 'var(--text-muted)' }}>ALL</span>
+                        {bar(e.totalPct, e.fieldOwn, `linear-gradient(90deg, ${posColor}88, ${posColor})`,
+                          `${e.totalPct.toFixed(1)}% (${e.total}/${keptLineups.length})`,
+                          e.fieldOwn != null ? `Field in-lineup rate (FLEX + CPT own): ${round1(e.fieldOwn)}%` : undefined)}
+                        <span style={{ width: '42px' }} />
+                      </div>
+                      <div onClick={ev => { ev.stopPropagation(); if (e.cpt > 0) toggleDrill(`${e.key}|CPT`); }}
+                        title={e.cpt > 0 ? (cptSel ? 'Click to remove the CPT filter' : 'Click to show only lineups with this player at captain') : 'Never captained in this portfolio'}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: e.cpt > 0 ? 'pointer' : 'default',
+                          borderRadius: '4px', outline: cptSel ? '1px solid rgba(0,242,254,0.6)' : 'none' }}>
+                        <span style={{ fontSize: '0.6rem', width: '26px', color: '#00f2fe', fontWeight: 700 }}>CPT</span>
+                        {bar(e.cptPct, e.cptOwn, 'linear-gradient(90deg, rgba(0,242,254,0.35), rgba(0,242,254,0.7))',
+                          `${e.cptPct.toFixed(1)}% (${e.cpt})`,
+                          e.cptOwn != null ? `Field CPT own: ${round1(e.cptOwn)}%` : undefined)}
+                        <span style={{ fontSize: '0.64rem', fontWeight: 700, width: '42px', textAlign: 'right', color: levColor(e.cptLeverage) }}
+                          title="CPT exposure minus field CPT ownership">{lev(e.cptLeverage)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

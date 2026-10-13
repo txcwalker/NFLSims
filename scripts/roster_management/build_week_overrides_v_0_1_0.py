@@ -28,7 +28,7 @@ import json
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-from src.data_pipeline.week_roster_v_0_1_0 import resolve_week_rows, is_player_row  # noqa: E402
+from src.data_pipeline.week_roster_v_0_1_0 import resolve_week_rows, is_player_row, normalize_team_shares  # noqa: E402
 from roster_feed_v_0_1_0 import read_rows, write_rows, match_key  # noqa: E402
 from dfs_status_ledger import load_ledger, statuses_for_week  # noqa: E402
 from apply_sheet_helpers_v_0_1_0 import ZONE_COL_MAP  # noqa: E402
@@ -64,6 +64,9 @@ def fill_live_shares(rows, live_traits):
     out = []
     for r in rows:
         r = dict(r)
+        if (r.get("roster_slot") or "").strip().lower() == "practice_squad":
+            out.append(r)        # not on the field: keep the sheet's own (0) shares, never the live blend
+            continue
         t = by_key.get(match_key(r.get("player_name", ""))) if r.get("player_name") else None
         if t is not None and (r.get("hand_edit") or "").strip().upper() != "TRUE":
             for col in SHARE_COLS:
@@ -114,6 +117,11 @@ def build_team_week_rows(season_rows, week, existing_week_path=None, ledger=None
         live_traits = _load_live_traits(team)
     rows = fill_live_shares(season_rows, live_traits) if live_traits else [dict(r) for r in season_rows]
     for r in rows:
+        if (r.get("roster_slot") or "").strip().lower() == "practice_squad":
+            # Practice-squad players are not on the field: zero every share (sheet-held
+            # leftovers included) so normalize_team_shares re-spreads it to the active room.
+            for col in SHARE_COLS:
+                r[col] = "0.0"
         ov = overlay.get(match_key(r.get("player_name", "")), {})
         r["dfs_status"] = ov.get("dfs_status", "active")
         r["starter_override"] = ov.get("starter_override", "")
@@ -123,7 +131,15 @@ def build_team_week_rows(season_rows, week, existing_week_path=None, ledger=None
             key = match_key(r.get("player_name", ""))
             if key in sticky:
                 r["dfs_status"] = sticky[key]
-    return resolve_week_rows(rows, week)
+    new_rows, report = resolve_week_rows(rows, week)
+    # Always land every team's share columns on a true 1.0 (2026-10-13, Cam) --
+    # blended shares sum to ~1.2 league-wide and the raw values are model features.
+    new_rows, norm_report = normalize_team_shares(new_rows)
+    for n in norm_report:
+        report.append({"field": n["field"], "pos": "ALL", "pool": 0.0,
+                       "method": f"normalized {n['before']} -> {n['after']} ({n['method']})",
+                       "recipients": []})
+    return new_rows, report
 
 
 def report_team_share_sums(week_dir):

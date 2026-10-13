@@ -141,6 +141,52 @@ def _redistribution_only_row(week_row, live_player):
     return out
 
 
+QB_RATE_OVERRIDES_PATH = os.path.join("data", "overrides", "2026", "qb_rate_overrides.csv")
+# Fields a qb_rate_overrides.csv row may set. Each is written to the flat field
+# AND splits.primary (the copy game_engine.py's zone vectors read); cpoe is
+# additionally written to the redzone/goalline splits, where tiny-sample zone
+# CPOE values (e.g. +39) otherwise bypass the override.
+QB_OVERRIDE_FIELDS = ("cpoe", "avg_air_yards_per_att", "sack_rate", "scramble_rate")
+
+
+def apply_qb_rate_overrides(traits, team, week, path=QB_RATE_OVERRIDES_PATH):
+    """Inputs: traits ({name: player dict}, one team, mutated in place), team
+    (str abbr), week (int), path (qb_rate_overrides.csv: team, player_name,
+    field, value, effective_week, end_week, note -- hand-edited).
+    Output: list of "player.field=value" strings applied (for reporting).
+    Purpose: the manual layer for QB rates the live blend gets wrong on tiny
+    samples (e.g. a 6-attempt backup at +18 CPOE). Sheets can only carry
+    shares, so without this a hand value for a QB's cpoe/air yards/sack/
+    scramble rate has nowhere durable to live -- the weekly refresh rewrites
+    traits.json. A row applies for effective_week <= week <= end_week (blank
+    end_week = open-ended). Unknown player/field rows are skipped, not errors."""
+    if not os.path.exists(path):
+        return []
+    _, rows = read_rows(path)
+    by_key = {match_key(n): n for n in traits}
+    applied = []
+    for r in rows:
+        if (r.get("team") or "").strip().upper() != team:
+            continue
+        field = (r.get("field") or "").strip()
+        name = by_key.get(match_key(r.get("player_name", "")))
+        val = _f(r.get("value"))
+        if name is None or val is None or field not in QB_OVERRIDE_FIELDS:
+            continue
+        start = int(r.get("effective_week") or 0)
+        end = int(r["end_week"]) if (r.get("end_week") or "").strip() else 99
+        if not (start <= week <= end):
+            continue
+        p = traits[name]
+        p[field] = val
+        p.setdefault("splits", {}).setdefault("primary", {})[field] = val
+        if field == "cpoe":
+            for zone in ("redzone", "goalline"):
+                p["splits"].setdefault(zone, {})["cpoe"] = val
+        applied.append(f"{name}.{field}={val}")
+    return applied
+
+
 def apply_team_week_overrides(week, team):
     """Compile one team's week sheet (data/overrides/2026/week_NN/{team}.csv)
     into its DFS traits JSON. Callable directly (e.g. from the app.py
@@ -174,6 +220,7 @@ def apply_team_week_overrides(week, team):
     ]
 
     updated, created, zeroed = apply_sheet_to_traits(traits, filtered_rows, skill_dna, week)
+    apply_qb_rate_overrides(traits, team, week)
 
     data["traits"] = dict(sorted(traits.items(), key=lambda kv: POS_ORDER.get(kv[1].get("pos"), 4)))
     out_path = os.path.join(DFS_ROSTERS_DIR, f"{team}_traits_2026.json")

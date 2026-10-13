@@ -18,7 +18,7 @@ sys.path.append(os.getcwd())
 from src.nfl_sim.batch import BatchSimulator
 from src.nfl_sim.scoring import calculate_fantasy_points
 from src.data_pipeline.current_week_v_0_1_0 import get_current_week
-from src.data_pipeline.real_results_v_0_1_0 import import_real_played_games, import_real_player_ngs, real_player_totals_by_name
+from src.data_pipeline.real_results_v_0_1_0 import load_real_actuals, real_player_totals_from_actuals
 
 # --- TEAM AND DIVISION METADATA ---
 TEAM_DIVISIONS = {
@@ -222,12 +222,17 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
     # as before.
     current_week = get_current_week(SIM_YEAR)
     print(f"Current week (auto-detected): {current_week}")
-    real_played = import_real_played_games(SIM_YEAR)
+    # 2026-10-01: a game is "completed" the moment it has a final score, not
+    # when its week ends -- so a finished Thursday game uses its real result
+    # mid-week instead of being re-simulated until the week rolls over.
+    # Player stats come from nflverse's full stats_player release (every
+    # player), not NGS (qualifiers only).
+    real_played, real_actuals, real_player_game_ids = load_real_actuals(SIM_YEAR)
     real_result_by_game_id = {}
     for _, g in real_played.iterrows():
         gid = g['game_id']
-        if week_by_game_id.get(gid, 999) >= current_week:
-            continue  # only trust "real" for weeks strictly before current_week
+        if gid not in week_by_game_id:
+            continue
         winner = g['away_team'] if g['away_score'] > g['home_score'] else (
             g['home_team'] if g['home_score'] > g['away_score'] else 'TIE')
         real_result_by_game_id[gid] = {
@@ -235,8 +240,8 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
         }
     print(f"Real completed-week results available for {len(real_result_by_game_id)} games.")
 
-    real_passing, real_rushing, real_receiving = import_real_player_ngs(SIM_YEAR)
-    real_player_totals = real_player_totals_by_name(real_passing, real_rushing, real_receiving)
+    real_player_totals = real_player_totals_from_actuals(real_actuals, real_player_game_ids)
+    print(f"Real per-player totals for {len(real_player_totals)} players across {len(real_player_game_ids)} completed games.")
 
     # 2. CACHING OR PRE-SIMULATION PHASE
     games_cache_path = f"data/interim/sim_results_{SIM_YEAR}_games.parquet"
@@ -263,9 +268,32 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
     else:
         if os.path.exists(games_cache_path) or os.path.exists(players_cache_path):
             print("Roster/DNA/override inputs changed since the cache was built -- re-simulating instead of reusing a stale cache.")
-        print(f"Pre-simulating all {len(reg_games)} regular season matchups...")
         all_games_list = []
         all_players_list = []
+
+        # 2026-10-01: games that already have a real final score are never
+        # used from the simulation (the standings take the real score; the
+        # player aggregation drops them), so re-simulating them every Tuesday
+        # is pure waste. Carry their rows forward from the previous cache
+        # instead -- keeps the parquet at all 272 games for the other readers
+        # (matchup report, API). Only carried when the old cache was built
+        # with the same iteration count; anything else gets simulated.
+        carried_ids = set()
+        if os.path.exists(games_cache_path) and os.path.exists(players_cache_path):
+            try:
+                old_games = pd.read_parquet(games_cache_path)
+                old_players = pd.read_parquet(players_cache_path)
+                if old_games['iteration'].nunique() == iterations:
+                    carried_ids = set(real_result_by_game_id) & set(old_games['game_id']) & set(old_players['game_id'])
+                    all_games_list.append(old_games[old_games['game_id'].isin(carried_ids)])
+                    all_players_list.append(old_players[old_players['game_id'].isin(carried_ids)])
+                del old_games, old_players
+            except Exception as e:  # noqa: BLE001 -- unreadable old cache: just simulate everything
+                print(f"Could not reuse completed games from the old cache ({e}); simulating them.")
+                carried_ids = set()
+                all_games_list, all_players_list = [], []
+        print(f"Pre-simulating {len(reg_games) - len(carried_ids)} of {len(reg_games)} regular season matchups "
+              f"({len(carried_ids)} completed games carried forward from the previous cache)...")
 
         start_time = time.time()
         week_tree_missing_warned = False
@@ -273,6 +301,8 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
             away = row["away_team"]
             home = row["home_team"]
             game_id = row["game_id"]
+            if game_id in carried_ids:
+                continue
 
             # Week-aware: use the per-week roster tree for this matchup's week
             # (injury returns + mid-season QB swaps -- see
@@ -524,7 +554,7 @@ def simulate_full_season_and_playoffs(iterations=1000, num_seasons=100):
     # ADDITIVE: drop completed-week games from the player-level simulated
     # aggregation too -- real per-player totals get added back below
     # (_apply_real_player_offsets), same as the standings loop above.
-    remaining_players_df = all_players_df[all_players_df['game_id'].map(week_by_game_id).fillna(999) >= current_week]
+    remaining_players_df = all_players_df[~all_players_df['game_id'].isin(real_player_game_ids)]
 
     # Sum stats per player, team, slot, pos, and iteration to get season-long totals
     season_player_grouped = remaining_players_df.groupby(['Player', 'Team', 'Pos', 'Slot', 'iteration'])[metrics].sum().reset_index()

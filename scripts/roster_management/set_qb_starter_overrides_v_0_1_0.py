@@ -23,7 +23,8 @@ ROSTERS_DIR = "data/current_rosters"
 # team -> confirmed real starting QB, only for teams where the engine's
 # default career-total_attempts heuristic picks the wrong player.
 STARTER_OVERRIDES = {
-    "NYG": "Jaxson Dart",
+    # 2026-10-03, Cam: Dart out for the year; Jameis Winston is the starter.
+    "NYG": "Jameis Winston",
     "NO": "Tyler Shough",
     "TEN": "Cam Ward",
     "SF": "Brock Purdy",
@@ -32,7 +33,9 @@ STARTER_OVERRIDES = {
     # (617 career attempts) is the real starter despite having far fewer
     # career attempts than Tua (2,296), which is exactly the heuristic
     # failure mode this file exists to patch.
-    "ATL": "Cooper Rush",
+    # 2026-10-03, Cam: Michael Penix is the starter for the rest of the season
+    # (was Cooper Rush for the Week 1 opener, see above).
+    "ATL": "Michael Penix",
     # 2026-09-16, Cam: Sam Darnold out ~4 weeks (see season_long/SEA.csv) --
     # Drew Lock is the real starter in the meantime.
     # 2026-09-26, Cam: Darnold returns early -- starting Week 3 (was Drew

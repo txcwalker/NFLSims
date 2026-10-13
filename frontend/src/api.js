@@ -439,6 +439,14 @@ export const ApiService = {
     return safeFetch(`${API_BASE}/eval/cash_lineups?week=${week}&year=${year}`, {}, fallback);
   },
 
+  // Tournament Pool grading (src/evaluation/tournament_pool_eval.py): every
+  // lineup the Optimizer generated pre-lock vs the real $1 First Down field.
+  // First call per week after a new build/standings file takes ~20-40s.
+  async getTournamentPoolEval(week, year = 2026) {
+    const fallback = { week, gradable: false, reason: 'Could not reach the API.' };
+    return safeFetch(`${API_BASE}/eval/tournament_pool?week=${week}&year=${year}`, {}, fallback);
+  },
+
   // Button-triggered (Cash Lineups page player pool) -- re-solves the
   // consensus builds with `excluded` players removed and `locked` players
   // ([{name, team}, ...] each) forced into every build, and persists both
@@ -779,6 +787,95 @@ export const ApiService = {
     }
   },
 
+  // Pickems > Underdog Lines: the accumulated board for a week (every leg pasted
+  // so far), graded against the week's sims. No mock fallback.
+  // Returns {ok: true, data} | {ok: false, error}.
+  async getPickemBoard(week) {
+    try {
+      const res = await fetch(`${API_BASE}/pickems/board?${new URLSearchParams({ week })}`);
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { detail = (await res.json()).detail || detail; } catch { /* non-JSON error body */ }
+        return { ok: false, error: detail };
+      }
+      return { ok: true, data: await res.json() };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  },
+
+  // Pickems > Underdog Lines: sim probability + break-even multiplier at lines around one leg's line.
+  // Returns {ok: true, data: {mean, median, lines}} | {ok: false, error}.
+  async getPickemLadder(week, team, player, market, line) {
+    try {
+      const res = await fetch(`${API_BASE}/pickems/ladder?${new URLSearchParams({ week, team, player, market, line })}`);
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { detail = (await res.json()).detail || detail; } catch { /* non-JSON error body */ }
+        return { ok: false, error: detail };
+      }
+      return { ok: true, data: await res.json() };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  },
+
+  // Pickems > Underdog Lines entry calculators: joint hit probability of a slip's legs.
+  // legs: [{team, player, market, line, side}]. Returns {ok: true, data: {joint, independent, singles, games}} | {ok: false, error}.
+  async getPickemSlip(week, legs) {
+    try {
+      const res = await fetch(`${API_BASE}/pickems/slip`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week, legs }),
+      });
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { detail = (await res.json()).detail || detail; } catch { /* non-JSON error body */ }
+        return { ok: false, error: detail };
+      }
+      return { ok: true, data: await res.json() };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  },
+
+  // Pickems > Underdog Grading: ledger legs settled against real results. week = null for all weeks.
+  // Returns {ok: true, data} | {ok: false, error}.
+  async getPickemResults(week, minUsage = 3, closeMaxAgeH = 6) {
+    try {
+      const params = new URLSearchParams({ min_usage: minUsage, close_max_age_h: closeMaxAgeH });
+      if (week != null) params.set('week', week);
+      const res = await fetch(`${API_BASE}/pickems/results?${params}`);
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { detail = (await res.json()).detail || detail; } catch { /* non-JSON error body */ }
+        return { ok: false, error: detail };
+      }
+      return { ok: true, data: await res.json() };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  },
+
+  // POST a pasted board: only new/changed legs are added to the ledger; returns the
+  // re-graded accumulated board plus `paste` = {parsed, new, changed, unchanged}.
+  async gradePickemBoard(text, week) {
+    try {
+      const res = await fetch(`${API_BASE}/pickems/grade`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, week }),
+      });
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { detail = (await res.json()).detail || detail; } catch { /* non-JSON error body */ }
+        return { ok: false, error: detail };
+      }
+      return { ok: true, data: await res.json() };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  },
+
   async refreshPlayerActuals(year = 2026) {
     try {
       const res = await fetch(`${API_BASE}/eval/refresh_player_actuals?${new URLSearchParams({ year })}`, { method: 'POST' });
@@ -960,6 +1057,36 @@ export const ApiService = {
       return res.ok;
     } catch {
       return false;
+    }
+  },
+  // ── Shortlist (lineups hand-saved from the optimizers)
+  async getShortlist(week, fmt = 'classic', season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/shortlist?week=${week}&fmt=${fmt}&season=${season}`);
+      return res.ok ? await res.json() : { format: fmt, lineups: [] };
+    } catch {
+      return { format: fmt, lineups: [] };
+    }
+  },
+  async addToShortlist(week, lineups, fmt = 'classic', sourceBuildId = null, season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/shortlist/add?week=${week}&fmt=${fmt}&season=${season}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lineups, source_build_id: sourceBuildId }),
+      });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+  async removeFromShortlist(week, body, fmt = 'classic', season = 2026) {
+    try {
+      const res = await fetch(`${API_BASE}/shortlist/remove?week=${week}&fmt=${fmt}&season=${season}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
     }
   },
   async pruneOptimizerBuilds(week, season = 2026) {

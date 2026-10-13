@@ -40,7 +40,7 @@ import numpy as np
 
 sys.path.append(os.getcwd())
 from src.data_pipeline.current_week_v_0_1_0 import get_current_week
-from src.data_pipeline.real_results_v_0_1_0 import import_real_played_games, import_real_player_ngs, real_player_totals_by_name
+from src.data_pipeline.real_results_v_0_1_0 import load_real_actuals, real_player_totals_from_actuals
 from src.nfl_sim.scoring import calculate_fantasy_points
 
 SIM_YEAR = 2026
@@ -166,19 +166,18 @@ def generate(top_n=32, rookie_top_n=20):
     print("Loading player simulation cache...")
     df = pd.read_parquet(PLAYERS_CACHE)
 
-    # --- ADDITIVE: drop completed-week games from the simulated
-    # aggregation -- real per-player totals get added back below instead.
+    # --- ADDITIVE: drop completed games from the simulated aggregation --
+    # real per-player totals get added back below instead.
+    # 2026-10-01: "completed" = has a final score + player stat lines, and the
+    # real totals come from nflverse's full stats_player release (every
+    # player) instead of NGS (qualifiers only, which undercounted).
     current_week = get_current_week(SIM_YEAR)
     print(f"Current week (auto-detected): {current_week}")
-    sched = pd.read_csv(SCHEDULE_CSV)
-    week_by_game_id = dict(zip(sched['game_id'], sched['week']))
-    df = df[df['game_id'].map(week_by_game_id).fillna(999) >= current_week]
+    real_played, real_actuals, real_player_game_ids = load_real_actuals(SIM_YEAR)
+    df = df[~df['game_id'].isin(real_player_game_ids)]
 
-    real_totals = {}
-    real_played = import_real_played_games(SIM_YEAR)
-    if not real_played[real_played['week'] < current_week].empty:
-        real_passing, real_rushing, real_receiving = import_real_player_ngs(SIM_YEAR)
-        real_totals = real_player_totals_by_name(real_passing, real_rushing, real_receiving)
+    real_totals = real_player_totals_from_actuals(real_actuals, real_player_game_ids)
+    if real_totals:
         print(f"Real per-player offsets available for {len(real_totals)} players.")
 
     print("Loading rookie lookup from current_rosters...")

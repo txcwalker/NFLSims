@@ -67,6 +67,24 @@ def _load_team_to_coach(year: int) -> Dict[str, str]:
             _TEAM_TO_COACH_CACHE[year] = {}
     return _TEAM_TO_COACH_CACHE[year]
 
+_LIVE_PROE_CACHE: Dict[int, tuple] = {}  # year -> (file mtime, {team: {n_games, pass_oe}})
+
+
+def _load_live_proe(year: int) -> Dict[str, dict]:
+    """{team: {"n_games", "n_plays", "pass_oe"}} from data/dna/proe_live_{year}.json,
+    {} if the file doesn't exist. Re-read whenever the file's mtime changes so a
+    long-running API process picks up the weekly refresh."""
+    path = os.path.join(_BASE_DIR, "data", "dna", f"proe_live_{year}.json")
+    if not os.path.exists(path):
+        return {}
+    mtime = os.path.getmtime(path)
+    cached = _LIVE_PROE_CACHE.get(year)
+    if cached is None or cached[0] != mtime:
+        with open(path, "r") as f:
+            _LIVE_PROE_CACHE[year] = (mtime, json.load(f).get("teams", {}))
+    return _LIVE_PROE_CACHE[year][1]
+
+
 # Bayesian shrinkage parameter.
 # k=8 means the prior year is worth the equivalent of 8 current-season games.
 # At n_current=8, weights are 50/50. Tunable for V.0.2.0.
@@ -172,6 +190,15 @@ def get_coach_proe(
         return _LEAGUE_AVG_PROE
 
     historical = _HISTORICAL_PROE.get(coach, _LEAGUE_AVG_PROE)
+
+    # Caller gave no current-season data -> use the weekly-refreshed live file
+    # (data/dna/proe_live_{year}.json, written by refresh_live_proe_v_0_1_0.py)
+    # if one exists for this year. Before this, the engine always ran on the
+    # coach's historical PROE for the whole season.
+    if n_current_games <= 0 and current_season_proe is None:
+        live = _load_live_proe(year).get(team)
+        if live and live.get("n_games", 0) > 0:
+            n_current_games, current_season_proe = live["n_games"], live["pass_oe"]
 
     if n_current_games <= 0 or current_season_proe is None:
         return historical

@@ -40,6 +40,14 @@ export const PAGES = [
     description: 'Build optimal DraftKings and FanDuel lineups using mathematical constraints (knapsack solver) on simulated projections.'
   },
   {
+    id: 'shortlist',
+    label: 'Shortlist',
+    showInNavbar: true,
+    category: 'tool',
+    icon: '🗂️',
+    description: 'Lineups you saved from the Optimizer during the week, cut down into your final entries with the same exposure and drill-down tools and a DK upload export.'
+  },
+  {
     id: 'showdown_optimizer',
     label: 'Showdown Optimizer',
     showInNavbar: true,
@@ -73,6 +81,32 @@ export const PAGES = [
     category: 'eval',
     icon: '🏆',
     description: 'Weekly positional rankings graded against actual finishes in season-long scoring formats -- rank correlation, top-12 hit rates and probability skill.'
+  },
+  {
+    id: 'eval_pool',
+    label: 'Lineup Pool',
+    showInNavbar: true,
+    category: 'eval',
+    icon: '🎰',
+    description: 'Every lineup the Optimizer generated pre-lock, played or not, graded against the real $1 First Down field -- calibration of predicted ITM/top-1%/EV, stale-lineup decay, exposure gaps and build-by-build results.'
+  },
+  // Pickems dropdown (2026-10-03): Underdog Pick'em lines pasted by hand (their
+  // ToS only allows manual access, so no scraper) and graded against our sims.
+  {
+    id: 'pickem_lines',
+    label: 'Underdog Lines',
+    showInNavbar: true,
+    category: 'pickems',
+    icon: '🐕',
+    description: "Paste the Underdog Pick'em board and see which legs our sims say are +EV, with the minimum multiplier worth taking."
+  },
+  {
+    id: 'pickem_results',
+    label: 'Underdog Grading',
+    showInNavbar: true,
+    category: 'pickems',
+    icon: '🧾',
+    description: 'Underdog legs settled against real stat lines at the opening and closing multipliers -- do our +EV legs pay, and is our probability better than the market\'s?'
   },
   {
     id: 'sim_replays',

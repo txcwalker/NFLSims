@@ -270,6 +270,53 @@ def list_my_contests(year: Optional[int] = None, week: Optional[int] = None) -> 
     return results
 
 
+def saved_payout_table(folder: str, stem: str, field_size: int) -> Optional[list]:
+    """This week's REAL DK payout table for one contest, from the slate's
+    payouts.json (written pre-lock by scripts/dfs_ownership/snapshot_contest_payouts.py).
+    Moved here from score_paper_entries.py (2026-09-29) so Sim Replays can
+    use it too; that script now imports it from here.
+
+    Inputs:  folder (slate folder), stem (standings-CSV stem, e.g.
+             "firstdown_1_20max"), field_size (max rank in the standings).
+    Output:  tiers list [{rank_start, rank_end, payout}] or None if no table
+             was saved for that stem. Two contests can share a stem (e.g.
+             two $150 3-max Power Sweeps) -- the one whose max_entries is
+             closest to the settled field size wins."""
+    path = os.path.join(folder, "payouts.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        saved = (json.load(f) or {}).get("contests", [])
+    # Exact stem, then the same stem with punctuation ignored in the name
+    # part ("hard_count_20_5max" vs saved "hardcount_20_5max"), then any
+    # contest with the same price+xmax ("_20_5max") -- CSV names are typed
+    # by hand, the saved stems are derived from DK's lobby name.
+    squash = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())  # noqa: E731
+    name, _, suffix = stem.rpartition("_")
+    name, _, price = name.rpartition("_")
+    tail = f"_{price}_{suffix}"
+    cands = ([c for c in saved if c.get("stem") == stem]
+             or [c for c in saved if c.get("stem", "").endswith(tail)
+                 and squash(c["stem"][: -len(tail)]) == squash(name)]
+             or [c for c in saved if c.get("stem", "").endswith(tail)])
+    if not cands:
+        return None
+    return min(cands, key=lambda c: abs(int(c.get("max_entries") or 0) - field_size))["tiers"]
+
+
+def _payout_at_rank(tiers: list, rank: Optional[int]) -> Optional[float]:
+    """Dollar payout for one real finishing rank under `tiers` ([{rank_start,
+    rank_end, payout}], either a saved real DK table or
+    get_default_payout_structure's assumed curve). 0.0 outside every tier,
+    None if the rank itself is unknown."""
+    if rank is None:
+        return None
+    for tier in tiers:
+        if tier["rank_start"] <= rank <= tier["rank_end"]:
+            return float(tier["payout"])
+    return 0.0
+
+
 def _find_csv(year: int, week: int, slate_id: str, contest_name: str) -> Optional[str]:
     slate_dir = os.path.join(ARCHIVE_DIR, str(year), f"week_{int(week):02d}", slate_id)
     if not os.path.isdir(slate_dir):
@@ -551,11 +598,28 @@ def _compute_contest_field_stats(
     if len(selected) == 0:
         return {"entries": [], "field_size": field_size}
 
-    if paying_positions is None:
-        paying_positions = max(1, round(field_size * 0.20))
-    entry_fee = parse_filename(os.path.splitext(os.path.basename(csv_path))[0])["entry_fee"]
-    prize_pool = entry_fee * field_size * 0.85
-    payout_structure = get_default_payout_structure(contest_type, prize_pool, paying_positions, field_size)
+    stem = os.path.splitext(os.path.basename(csv_path))[0]
+    entry_fee = parse_filename(stem)["entry_fee"]
+    # (2026-09-29) Prefer the REAL DK payout table saved pre-lock for this
+    # contest (payouts.json, week 4 onward) -- then it drives BOTH Sim ROI and
+    # the realized Actual ROI below, and the Settings payout curve / paying
+    # positions are ignored. Otherwise fall back to the assumed curve, again
+    # for both, so projected-vs-actual is always priced on one curve.
+    real_tiers = saved_payout_table(slate_dir, stem, field_size)
+    if real_tiers:
+        payout_structure = real_tiers
+        paying_positions = max(int(t["rank_end"]) for t in real_tiers)
+        payout_source = "real_dk_table"
+    else:
+        if paying_positions is None:
+            paying_positions = max(1, round(field_size * 0.20))
+        prize_pool = entry_fee * field_size * 0.85
+        payout_structure = get_default_payout_structure(contest_type, prize_pool, paying_positions, field_size)
+        payout_source = "assumed_curve"
+    # Same rank thresholds compute_lineup_field_stats_batch uses for its
+    # projected Top 1% / Top 0.1%, so a realized "hit" means the same thing.
+    top1_thresh = max(1, int(field_size * 0.01))
+    top01_thresh = max(1, int(field_size * 0.001))
 
     lineup_draws_list = [field_matrix[i] for i in selected]
     stats_list = compute_lineup_field_stats_batch(
@@ -599,10 +663,22 @@ def _compute_contest_field_stats(
 
         real_rank = int(row["_rank"]) if pd.notna(row["_rank"]) else None
 
+        # Realized outcome at the REAL DK rank, priced on the same payout
+        # table as Sim ROI -- the "how did it actually do" side of each
+        # projected column (Sim ROI / Cash Rate / Top 1% / Top 0.1%).
+        actual_payout = _payout_at_rank(payout_structure, real_rank)
+        actual_roi_pct = (round((actual_payout / entry_fee - 1) * 100, 2)
+                          if actual_payout is not None and entry_fee else None)
+
         entries.append({
             **stats,
             "entry_id": row[id_col] if id_col else None,
             "rank": real_rank,
+            "actual_payout": actual_payout,
+            "actual_roi_pct": actual_roi_pct,
+            "cashed": real_rank is not None and real_rank <= paying_positions,
+            "top1_hit": real_rank is not None and real_rank <= top1_thresh,
+            "top01_hit": real_rank is not None and real_rank <= top01_thresh,
             "actual_points": actual_points,
             "is_mine": bool(is_mine[idx]),
             "total_ownership": total_ownership,
@@ -613,6 +689,8 @@ def _compute_contest_field_stats(
     return {
         "entries": entries, "field_size": field_size, "n_iterations": n_iterations,
         "paying_positions": paying_positions, "contest_type": contest_type,
+        "payout_source": payout_source, "entry_fee": entry_fee,
+        "top_pct": top_pct,
         "contest_name": contest_name, "slate_format": slate_format,
         "away_team": manifest.get("away_team"), "home_team": manifest.get("home_team"),
     }

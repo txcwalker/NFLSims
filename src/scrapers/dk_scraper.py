@@ -51,6 +51,11 @@ FUZZY_MATCH_THRESHOLD = 0.90
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ALIAS_FILE_PATH = os.path.join(BASE_DIR, "data", "dna", "dk_name_aliases.json")
+# Hand-edited list of DK Showdown players to drop from our pool (2026-10-05) --
+# e.g. a second kicker DK lists who isn't actually going to play. Shape:
+#   {"players": [{"name": "Charlie Smyth", "team": "NO", "reason": "..."}]}
+# Matched on (normalized name, team); a missing file or entry means "ignore no one".
+SHOWDOWN_IGNORE_PATH = os.path.join(BASE_DIR, "data", "overrides", "2026", "dk_showdown_ignored_players.json")
 
 _SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "v"}
 
@@ -325,11 +330,6 @@ def pin_main_slate_draft_group_id(year: int, week: int, draft_group_id: int, con
     _save_main_slate_pins(pins)
 
 
-def resolve_main_slate_draft_group_id(year: int, week: int, force_refresh: bool = False) -> Optional[int]:
-    """Sticky per-(year, week) pin for the real NFL 'Main Slate' Classic
-    draft group, so it stays correct for the rest of the week even after DK's
-    live lobby moves on.
-
 def _bye_teams_for_week(year: int, week: int) -> Tuple[set, bool]:
     """Inputs: year (int), week (int) -- read from data/external/schedule_{year}.csv.
     Outputs: (teams on bye that week, whether that week is already over) -- both
@@ -364,6 +364,11 @@ def _slate_has_bye_team(draft_group_id: int, bye_teams: set) -> bool:
     teams = get_dk_salaries(draft_group_id=draft_group_id).get("main_slate_teams") or set()
     return bool(teams & bye_teams)
 
+
+def resolve_main_slate_draft_group_id(year: int, week: int, force_refresh: bool = False) -> Optional[int]:
+    """Sticky per-(year, week) pin for the real NFL 'Main Slate' Classic
+    draft group, so it stays correct for the rest of the week even after DK's
+    live lobby moves on.
 
     _find_main_slate_draft_group_id()'s "most CURRENTLY OPEN contests"
     heuristic silently breaks once the real main slate's games lock: DK drops
@@ -402,11 +407,6 @@ def _slate_has_bye_team(draft_group_id: int, bye_teams: set) -> bool:
                 live_count = s["contest_count"]
                 break
 
-    if pinned is None or (live_default is not None and live_count > pinned.get("contest_count", 0)):
-        if live_default is not None:
-            pins.setdefault(ykey, {})[wkey] = {
-                "draft_group_id": live_default,
-                "contest_count": live_count,
     # Bye-week guard (added 2026-10-07): pins only grow, so a pin taken from a
     # previous week's live default (week 5 was pinned to week 4's group while
     # that was still the lobby default) could never be outvoted by the real
@@ -424,6 +424,11 @@ def _slate_has_bye_team(draft_group_id: int, bye_teams: set) -> bool:
             print(f"DK scraper: live default {live_default} includes week {week} bye team(s) -- not pinning it.")
             return live_default if pinned is None else pinned["draft_group_id"]
 
+    if pinned is None or (live_default is not None and live_count > pinned.get("contest_count", 0)):
+        if live_default is not None:
+            pins.setdefault(ykey, {})[wkey] = {
+                "draft_group_id": live_default,
+                "contest_count": live_count,
                 "pinned_at": time.time(),
             }
             _save_main_slate_pins(pins)
@@ -910,6 +915,19 @@ def get_dk_showdown_slates(force_refresh: bool = False) -> Dict[str, Any]:
     return {"is_live": _lobby_cache["fetched_at"] is not None, "slates": out}
 
 
+def _load_showdown_ignored() -> set:
+    """Output: {(normalized_name, team)} from SHOWDOWN_IGNORE_PATH. Purpose:
+    read fresh on every call (tiny file) so an edit takes effect on the next
+    pool load with no server restart. Never raises -- any read/parse problem
+    just means nothing is ignored."""
+    try:
+        with open(SHOWDOWN_IGNORE_PATH, "r", encoding="utf-8") as f:
+            entries = json.load(f).get("players", [])
+        return {(re.sub(r"[^a-z]", "", str(e["name"]).lower()), str(e["team"]).upper()) for e in entries}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return set()
+
+
 def get_dk_showdown_salaries(
     draft_group_id: Optional[int] = None,
     away_team: Optional[str] = None,
@@ -954,6 +972,11 @@ def get_dk_showdown_salaries(
     entry = _showdown_slate_entry(dg, force_refresh)
     if entry is None:
         return {**empty, "draft_group_id": dg}
+    ignored = _load_showdown_ignored()
+
+    def _kept(p: Dict[str, Any]) -> bool:
+        return (re.sub(r"[^a-z]", "", str(p.get("name", "")).lower()), str(p.get("team", "")).upper()) not in ignored
+
     return {
         "found": True,
         "draft_group_id": dg,
@@ -972,11 +995,6 @@ def get_dk_contests(draft_group_id: Optional[int] = None, force_refresh: bool = 
     in the same refresh window is free.
 
         {
-    ignored = _load_showdown_ignored()
-
-    def _kept(p: Dict[str, Any]) -> bool:
-        return (re.sub(r"[^a-z]", "", str(p.get("name", "")).lower()), str(p.get("team", "")).upper()) not in ignored
-
           "draft_group_id": int | None,
           "fetched_at": float | None,
           "is_live": bool,

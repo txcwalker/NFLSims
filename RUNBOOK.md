@@ -1,6 +1,6 @@
 # RUNBOOK.md — Recurring Manual Operations
 
-# Status: live | 2026-09-23
+# Status: live | 2026-10-08
 
 The chores that currently have to be run **by hand** to keep the NFL sims, DFS
 projections, and ownership model current during the season. These are
@@ -28,7 +28,8 @@ Run top to bottom. Order matters: each group feeds the next.
 
 | # | Task | How | Mode | Depends on |
 |---|---|---|---|---|
-| A1 | Refresh player/team DNA from last week's real PBP + NGS | `scripts/roster_management/refresh_weekly_dna_v_0_1_0.py 2026 <W-1>` | manual | nflverse has published `<W-1>` data |
+| A1 | Refresh player/team DNA from last week's real PBP + NGS | `scripts/roster_management/refresh_weekly_dna_v_0_1_0.py 2026 <W-1>` | manual | nflverse has published `<W-1>` data | (also rewrites the two files in A1b)
+| A1b | Refresh ONLY live team PROE (nflverse `pass_oe`) + team pace / no-huddle tendencies -- same files A1 writes, for a standalone re-pull | `scripts/roster_management/refresh_live_proe_v_0_1_0.py 2026 <W-1>` then `scripts/roster_management/refresh_team_pace_v_0_1_0.py 2026 <W-1>` (writes `data/dna/proe_live_2026.json`, `data/dna/team_pace_2026.json`) | manual | nflverse has published `<W-1>` data |
 | A2 | Rebuild real season-to-date standings / stats / leaders (Current Season page) | `scripts/simulation_runners/build_actual_season_stats_2026.py` | manual | — |
 | A3 | Rerun the rest-of-season sim + all season reports | `scripts/simulation_runners/regenerate_2026_reports.py` (slow; always use this, never `run_full_season_sim_2026.py` alone) | manual | A1 |
 
@@ -47,8 +48,9 @@ Run top to bottom. Order matters: each group feeds the next.
 | # | Task | How | Mode | Depends on |
 |---|---|---|---|---|
 | C1 | Build the `<W>` override sheets from season_long + status ledger | `scripts/roster_management/build_week_overrides_v_0_1_0.py <W>` | manual | A1 |
-| C2 | Compile the sheets into the DFS roster tree | `scripts/roster_management/apply_team_week_overrides_v_0_1_0.py <W>` | manual | C1 |
+| C2 | Compile the sheets into the DFS roster tree (also applies the hand-edited `data/overrides/2026/qb_rate_overrides.csv` -- QB cpoe / air yards / sack / scramble overrides) | `scripts/roster_management/apply_team_week_overrides_v_0_1_0.py <W>` | manual | C1 |
 | C3 | Run the week sim (feeds optimizers + ownership inputs) | `scripts/simulation_runners/run_week_sim_2026.py <W>` (10k iterations default) | manual | C2 |
+| C4 | **Shortcut for A1 + C1 → C3 + verify.** One command: refresh DNA through `<W-1>`, build sheets, compile rosters, run the sim, confirm the DFS API lists week `<W>` (flags `--skip-refresh`, `--skip-sim`). The DFS site picks the week up on its own: `/api/weeks` lists every week that has both `dfs_week_N_*.parquet` files, so no code edit or restart is needed (hardcoded list removed 2026-10-13) | `scripts/roster_management/setup_week_v_0_1_0.py <W>` | manual | nflverse has published `<W-1>` data |
 
 ---
 

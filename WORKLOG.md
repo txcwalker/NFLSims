@@ -9,6 +9,73 @@
 
 ---
 
+### [2026-10-13] Handoff from Claude Sonnet 5.5 (week share normalization)
+
+- Week sheets now ALWAYS normalize to 1.0: `normalize_team_shares()` in [src/data_pipeline/week_roster_v_0_1_0.py](src/data_pipeline/week_roster_v_0_1_0.py), called at the end of `build_team_week_rows` (so build_week_overrides, the Game Explorer toggle path and later-week rebuilds all get it). Each of the 6 share columns is scaled separately; `hand_edit=TRUE` rows held fixed, blended rows fill the remainder. Before: active players summed to ~1.2 league-wide (carry 38.6 / target 37.2 vs 32 ideal) and the raw shares are model features (air-yards/YAC/rush models), not just sampling weights.
+- Practice-squad rows are now zeroed in the week sheet (they were passing through live-blend/sheet leftovers, e.g. PHI Pierce 0.61 carry).
+- New read-only checker: [scripts/roster_management/audit_week_shares_v_0_1_0.py](scripts/roster_management/audit_week_shares_v_0_1_0.py) `<week> [TEAM] [--flags-only]`.
+- Week 6 sheets rebuilt; compiled DFS rosters NOT yet re-applied (sims were running) -- run apply_team_week_overrides 6 and resim to pick this up. Week 6 sims already run used un-normalized shares.
+
+---
+
+### [2026-10-11] Handoff from Claude Sonnet 5.5 (Week 5 injury resims + DET@ARI total calibration)
+
+- **Injury resims (10K iters each, week 5):** Rhamondre/Higgins/Chase already active, no change. Toggled via the sticky ledger: Addison OUT (MIN), White + McLaurin ACTIVE and Diggs OUT (WAS), Allen ACTIVE (IND), Dowdle ACTIVE (PIT, "recheck in the morning"), Mason Taylor ACTIVE (NYJ), Marvin Harrison Jr OUT (ARI). Later sweep of long-term outs, all OUT: Iosivas (CIN), Pittman (PIT; Wilson 17.6% > Bernard 10.3% target share via pro-rata), Juszczyk (SF), J. Coleman + P. Bryant (DEN), Monangai (CHI), McConkey + Q. Johnston (LAC), Nailor (LV). These ledger toggles are sticky into week 6 until flipped back.
+- **Hand-tuned week-5 target shares (week sheets only, NOT season_long):** WAS Williams .155, Brown .135, Burks .088, Okonkwo .115, White .115, Croskey-Merritt .065, McLaurin .265 (Diggs out); NYJ Sadiq .17, Taylor .09. A Game Explorer toggle on WAS/NYJ rebuilds the sheet and wipes these. Not touched: IND Pierce, NYJ Hall + Mitchell remain OUT from earlier toggles.
+- **DET@ARI scoring knob:** sim total was 40.2 vs market 54.5 (biggest gap on the slate; slate mean gap ~0). Cam asked for ~51.5 split 60/40 DET/ARI of the added points. New env var `NFL_SIM_GAIN_BOOST="DET:1.23,ARI:1.165"` in [game_engine.py](src/nfl_sim/game_engine.py) multiplies a team's positive pass + rush gains (unset = 1.0 everywhere, other games unchanged). Result: DET 27.8, ARI 23.2, total 51.0, DET win 63%. Tuned empirically, not fit to data; only gains move, completion/sack/turnover rates do not. **The boost is NOT stored anywhere: any later DET@ARI resim must pass the same env var or it reverts to ~40.** Tests: evaluator suite 18/18; no full batch audit (knob is off by default).
+- **Open:** why the sim is ~14 pts under market on this game was not diagnosed (inputs for Goff/Brissett/Gibbs/St. Brown/McBride looked normal).
+
+---
+
+### [2026-10-09] Handoff from Claude Sonnet 5.5 (Lineup Pool evaluation)
+
+- **Feature:** "paper-trade every lineup" grading. [tournament_pool_eval.py](src/evaluation/tournament_pool_eval.py) folds all saved pre-lock builds into unique lineups (with regeneration counts) and grades them against the real $1 First Down field (rescored with latest actuals; real payout table for wk4, scaled from it for earlier weeks). New Evaluation > Lineup Pool page ([TournamentPoolEval.jsx](frontend/src/components/TournamentPoolEval.jsx)), `GET /api/eval/tournament_pool`, runner [run_tournament_pool_eval.py](scripts/evaluation/run_tournament_pool_eval.py), 16 tests.
+- **Pruning is OFF** (`optimizer_store.PRUNE_ENABLED = False`); the Optimizer's auto-prune and Prune button are now no-ops. Week 2 kept 20 lineups, week 3 none (pruned before this existed), week 1's builds are all post-lock, so only week 4 (7.5K unique) is a real sample.
+- **Stale lineups** (Cam's point: Friday scratches invalidate early builds): lineups holding a player unavailable by lock are reported separately and excluded from headline/calibration. Week 4: 4.5% stale overall, but 38% for lineups last built 3+ days out vs 0.2% in the final 6h. Removing them did not change the calibration story.
+- **Finding (one slate, read direction only):** predicted ITM 26.6% vs realized 18.6%, top-1% 1.59% vs 0.25%, higher-predicted fifths did no better; best finish #283 of 118,745. Early builds are not the cause.
+- **Gotcha fixed along the way:** a dropped-by-field player who then scored (Herbert, Hurts) is NOT stale; only players who also did not play are.
+- **Not built:** hindsight-ceiling lineup, stale-lineup repair re-optimization, compressing old builds (builds are not in git; disk loss loses them).
+
+---
+
+### [2026-10-08] Handoff from Claude Sonnet 5.5 (Shortlist, Classic)
+
+- **Feature:** Shortlist for Classic (renamed from "Portfolio Builder" the same day -- "portfolio" already means the optimizer's generated lineups). Optimizer results get a per-lineup `＋` and a "＋ Save N shown to Shortlist" button (respects the exposure filter); saved lineups collect on a new Tools > Shortlist page with the Optimizer's own tools (exposure panel, drill-down, FLEX split, lineup table) and DK upload / summary export. Ownership on the Shortlist page is LIVE (weekly sim ownership + the Optimizer's manual overlay overrides), not the value frozen when saved; EV%/ITM%/histogram stay as saved.
+- **Refactor:** the Optimizer's whole results view moved verbatim into [ClassicLineupAnalysis.jsx](frontend/src/components/ClassicLineupAnalysis.jsx); shared colors/styles/pool builder/DK export moved to [optimizerShared.js](frontend/src/optimizerShared.js). [Optimizer.jsx](frontend/src/pages/Optimizer.jsx) 3,240 -> ~2,100 lines. Lab-mode first-row auto-expand preserved via `autoExpandFirst`.
+- **Backend:** [shortlist_store.py](src/api/shortlist_store.py) + `GET /api/shortlist`, `POST /api/shortlist/add|remove` in app.py; file `data/optimizer/<season>/week_NN/shortlist_<format>.json` (tracked: not regenerable). Dedupes on the (slot, name, team) set. Tests: [tests/test_shortlist_store.py](tests/test_shortlist_store.py) (5).
+- **Verified:** build + lint (no undefined identifiers), store tests, and in the browser on a week-4 seed: page render, exposure drill-down, live ownership, remove persisted to disk. **NOT clicked end-to-end:** the Optimizer-side save buttons (avoided touching the real week 4/5 working state). Test data was removed.
+- **Not built (by design, Cam's call):** automatic trimming / re-optimizing inside the portfolio (hand-trim for now); Showdown (next, after Cam reviews Classic). Shortlist-level EV/Eff.Lineup Count tiles are hidden (the backend computes them only at optimize time).
+- **Known:** saved `dk_id`s go stale when DK salaries refresh; export warns for rows missing an ID.
+- **Bug fixed (2026-10-09):** Shortlist page showed an empty/"Loading" Week 5 while 150 lineups were on disk. Cause: App fires week changes at startup (1 -> 5 -> 4), responses arrived out of order and the empty Week 1 result overwrote Week 5. Fixed with a cancel flag in the load effect ([Shortlist.jsx](frontend/src/pages/Shortlist.jsx)). Lesson: any page that loads per-week data keyed off `selectedWeek` needs the same guard. Also merged 4 lineups left in the pre-rename `portfolio_classic.json` (all already present) and deleted that file.
+- **Moving lineups out:** per-row ✕, or "Remove N shown" (follows the exposure/FLEX filter, so drill into a player then remove all their lineups).
+
+---
+
+### [2026-10-08] Handoff from Claude Sonnet 5.5 (week freeze + week-switch pool leak)
+
+- **Bug:** App.jsx merged the previous week's `allSimResults` into the new week's (`{...gameResults, ...prev}`), so Week 5's BAL game (Tyler Huntley) appeared in the Week 2 player pool. Now only the current week's game_ids are kept.
+- **Feature:** week freeze ([src/api/week_freeze.py](src/api/week_freeze.py)). Past weeks' pool/projections/sim results are served from `data/frozen/2026/week_NN/` instead of being rebuilt from current roster files. Lock = first main-slate kickoff; auto-freezes on first request after lock; `POST /api/freeze_week` for manual/backfill. Weeks 1-4 backfilled (source='backfill'). Tests: [tests/test_week_freeze.py](tests/test_week_freeze.py).
+- **Caveats:** freezing at main-slate kickoff means late-game (4pm/SNF) updates after 1pm are not reflected in the snapshot. Auto-freeze is lazy (needs a request after lock), so open the app before/at kickoff or run the freeze endpoint.
+- **Not verified in browser** at time of writing: the week-switch leak fix.
+
+---
+
+### [2026-10-08] Handoff from Claude Sonnet 5.5 (Week 5 spread/total investigation; QB overrides; live PROE + team pace; defense plan)
+
+- **Active Task:** Cam: investigate CHI@GB / CIN@MIA / NYG@WAS spreads and DET@ARI / HOU@TEN totals; BAL@ATL and BUF@LA. Wire live PROE, test team pace / no-huddle, plan defensive components.
+- **Findings:** extreme spreads = tiny-sample QB CPOE (Bagent +14.3 on 6 career att; Winston -9.5; Willis -9.1) x `QB_CPOE_COMPLETION_GAIN`=1.4 (engine tuned for -3.2..+6.1). Totals gap = no real defensive inputs (sim PA vs real PA r=-0.04; sim totals vs Vegas r~0.1). QB swaps (Daniels in / Lamar out) barely matter. Trench inputs ~1pt. Pass rate (proe) barely moves totals.
+- **Data edits (NOT committed):** `dfs_status_ledger.json` (Daniels active, Lamar out, wk5); NEW `data/overrides/2026/qb_rate_overrides.csv` (Winston/Willis/J.Daniels cpoe -4.0, Willis aay 8.0, Bagent cpoe 0.0 -- Bagent is Claude's call, unconfirmed); `season_long/TB.csv` McMillan `ir`, return wk 8; `dk_showdown_ignored_players.json` (+Devin Culp TB, +Tyler Johnson NYJ).
+- **Code:** [apply_team_week_overrides_v_0_1_0.py](scripts/roster_management/apply_team_week_overrides_v_0_1_0.py) `apply_qb_rate_overrides`; NEW [refresh_live_proe_v_0_1_0.py](scripts/roster_management/refresh_live_proe_v_0_1_0.py) (nflverse `pass_oe` -> `data/dna/proe_live_2026.json`, blended by existing k=8 in [proe_overlay_v_0_1_0.py](src/nfl_sim/proe_overlay_v_0_1_0.py)); NEW [analyze_team_pace.py](scripts/eda/analyze_team_pace.py) + [refresh_team_pace_v_0_1_0.py](scripts/roster_management/refresh_team_pace_v_0_1_0.py) (-> `data/dna/team_pace_2026.json`); [game_engine.py](src/nfl_sim/game_engine.py) `_apply_team_pace`, `PACE_MODE_DEFAULT='pace'` (env `NFL_SIM_PACE_MODE` off|pace|nh|both). Both refreshes hooked into refresh_weekly_dna. Tests: test_qb_rate_overrides (3), test_live_proe (3).
+- **Pace results:** stability (snaps <15s trimmed -- 2025+ pbp has a bogus ~4% spike at exactly 5s): team pace yoy 0.41 neutral; estimator backtest r=0.50 (calibration 0.52). Week 5 team-snap corr vs real: off .297 / pace .332 / nh .308 / both .315 (all within noise); `nh` left opt-in. The engine's own pace pool contains ~9% values <=6s (spikes/artifact), covered by the +5s nudge -- not changed.
+- **Verification:** full Week 5 resim, all 15 games x 10,000 (none locked). Sim home margin vs Vegas corr 0.57; total corr 0.12; league mean total 45.2. Positional-evaluator suite green.
+- **Defense:** plan at [docs/implementation_plans/defense_components_plan.md](docs/implementation_plans/defense_components_plan.md). Key evidence: wk1-4 -> wk5-8 defensive EPA corr only ~0.12 (CPOE allowed 0.24); needs heavy shrinkage + Cam's OK on a prior-season anchor.
+- **Pace-pool cleanup (later same session):** `analyze_clock_pace_grid.py` only filtered the PREVIOUS play, so PATs (3,806), penalty no-plays (5,071) and punts/FGs/kneels were ~10% of `pace_pools.json`. Now current play must be pass/run (119,462 -> 91,571 values, mean 33.2s -> 36.6s); late-game Q4 cells intact; engine spike/kneel/timeout logic untouched. `PACE_NUDGE_SECONDS` 5 -> 3 (Week 5 slate: +1s 130.17 / +2s 127.20 / +3s 124.30 plays vs 123.82 target). Week 5 fully resimmed again after this. Docs: clock_physics_v020 Round 18, AGENTS.md §11.15.
+- **Ops Desk artifact + RUNBOOK:** added A1b (`refresh_live_proe_v_0_1_0.py 2026 <W-1>`), A1c (`refresh_team_pace_v_0_1_0.py 2026 <W-1>`) and a C2 note for `qb_rate_overrides.csv`; artifact republished (v5).
+- **Defense analysis:** [scripts/eda/analyze_defense_predictiveness.py](scripts/eda/analyze_defense_predictiveness.py) -> `docs/eda_outputs/defense/`. Schedule adjustment, position splits and last season's rating add nothing; 9-game reliability ~0.23; yards/play + success rate allowed best. Plan doc rewritten (Stage 1 now a small shrunk term).
+- **Immediate Next Steps:** (1) Stage 1 defense for Week 6; (2) decide CPOE clamp (-4..+6) / Love & Lawrence; (3) Willis/MIA completion still ~49% (cause unfound); (4) commit the uncommitted work.
+
+---
+
 ### [2026-10-07, part 4] Handoff from Claude Sonnet 5.5 (Zero preseason weight; Week 5 rerun)
 
 - **Active Task:** Cam: preseason inputs must have no impact once players have 4 games -- all stats strictly 2026. Also asked how the preseason anchor was backtested (answer: prior-season ACTUALS as the "preseason", not his hand inputs).
@@ -235,6 +302,57 @@
   `/api/weeks` returns 1-4. No code tests run (only a hardcoded list changed).
 - **Immediate Next Steps:** More wk4 injuries expected (Cam). Consider A3 when time allows. Restore Stowers /
   Calcaterra shares when they return.
+
+---
+
+### [2026-09-29] Handoff from Claude Opus 5.5 (Week 3 DFS grading, real-entry import, saved DK payout tables, Bankroll stats)
+
+- **Active Task:** Cam: grade Week 3 classic lineups for all Bankroll accounts (paper baseline/catered, high
+  stakes baseline/catered, real); pull real entries (Wk2+3) from the standings CSVs; save live DK payout
+  tables going forward (Wk4 main + showdown); Bankroll per-contest stats + Top 1%/0.1% rates on the cards.
+- **Contest mapping (Cam):** high stakes 150-lineup builds -> Slant ($9), 5-lineup -> Power Sweep ($150);
+  low stakes 150 -> mini-MAX, 20 -> First Down, 5 -> Screen Pass. Real = First Down + Screen Pass only
+  (Pocket contests excluded). Catered First Down may equal the real lineups some weeks (late swap / hand tweaks).
+- **Files Modified:**
+  - [scripts/dfs_ownership/import_real_entries.py](scripts/dfs_ownership/import_real_entries.py) (new): Cam's
+    entries (config.json `my_usernames`) from a settled standings CSV -> `real` account. Idempotent by
+    `dk_entry_id`; links onto an already-flagged real lineup instead of duplicating (Wk2 First Down).
+  - [scripts/dfs_ownership/snapshot_contest_payouts.py](scripts/dfs_ownership/snapshot_contest_payouts.py) (new):
+    real DK payout tables -> `<slate>/payouts.json` for main slate + every LIVE showdown slate, keyed by the
+    standings-CSV stem (`firstdown_1_20max`; "Thursday Night Showdown" -> `millionaire`). Default = the
+    recurring contest families only (~20 requests; `--all` is ~1,200). Merges on rerun.
+  - [scripts/dfs_ownership/score_paper_entries.py](scripts/dfs_ownership/score_paper_entries.py): entry-fee
+    fallback when contest_name isn't a CSV stem; prefers the week's saved payout table (exact stem ->
+    punctuation-insensitive -> same price+xmax, closest field size); new `payout_source` column.
+  - [src/api/app.py](src/api/app.py): `/api/bankroll/{id}/entries` groups no-build entries per week+slate+contest
+    (Wk2+ real entries were unreachable) + readable fallback labels; `/api/bankroll` adds `n_top1`/`n_top01`/
+    `n_itm` (+ `*_rate_pct`) per account and per week.
+  - [frontend/src/pages/Bankroll.jsx](frontend/src/pages/Bankroll.jsx): cards show Top 1% / Top 0.1% / ITM rate
+    (count · % of settled) + 1%/.1% week columns; drill-down gets a sortable "Totals by contest" table
+    (ROI, P&L, finish rates) -- clicking a contest filters the build list.
+  - Data: Wk3 paper entries' contest_name normalized to stems + Wk1 payout tables attached as proxy; duplicate
+    high-stakes-catered Power Sweep build (shared with baseline) removed; Wk1 catered screen-pass build
+    relabeled "Manicured Screen Pass"; Wk4 `payouts.json` for main_slate (19) + showdown_PIT_CLE (15).
+- **Findings:** (1) Builds saved with no contest selected get `contest_name = build_id` -- never matched a CSV,
+  silently ungraded. (2) The generic fallback payout curve (`lineup_stats.get_default_payout_structure`) is
+  badly broken ($140 to every rank 101-87,395 of a $175K pool) -- flagged as a separate task, not fixed;
+  it likely inflates live optimizer EV when no real table is attached. (3) The Bankroll page's auto-grade runs
+  the grader INSIDE the API process, so a stale (non-reload) server rewrote results with old code once and
+  dropped all Wk3 paper rows. `.claude/launch.json`'s `backend-api-dfs` has no `--reload` either.
+- **Verification Performed:** `pytest tests/ -q` -> 236 passed; grader/bankroll APIs checked in-process
+  (TestClient) -- all 5 accounts fully settled, finish counts match the drill-down; every saved payout table
+  sums exactly to its prize pool; Bankroll.jsx builds (vite) and lints clean apart from 1 pre-existing error.
+- **Week 3 result (low stakes, $95 each):** catered +$161, real +$59, baseline +$7. High stakes: catered
+  +$4,559 (a 2nd-place Slant), baseline -$547. Payouts for Wk3 are Wk1's tables (proxy).
+- **Commits:** `34216f5` (code) + `fd2f754` (data), pushed. The Bankroll stats UI + this entry are uncommitted.
+  Pre-existing uncommitted Showdown Optimizer work (rest of app.py, ShowdownOptimizer.jsx,
+  test_showdown_build_minimums.py, wk3 state.json, showdown_PHI_CHI/) deliberately left alone.
+- **Immediate Next Steps for the Next Agent:**
+  1. Restart the DFS API via `start_backend_api.bat` (the running :8002 has no `--reload`).
+  2. Weekly loop: `snapshot_contest_payouts.py --week N` before lock (rerun `--no-main` when SNF/MNF
+     showdowns post) -> drop standings CSVs -> `import_real_entries.py --year 2026 --week N` ->
+     `score_paper_entries.py --year 2026` (never `--week`: it rewrites the whole parquet).
+  3. Fix the generic payout curve (spawned task); tests for import_real_entries / payout lookup.
 
 ---
 

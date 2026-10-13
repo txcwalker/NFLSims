@@ -205,12 +205,25 @@ def delete_build(season: int, week: int, build_id: str) -> bool:
     return False
 
 
+# 2026-10-08: pruning is OFF. Every generated lineup is now graded after the
+# games by src/evaluation/tournament_pool_eval.py (the "paper-trade everything"
+# evaluation), so the throwaway autosaves are exactly the data it needs. Flip
+# back to True only if disk use becomes a problem (a week is ~40 MB).
+PRUNE_ENABLED = False
+
+
 def prune_builds(season: int, week: int) -> List[Dict[str, Any]]:
-    """Delete autosave builds that are not pinned, labeled or submitted. Returns
-    summaries of what was removed."""
+    """Delete autosave builds that are not pinned, labeled, submitted or tagged
+    to a bankroll account. Returns summaries of what was removed. (account_id
+    protection added 2026-09-30: unlabeled-but-tagged week 3 paper builds got
+    pruned, which dropped them from the Bankroll roll-up.)
+
+    No-op while PRUNE_ENABLED is False (see above): returns [] and deletes
+    nothing, so the Optimizer's end-of-week auto-prune and Prune button just
+    report "nothing to prune"."""
     d = _builds_dir(season, week)
     removed: List[Dict[str, Any]] = []
-    if not os.path.isdir(d):
+    if not PRUNE_ENABLED or not os.path.isdir(d):
         return removed
     for fn in os.listdir(d):
         if not fn.endswith(".json"):
@@ -219,7 +232,8 @@ def prune_builds(season: int, week: int) -> List[Dict[str, Any]]:
         b = _load_build_file(path)
         if b is None:
             continue
-        if b.get("source") == "autosave" and not b.get("pinned") and not b.get("label") and not b.get("submitted"):
+        if b.get("source") == "autosave" and not b.get("pinned") and not b.get("label") and not b.get("submitted") \
+                and not b.get("account_id"):
             os.unlink(path)
             removed.append(_build_summary(b))
     return removed

@@ -1,6 +1,7 @@
 import GameLinesEval from '../components/GameLinesEval';
 import PlayerProjectionsEval from '../components/PlayerProjectionsEval';
 import RankingsEval from '../components/RankingsEval';
+import TournamentPoolEval from '../components/TournamentPoolEval';
 
 const inputStyle = { background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '6px', color: 'var(--text-white)', padding: '5px 8px', fontSize: '0.82rem' };
 
@@ -10,6 +11,7 @@ const VIEWS = {
   games: { title: '🎲 Game Lines', Component: GameLinesEval },
   players: { title: '🏃 Player Projections', Component: PlayerProjectionsEval },
   rankings: { title: '🏆 Rankings', Component: RankingsEval },
+  pool: { title: '🎰 Lineup Pool', Component: TournamentPoolEval },
 };
 
 /**
@@ -17,7 +19,7 @@ const VIEWS = {
  * EvaluationTab.jsx into one page per grader).
  *
  * Inputs (props):
- *   view            -- 'games' | 'players' | 'rankings' (string, from App.jsx's route)
+ *   view            -- 'games' | 'players' | 'rankings' | 'pool' (string, from App.jsx's route)
  *   weeks           -- simmed weeks for the week picker (number[])
  *   selectedWeek    -- the app-wide selected week (number); each grader uses it
  *                      as its default table filter

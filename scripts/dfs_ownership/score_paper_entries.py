@@ -42,7 +42,6 @@ import argparse
 import glob
 import json
 import os
-import re
 import sys
 from collections import defaultdict
 
@@ -54,7 +53,9 @@ from scripts.dfs_ownership.standings_parser import (  # noqa: E402
     parse_filename, read_standings, actual_scores_from_summary, player_key,
 )
 from src.api.lineup_stats import get_default_payout_structure  # noqa: E402
-from src.api.sim_replay_store import get_real_dk_scores_for_week  # noqa: E402
+# saved_payout_table lived here until 2026-09-29; moved to sim_replay_store so
+# the Sim Replays page can price real ranks on the same saved DK table.
+from src.api.sim_replay_store import get_real_dk_scores_for_week, saved_payout_table as _saved_payout_table  # noqa: E402
 
 BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 ARCHIVE = os.path.join(BASE, "data", "dfs_ownership")
@@ -88,37 +89,6 @@ def _lineup_actual_score(players: list, real_scores: dict, csv_scores: dict) -> 
         mult = 1.5 if str(p.get("slot", "")).upper() == "CPT" else 1.0
         total += base * mult
     return round(total, 2), missing
-
-
-def _saved_payout_table(folder: str, stem: str, field_size: int) -> list | None:
-    """This week's REAL DK payout table for one contest, from the slate's
-    payouts.json (written pre-lock by snapshot_contest_payouts.py).
-
-    Inputs:  folder (slate folder), stem (standings-CSV stem, e.g.
-             "firstdown_1_20max"), field_size (max rank in the standings).
-    Output:  tiers list [{rank_start, rank_end, payout}] or None if no table
-             was saved for that stem. Two contests can share a stem (e.g.
-             two $150 3-max Power Sweeps) -- the one whose max_entries is
-             closest to the settled field size wins."""
-    path = os.path.join(folder, "payouts.json")
-    if not os.path.exists(path):
-        return None
-    saved = (json.load(open(path)) or {}).get("contests", [])
-    # Exact stem, then the same stem with punctuation ignored in the name
-    # part ("hard_count_20_5max" vs saved "hardcount_20_5max"), then any
-    # contest with the same price+xmax ("_20_5max") -- CSV names are typed
-    # by hand, the saved stems are derived from DK's lobby name.
-    squash = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())  # noqa: E731
-    name, _, suffix = stem.rpartition("_")
-    name, _, price = name.rpartition("_")
-    tail = f"_{price}_{suffix}"
-    cands = ([c for c in saved if c.get("stem") == stem]
-             or [c for c in saved if c.get("stem", "").endswith(tail)
-                 and squash(c["stem"][: -len(tail)]) == squash(name)]
-             or [c for c in saved if c.get("stem", "").endswith(tail)])
-    if not cands:
-        return None
-    return min(cands, key=lambda c: abs(int(c.get("max_entries") or 0) - field_size))["tiers"]
 
 
 def _estimated_payout(actual_rank: int | None, entry: dict, field_size: int,

@@ -1,0 +1,44 @@
+{
+ "pace_log_ratio": {
+  "neutral": {
+   "yoy_corr": 0.414,
+   "yoy_n": 156,
+   "split_half_corr": 0.62,
+   "between_team_sd": 0.0371
+  },
+  "trail2": {
+   "yoy_corr": 0.274,
+   "yoy_n": 72,
+   "split_half_corr": 0.425,
+   "between_team_sd": 0.0578
+  },
+  "lead2": {
+   "yoy_corr": 0.734,
+   "yoy_n": 26,
+   "split_half_corr": 0.389,
+   "between_team_sd": 0.0357
+  }
+ },
+ "no_huddle_rate": {
+  "neutral": {
+   "yoy_corr": 0.489,
+   "yoy_n": 156,
+   "split_half_corr": 0.883,
+   "between_team_sd": 0.1257
+  },
+  "trail2": {
+   "yoy_corr": 0.284,
+   "yoy_n": 72,
+   "split_half_corr": 0.495,
+   "between_team_sd": 0.1448
+  },
+  "lead2": {
+   "yoy_corr": 0.848,
+   "yoy_n": 26,
+   "split_half_corr": 0.718,
+   "between_team_sd": 0.1293
+  }
+ },
+ "corr_nohuddle_vs_pace": -0.553,
+ "league_no_huddle_rate": 0.153
+}

@@ -19,6 +19,9 @@ function money(v) {
   return `${sign}$${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 function pct(v) { return v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`; }
+/** Finish-rate display: "6 · 1.64%" (count, then share of settled lineups).
+ * Two decimals because Top 0.1% rates live well under 1%. */
+function rate(n, of) { return of ? `${n} · ${((100 * n) / of).toFixed(2)}%` : '—'; }
 
 /** One TOTAL COST / PENDING / SETTLED WINNINGS / NET P&L row. `label`
  * (optional) captions the row -- only shown once there's more than one row
@@ -221,6 +224,15 @@ export default function Bankroll() {
                   <span style={{ color: 'var(--text-muted)' }}>ROI (settled)</span>
                   <span style={{ justifySelf: 'end', color: pnlColor(a.roi_settled_pct) }}>{pct(a.roi_settled_pct)}</span>
 
+                  <span style={{ color: 'var(--text-muted)' }}>Top 1% rate</span>
+                  <span style={{ justifySelf: 'end' }}>{rate(a.n_top1 || 0, a.n_lineups_settled)}</span>
+
+                  <span style={{ color: 'var(--text-muted)' }}>Top 0.1% rate</span>
+                  <span style={{ justifySelf: 'end' }}>{rate(a.n_top01 || 0, a.n_lineups_settled)}</span>
+
+                  <span style={{ color: 'var(--text-muted)' }}>ITM rate</span>
+                  <span style={{ justifySelf: 'end' }}>{rate(a.n_itm || 0, a.n_lineups_settled)}</span>
+
                   <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Current bankroll</span>
                   <span style={{ justifySelf: 'end', fontWeight: 600 }}>{money(a.current_bankroll)}</span>
                 </div>
@@ -234,6 +246,8 @@ export default function Bankroll() {
                         <th style={{ padding: '3px 4px' }}>Cost</th>
                         <th style={{ padding: '3px 4px' }}>Settled</th>
                         <th style={{ padding: '3px 4px' }}>Won</th>
+                        <th style={{ padding: '3px 4px' }} title="Top 1% finishes">1%</th>
+                        <th style={{ padding: '3px 4px' }} title="Top 0.1% finishes">.1%</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -244,6 +258,8 @@ export default function Bankroll() {
                           <td style={{ padding: '3px 4px' }}>{money(w.cost)}</td>
                           <td style={{ padding: '3px 4px' }}>{w.n_settled}/{w.n_lineups}</td>
                           <td style={{ padding: '3px 4px' }}>{money(w.winnings_settled)}</td>
+                          <td style={{ padding: '3px 4px' }}>{w.n_top1 ?? 0}</td>
+                          <td style={{ padding: '3px 4px' }}>{w.n_top01 ?? 0}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -304,6 +320,95 @@ function sumStats(list) {
 }
 function roiOf(stats) { return stats.cost_settled ? (stats.pnl / stats.cost_settled) * 100 : null; }
 
+/** "Totals by contest" table for the account drill-down (2026-09-29): every
+ * build in the account rolled up per contest_name across all weeks --
+ * lineups, fees, settled ROI/P&L, and Top 1% / Top 0.1% / ITM as count +
+ * rate (share of SETTLED lineups, same convention as ROI). Every column
+ * header sorts (click again to flip); clicking a row filters the build list
+ * below to that contest via onSelect (null = show all).
+ * Inputs: builds (from /api/bankroll/{id}/entries), selected (contest_name
+ * or null), onSelect(contest_name|null). Renders a card; no side effects. */
+function ContestTotals({ builds, selected, onSelect }) {
+  const [sort, setSort] = useState({ key: 'cost_total', dir: 'desc' });
+  const groups = {};
+  for (const b of builds) (groups[b.contest_name] = groups[b.contest_name] || []).push(b);
+  const rows = Object.entries(groups).map(([contest, bs]) => {
+    const st = sumStats(bs.map(b => computeStats(b.entries, b.entry_fee)));
+    const fees = [...new Set(bs.map(b => b.entry_fee))];
+    const per = (n) => (st.nSettled ? (100 * n) / st.nSettled : null);
+    return {
+      contest, st, fee: fees.length === 1 ? fees[0] : null,
+      weeks: [...new Set(bs.map(b => b.week))].sort((a, z) => a - z),
+      nTotal: st.nTotal, cost_total: st.cost_total, pnl: st.pnl, roi: roiOf(st),
+      top1Rate: per(st.top1), top01Rate: per(st.top01), itmRate: per(st.itm),
+    };
+  });
+  const dir = sort.dir === 'asc' ? 1 : -1;
+  // Nulls (nothing settled yet) always sort last, like the entry table.
+  rows.sort((a, b) => {
+    const av = a[sort.key], bv = b[sort.key];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return av > bv ? dir : av < bv ? -dir : 0;
+  });
+  // Plain function returning JSX (not a component) -- a component defined
+  // inside render would remount every render (react-hooks/static-components).
+  const th = (label, k, left) => (
+    <th key={k} onClick={() => setSort(s => ({ key: k, dir: s.key === k && s.dir === 'desc' ? 'asc' : 'desc' }))}
+      title="Click to sort" style={{ padding: '3px 6px', cursor: 'pointer', userSelect: 'none', textAlign: left ? 'left' : 'right' }}>
+      {label}{sort.key === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+    </th>
+  );
+  const td = { padding: '3px 6px' };
+  return (
+    <div style={{ ...cardStyle, overflowX: 'auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>TOTALS BY CONTEST</div>
+        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+          {selected
+            ? <>Showing <b>{selected}</b> builds only · <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => onSelect(null)}>show all</span></>
+            : 'Click a contest to filter the builds below'}
+        </div>
+      </div>
+      <table style={{ width: '100%', fontSize: '0.76rem', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ color: 'var(--text-muted)' }}>
+            {th('Contest', 'contest', true)}
+            {th('$/entry', 'fee')}
+            <th style={{ ...td, textAlign: 'right' }}>Weeks</th>
+            {th('Lineups', 'nTotal')}
+            {th('Entry Fees', 'cost_total')}
+            {th('ROI', 'roi')}
+            {th('P&L', 'pnl')}
+            {th('Top 1%', 'top1Rate')}
+            {th('Top 0.1%', 'top01Rate')}
+            {th('ITM', 'itmRate')}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.contest} onClick={() => onSelect(selected === r.contest ? null : r.contest)}
+              style={{ borderTop: '1px solid var(--border-glass)', textAlign: 'right', cursor: 'pointer',
+                background: selected === r.contest ? 'rgba(59,130,246,0.12)' : undefined }}>
+              <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>{r.contest}</td>
+              <td style={td}>{r.fee != null ? money(r.fee) : 'mixed'}</td>
+              <td style={td}>{r.weeks.join(', ')}</td>
+              <td style={td}>{r.st.nSettled}/{r.nTotal}</td>
+              <td style={td}>{money(r.cost_total)}</td>
+              <td style={{ ...td, color: pnlColor(r.roi) }}>{pct(r.roi)}</td>
+              <td style={{ ...td, color: pnlColor(r.pnl) }}>{money(r.pnl)}</td>
+              <td style={td}>{rate(r.st.top1, r.st.nSettled)}</td>
+              <td style={td}>{rate(r.st.top01, r.st.nSettled)}</td>
+              <td style={td}>{rate(r.st.itm, r.st.nSettled)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /** Drill-down for one account: every build's lineups, contest info, settled
  * real result once available, and an editable notes/late-swap annotation
  * per lineup (see paper_store.update_entry). */
@@ -314,6 +419,7 @@ function AccountDetail({ account, onBack }) {
   const [openPlayersId, setOpenPlayersId] = useState(null);
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
+  const [contestFilter, setContestFilter] = useState(null);
 
   const toggleSort = (key) => {
     if (sortKey === key) { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }
@@ -431,7 +537,11 @@ function AccountDetail({ account, onBack }) {
         );
       })()}
 
-      {builds.map(b => {
+      {!loading && builds.length > 0 && (
+        <ContestTotals builds={builds} selected={contestFilter} onSelect={setContestFilter} />
+      )}
+
+      {builds.filter(b => !contestFilter || b.contest_name === contestFilter).map(b => {
         const isOpen = openBuildId === b.build_id;
         const stats = computeStats(b.entries, b.entry_fee);
         const roi = roiOf(stats);

@@ -49,6 +49,7 @@ from src.scrapers.dk_scraper import (
 from src.ownership.heuristic import _ownership_soft_cap, _compute_ownership, _compute_showdown_ownership
 from src.ownership.model_inference import predict_classic_ownership, predict_showdown_ownership
 from src.api import optimizer_store
+from src.api import shortlist_store
 from src.api import workspace_store
 from src.api import paper_store
 from src.api import sim_replay_store
@@ -74,7 +75,7 @@ from src.evaluation.rankings_eval import (build_rankings_eval, summarize_ranking
                                           FORMATS as RANKING_FORMATS,
                                           FORMAT_LABELS as RANKING_FORMAT_LABELS)
 from src.evaluation.season_rankings import snapshot_summary as season_snapshot_summary
-from src.evaluation import cash_lineup_eval
+from src.evaluation import cash_lineup_eval, tournament_pool_eval
 from src.evaluation.prop_markets import build_week_props, SIM_COLUMNS as PROP_SIM_COLUMNS
 from src.data_pipeline.polymarket_us_client import fetch_events_for_games
 from src.evaluation.game_line_eval import _kickoff_ts as kickoff_ts_eval
@@ -881,12 +882,19 @@ def health_check():
 
 @app.get("/api/weeks")
 def get_weeks():
-    """Returns available weeks -- hardcoded to Weeks 1-5. The DFS dev site is
-    scoped to weeks with real DraftKings salaries live/snapshotted (see
-    SCHEDULE_CSV_PATH above); week 5 added 2026-10-06 after its DFS week sim
-    (run_week_sim_2026.py 5) ran. The frontend defaults to max(weeks).
-    Revisit/extend each week as it goes live."""
-    return {"weeks": [1, 2, 3, 4, 5]}
+    """Returns the weeks the DFS site offers: every week N with BOTH
+    data/interim/dfs_week_{N}_games.parquet and _players.parquet on disk, i.e.
+    a week appears the moment its DFS week sim (run_week_sim_2026.py N) lands.
+    No code edit per week (was a hardcoded list through Week 5, 2026-10-13).
+    The frontend defaults to max(weeks). Falls back to [1] if none exist."""
+    import re
+    interim = os.path.join(BASE_DIR, "data", "interim")
+    weeks = []
+    for name in os.listdir(interim) if os.path.isdir(interim) else []:
+        m = re.fullmatch(r"dfs_week_(\d+)_games\.parquet", name)
+        if m and os.path.exists(os.path.join(interim, f"dfs_week_{m.group(1)}_players.parquet")):
+            weeks.append(int(m.group(1)))
+    return {"weeks": sorted(weeks) or [1]}
 
 @app.get("/api/dk/slates")
 def get_dk_slates_endpoint(week: Optional[int] = None, year: int = 2026, force_refresh: bool = False):
@@ -2192,6 +2200,46 @@ def create_optimizer_build(
     return optimizer_store.write_build(season, week, build)
 
 
+# ── Shortlist: lineups hand-saved from the optimizers (src/api/shortlist_store.py)
+@app.get("/api/shortlist")
+def get_shortlist(week: int = Query(..., ge=1, le=22), fmt: str = "classic", season: int = 2026):
+    """Shortlisted lineups for a week + contest format ("classic" | "showdown")."""
+    try:
+        return shortlist_store.read_shortlist(season, week, fmt)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/shortlist/add")
+def add_to_shortlist(
+    body: Dict[str, Any] = Body(...),
+    week: int = Query(..., ge=1, le=22),
+    fmt: str = "classic",
+    season: int = 2026,
+):
+    """Body: {lineups: [...], source_build_id?}. Duplicates (same players+slots) are skipped."""
+    try:
+        return shortlist_store.add_lineups(season, week, fmt, body.get("lineups") or [], body.get("source_build_id"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/shortlist/remove")
+def remove_from_shortlist(
+    body: Dict[str, Any] = Body(...),
+    week: int = Query(..., ge=1, le=22),
+    fmt: str = "classic",
+    season: int = 2026,
+):
+    """Body: {entry_ids: [...]} -- or {clear: true} to empty the shortlist."""
+    try:
+        if body.get("clear"):
+            return shortlist_store.clear_shortlist(season, week, fmt)
+        return shortlist_store.remove_lineups(season, week, fmt, body.get("entry_ids") or [])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 def _live_build_contest(settings: Dict[str, Any]) -> Dict[str, Any]:
     """`settings["contest"]` (the DK Contest Picker's selection), or {} if
     it's stale. The picker sets `contest` and the plain `entryFee` field
@@ -2346,17 +2394,26 @@ def get_bankroll():
         "n_builds": 0, "n_lineups_total": 0,
         "cost_total": 0.0, "cost_settled": 0.0, "cost_pending": 0.0,
         "winnings_settled": 0.0, "n_lineups_settled": 0, "n_lineups_pending": 0,
+        # Settled-entry finish counts (2026-09-29) -- rates are these over
+        # n_lineups_settled. Top 1% / 0.1% read the grader's
+        # finish_percentile (rank as % of field; lower = better), ITM = any
+        # positive estimated_payout.
+        "n_top1": 0, "n_top01": 0, "n_itm": 0,
         "weeks": {},
     } for a in accounts}
 
     build_paths = sorted(glob.glob(os.path.join(BASE_DIR, "data", "optimizer", "*", "week_*", "builds", "*.json")))
     build_by_id: Dict[str, Dict[str, Any]] = {}
+    # Every build_id with a file on disk, tagged or not -- the paper-entries
+    # pass below only defers to a build file that actually exists.
+    existing_build_ids: set = set()
     for path in build_paths:
         try:
             with open(path, "r") as f:
                 b = json.load(f)
         except (json.JSONDecodeError, OSError):
             continue
+        existing_build_ids.add(b.get("build_id"))
         acc = by_id.get(b.get("account_id"))
         if acc is None:
             continue
@@ -2370,18 +2427,24 @@ def get_bankroll():
         acc["n_lineups_total"] += n_lineups
         acc["cost_total"] += cost
         wk = acc["weeks"].setdefault(week, {"week": week, "n_lineups": 0, "cost": 0.0,
-                                            "winnings_settled": 0.0, "n_settled": 0})
+                                            "winnings_settled": 0.0, "n_settled": 0,
+                                            "n_top1": 0, "n_top01": 0, "n_itm": 0})
         wk["n_lineups"] += n_lineups
         wk["cost"] += cost
         build_by_id[b.get("build_id")] = {"account_id": b.get("account_id"), "week": week, "entry_fee": entry_fee}
 
-    # Paper entries with no build_id -- never came from an Optimizer Build,
-    # e.g. a real DK entry pulled in from a settled contest's standings CSV
-    # (see the Bankroll "Real" account's import flow). Each is its own
-    # one-lineup cost line, and (since there's no build_id to key on) joined
-    # to its settled result below by entry_id instead. Builds are counted
-    # per distinct contest here (not per lineup) to match the "one row per
-    # submitted batch" meaning n_builds has everywhere else.
+    # Paper entries not backed by a build file on disk: (a) no build_id --
+    # never came from an Optimizer Build, e.g. a real DK entry pulled in
+    # from a settled contest's standings CSV (see the Bankroll "Real"
+    # account's import flow); (b) a build_id whose build file is gone
+    # (builds/ is gitignored and deletable -- the Prune button wiped every
+    # week 3 paper build on 2026-09-29, which silently dropped the whole
+    # week from every paper account). The entry itself carries account_id /
+    # entry_fee / week, so it stands in for the missing build. Each is its
+    # own one-lineup cost line, joined to its settled result below by
+    # entry_id. Builds are counted per distinct build_id (or, with no
+    # build_id, per contest) to match the "one row per submitted batch"
+    # meaning n_builds has everywhere else.
     entry_info: Dict[str, Dict[str, Any]] = {}
     entries_paths = sorted(glob.glob(os.path.join(BASE_DIR, "data", "dfs_ownership", "*", "week_*", "*", "paper_entries.json")))
     seen_contests: set = set()
@@ -2392,8 +2455,8 @@ def get_bankroll():
         except (json.JSONDecodeError, OSError):
             continue
         for e in doc.get("entries", []):
-            if e.get("build_id"):
-                continue  # already counted via its Build file above
+            if e.get("build_id") in existing_build_ids:
+                continue  # counted (or deliberately untagged) via its Build file above
             acc = by_id.get(e.get("account_id"))
             if acc is None:
                 continue
@@ -2401,12 +2464,13 @@ def get_bankroll():
             week = e.get("week")
             acc["n_lineups_total"] += 1
             acc["cost_total"] += entry_fee
-            contest_key = (e.get("account_id"), week, e.get("contest_name"))
+            contest_key = (e.get("account_id"), week, e.get("build_id") or e.get("contest_name"))
             if contest_key not in seen_contests:
                 seen_contests.add(contest_key)
                 acc["n_builds"] += 1
             wk = acc["weeks"].setdefault(week, {"week": week, "n_lineups": 0, "cost": 0.0,
-                                                "winnings_settled": 0.0, "n_settled": 0})
+                                                "winnings_settled": 0.0, "n_settled": 0,
+                                                "n_top1": 0, "n_top01": 0, "n_itm": 0})
             wk["n_lineups"] += 1
             wk["cost"] += entry_fee
             entry_info[e.get("entry_id")] = {"account_id": e.get("account_id"), "week": week, "entry_fee": entry_fee}
@@ -2433,10 +2497,18 @@ def get_bankroll():
             if not settled:
                 continue
             payout = float(payout)
+            fp = row.get("finish_percentile")
+            flags = {"n_top1": fp is not None and not pd.isna(fp) and fp <= 1,
+                     "n_top01": fp is not None and not pd.isna(fp) and fp <= 0.1,
+                     "n_itm": payout > 0}
             acc["winnings_settled"] += payout
             acc["cost_settled"] += info["entry_fee"]
             acc["n_lineups_settled"] += 1
             wk = acc["weeks"].get(info["week"])
+            for k, hit in flags.items():
+                acc[k] += int(hit)
+                if wk is not None:
+                    wk[k] += int(hit)
             if wk is not None:
                 wk["winnings_settled"] += payout
                 wk["n_settled"] += 1
@@ -2449,6 +2521,9 @@ def get_bankroll():
         acc["net_pnl_settled"] = round(net_pnl, 2)
         acc["roi_settled_pct"] = round(100.0 * net_pnl / acc["cost_settled"], 1) if acc["cost_settled"] else None
         acc["current_bankroll"] = round(acc["starting_bankroll"] + net_pnl, 2)
+        n_set = acc["n_lineups_settled"]
+        for k in ("top1", "top01", "itm"):
+            acc[f"{k}_rate_pct"] = round(100.0 * acc[f"n_{k}"] / n_set, 2) if n_set else None
         acc["cost_total"] = round(acc["cost_total"], 2)
         acc["cost_settled"] = round(acc["cost_settled"], 2)
         acc["winnings_settled"] = round(acc["winnings_settled"], 2)
@@ -2936,6 +3011,21 @@ def get_cash_lineups_eval(week: int = 1, year: int = 2026):
     return cached[1]
 
 
+@app.get("/api/eval/tournament_pool")
+def get_tournament_pool_eval(week: int = 4, year: int = 2026):
+    """Grades EVERY lineup the Optimizer generated pre-lock for a week -- played
+    or not -- against the real $1 First Down field. See
+    src/evaluation/tournament_pool_eval.py for the method (stale-lineup
+    handling, calibration, exposure gaps).
+
+    Response: {"week", "gradable", "reason"?, "available_weeks", "field",
+    "summary", "stale", "by_age", "calibration", "ownership", "projection",
+    "exposure_gaps", "finish_hist", "by_build", "by_inputs_hash",
+    "top_lineups", "most_regenerated"}. The first call after a new build or
+    standings file takes ~20-40s, then it is cached on input mtimes."""
+    return tournament_pool_eval.web_payload(year, week)
+
+
 # -------------------------------------------------------------------------
 # PREDICTION-MARKET PROPS (draft 2026-09-26) -- Polymarket US player-prop
 # ladders vs. our week sims, live and read-only. Public endpoints, no API
@@ -2945,6 +3035,96 @@ def get_cash_lineups_eval(week: int = 1, year: int = 2026):
 # -------------------------------------------------------------------------
 _PROP_MARKETS_CACHE: Dict[Any, Any] = {}   # (year, week) -> (fetched_at, sims_token, payload)
 PROP_MARKETS_TTL_S = 300                   # re-pull the books at most every 5 min unless refresh=true
+
+
+class PickemGradeRequest(BaseModel):
+    text: str
+    week: int
+
+
+@app.post("/api/pickems/grade")
+def grade_pickem_board(req: PickemGradeRequest):
+    """Grade a pasted Underdog Pick'em board against the week's sims.
+
+    Request: text (the raw pasted board), week.
+    Response: rows (ranked by EV; sim_prob, market_prob, multiplier,
+    min_multiplier, ev_pct, flag per leg), unmatched, unsupported (markets we
+    cannot price yet, with leg counts), parsed (leg count), week,
+    sims_updated_at. Each paste is also saved under data/pickems/raw/ so
+    lines and our picks can be graded later. See src/pickems/."""
+    from src.pickems.service import submit_paste
+    try:
+        out = submit_paste(req.text, req.week)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if out is None:
+        raise HTTPException(status_code=404, detail=f"No sim player parquet for week {req.week}.")
+    return out
+
+
+@app.get("/api/pickems/results")
+def get_pickem_results(week: Optional[int] = None, min_usage: float = 3.0, close_max_age_h: float = 6.0):
+    """Underdog board graded against real results -- see src/pickems/grade_results.py.
+
+    week: one week, or omitted for every week on the ledger. min_usage: thin-player
+    cutoff for the summary. close_max_age_h: a closing multiplier only counts when
+    the leg was re-pasted this many hours or fewer before kickoff.
+    Response: rows (settled legs, open + close multipliers/returns/market probs),
+    summary (+EV legs at open vs close, EV buckets, Brier sim-vs-market, by market/
+    side, calibration), pending, void, no_stat_line, unmatched, late, weeks."""
+    from src.pickems.grade_results import grade_results
+    return grade_results([week] if week else None, min_usage=min_usage, close_max_age_h=close_max_age_h)
+
+
+@app.get("/api/pickems/board")
+def get_pickem_board(week: int):
+    """The accumulated Underdog board for a week (every leg pasted so far, latest
+    multiplier each), graded against the week's sims -- same shape as the POST
+    response minus `paste`. 404 when the week has no sims."""
+    from src.pickems.service import graded_board
+    out = graded_board(week)
+    if out is None:
+        raise HTTPException(status_code=404, detail=f"No sim player parquet for week {week}.")
+    return out
+
+
+@app.get("/api/pickems/ladder")
+def get_pickem_ladder(week: int, team: str, player: str, market: str, line: float):
+    """Our probability + break-even multiplier for Higher and Lower at lines around
+    one board leg's line (the Underdog Lines page's click-a-player panel).
+    Response: mean, median, lines[{line, p_higher, p_lower, min_mult_higher, min_mult_lower}]."""
+    from src.pickems.service import leg_ladder
+    out = leg_ladder(week, team, player, market, line)
+    if out is None:
+        raise HTTPException(status_code=404, detail="No sim data for that leg.")
+    return out
+
+
+class PickemSlipLeg(BaseModel):
+    team: str
+    player: str
+    market: str
+    line: float
+    side: str
+
+
+class PickemSlipRequest(BaseModel):
+    week: int
+    legs: List[PickemSlipLeg]
+
+
+@app.post("/api/pickems/slip")
+def post_pickem_slip(req: PickemSlipRequest):
+    """Joint probability that every leg of a slip hits (same-game legs share sim iterations,
+    so correlation is real; different games are independent). Response: joint, independent
+    (plain product), singles, games. Used by the Underdog Lines entry calculators."""
+    from src.pickems.service import slip_probability
+    if not req.legs:
+        raise HTTPException(status_code=400, detail="Empty slip.")
+    out = slip_probability(req.week, [l.dict() for l in req.legs])
+    if out is None:
+        raise HTTPException(status_code=404, detail="Could not price every leg (no sims, unknown player or market).")
+    return out
 
 
 @app.get("/api/props/polymarket")
@@ -5116,16 +5296,31 @@ def _nearest_positive_definite(A: np.ndarray) -> np.ndarray:
     H = Vt.T @ np.diag(s) @ Vt
     A2 = (B + H) / 2
     A3 = (A2 + A2.T) / 2
-    # Ensure positive definiteness by adding small diagonal
-    k = 1
-    while True:
+    try:
+        np.linalg.cholesky(A3)
+        return A3
+    except np.linalg.LinAlgError:
+        pass
+    # Not PD: clip eigenvalues up to a floor RELATIVE to the matrix scale, then
+    # re-check. This replaces an unbounded `while True` loop that added
+    # (-min_eig*k**2 + machine_eps) to the diagonal -- when min_eig was exactly 0
+    # (an exactly singular covariance, e.g. perfectly-correlated duplicate rows)
+    # that added ~2e-16 per pass against entries ~100, never reached Cholesky,
+    # and spun forever ON THE EVENT LOOP (optimize_lineups is `async def`),
+    # freezing every endpoint on the server (2026-10-04 diagnosis).
+    scale = max(float(np.abs(np.diag(A3)).max()), 1.0)
+    w, V = np.linalg.eigh(A3)
+    A4 = A3
+    for floor in (1e-10, 1e-8, 1e-6, 1e-4):
+        A4 = (V * np.maximum(w, floor * scale)) @ V.T
+        A4 = (A4 + A4.T) / 2
         try:
-            np.linalg.cholesky(A3)
-            return A3
+            np.linalg.cholesky(A4)
+            return A4
         except np.linalg.LinAlgError:
-            min_eig = np.min(np.real(np.linalg.eigvals(A3)))
-            A3 += (-min_eig * k**2 + np.finfo(float).eps) * np.eye(A.shape[0])
-            k += 1
+            continue
+    # Last resort: a positive diagonal on top of a PSD matrix is always PD.
+    return A4 + 1e-3 * scale * np.eye(A.shape[0])
 
 
 def _build_correlation_matrix(players: list) -> np.ndarray:
@@ -5530,8 +5725,13 @@ def _compute_lineup_stats(
 
 
 @app.post('/api/optimize')
-async def optimize_lineups(req: OptimizeRequest):
-    """Generate N optimal DFS lineups using ILP + stochastic correlated draws."""
+def optimize_lineups(req: OptimizeRequest):
+    """Generate N optimal DFS lineups using ILP + stochastic correlated draws.
+
+    Plain `def` (not `async def`) on purpose: the body is minutes of CPU-bound
+    numpy/solver work with no awaits, and FastAPI runs a sync endpoint in a
+    worker thread. As `async def` it ran on the event loop and one slow/stuck
+    request froze every endpoint (2026-10-04)."""
 
     # Filter excluded players. For the Lineup Lab, keep everyone -- an
     # excluded flag is a generation constraint, not "this player can't
@@ -6277,7 +6477,13 @@ class ShowdownOptimizeRequest(BaseModel):
     # lineups through the same field sim + EV/ITM/Top%/1st% scoring. The
     # "Lineup Lab" -- paste a lineup, see how it does.
     manual_lineups: Optional[List[ManualShowdownLineup]] = None
+    # Max salary OUR lineups may use (2026-09-29: user-settable, <= DK's
+    # $50k). Only constrains generation -- the synthetic field and the
+    # over-cap flag always use DK's real SHOWDOWN_DK_SALARY_CAP.
     salary_cap: int = 50000
+    # Min salary OUR lineups must spend (2026-10-04: user-settable, 0 = no
+    # floor). Only constrains generation, same as salary_cap.
+    min_salary: int = 0
     contest_type: str = 'top_heavy'             # cash, flat, top_heavy, extreme_top_heavy
     min_unique_players: int = 2                 # min differing players between any two of our lineups (of 6)
     max_exposure: float = 0.5                   # cap on any player's total appearance rate
@@ -6299,6 +6505,120 @@ class ShowdownOptimizeRequest(BaseModel):
     # trial draws come from, not by re-solving anything. Works with both
     # generated and manual_lineups.
     iteration_filter: Optional[List[int]] = None
+    # Build minimums (2026-09-29): {away-team player count (1-5, captain
+    # included): minimum FRACTION of lineups (0-1)}, e.g. {1: 0.15, 4: 0.30}
+    # = at least 15% "1-5" and 30% "4-2" builds, the rest unconstrained.
+    # Minimums only, never caps; lineups that land on a build naturally count
+    # toward it. See _build_quotas / _pick_forced_build. Needs away_team to
+    # know which side is "away". Ignored by the Lineup Lab.
+    build_minimums: Optional[Dict[int, float]] = None
+    away_team: Optional[str] = None
+    # Per-lineup position caps (2026-10-05): the most defenses / kickers any
+    # ONE of our lineups may hold, across all 6 slots (captain included).
+    # max_dst_k caps DST + K together; max_dst / max_k cap each position on its
+    # own (all three apply at once). None = no cap. Only constrains generation,
+    # like salary_cap -- the Lineup Lab and the synthetic field are unaffected.
+    max_dst_k: Optional[int] = None
+    max_dst: Optional[int] = None
+    max_k: Optional[int] = None
+
+
+# DK's real Showdown salary cap. ShowdownOptimizeRequest.salary_cap is the
+# user's (possibly lower) max for OUR lineups; the synthetic field is built at
+# this real cap, since the field isn't bound by our self-imposed limit.
+SHOWDOWN_DK_SALARY_CAP = 50000
+
+
+# Consecutive failed solves (for one forced build) before optimize_showdown
+# gives up on that build's minimum and reports the shortfall -- a forced build
+# can be genuinely infeasible (e.g. locks already put 3 players on one team, or
+# exposure caps have used up that team's players).
+BUILD_FORCE_MAX_FAILS = 6
+
+
+def _build_quotas(build_minimums: Optional[Dict[int, float]], n_total: int) -> Dict[int, int]:
+    """Turn build-minimum fractions into lineup counts.
+
+    Inputs:  build_minimums -- {away_count (1-5): min fraction 0-1} from the
+               request (None/empty -> no minimums); n_total -- lineups requested.
+    Output:  {away_count: min lineup count}, zero entries dropped.
+    Purpose: a minimum rounds UP (15% of 150 = 22.5 -> 23), since it's a
+             floor. Raises ValueError on a bad key/fraction or when the
+             rounded minimums need more lineups than requested (caller -> 400).
+    """
+    quotas: Dict[int, int] = {}
+    for k, frac in (build_minimums or {}).items():
+        k = int(k)
+        if k < 1 or k > 5:
+            raise ValueError(f'Build {k}-{6 - k} is not a legal showdown build (1-5 away players).')
+        if frac is None or frac <= 0:
+            continue
+        if frac > 1:
+            raise ValueError(f'Build {k}-{6 - k} minimum must be 0-100%.')
+        # -1e-9 so float noise (0.3 * 10 = 3.0000000000000004) doesn't round up a whole lineup.
+        q = int(math.ceil(frac * n_total - 1e-9))
+        if q > 0:
+            quotas[k] = q
+    if sum(quotas.values()) > n_total:
+        need = ', '.join(f'{k}-{6 - k}: {q}' for k, q in sorted(quotas.items(), reverse=True))
+        raise ValueError(f'Build minimums need {sum(quotas.values())} lineups ({need}) '
+                         f'but only {n_total} were requested.')
+    return quotas
+
+
+def _pick_forced_build(quotas: Dict[int, int], have: Dict[int, int], n_done: int,
+                       n_total: int, given_up: set) -> Optional[int]:
+    """Which build (if any) the NEXT lineup must be forced into.
+
+    Inputs:  quotas   -- {away_count: min count} from _build_quotas;
+             have     -- {away_count: lineups of that build generated so far}
+                         (natural hits count, not just forced ones);
+             n_done   -- lineups generated so far; n_total -- lineups requested;
+             given_up -- builds abandoned as infeasible (never forced again).
+    Output:  an away_count to force, or None = unconstrained solve.
+    Purpose: spread forced lineups EVENLY through the run instead of
+             front/back-loading them (the tail of a run has the tightest
+             exposure caps + min-unique pressure, so a back-loaded quota gets
+             the worst lineups). Build b "should" have quota_b * (n_done+1) /
+             n_total lineups by the end of this step; if it's a full lineup
+             behind that pace it gets forced (largest lag first). Separately,
+             if the outstanding deficit has used up every remaining slot, the
+             biggest deficit is forced regardless of pace -- guaranteeing the
+             minimums are met whenever they're feasible.
+    """
+    open_def = {b: q - have.get(b, 0) for b, q in quotas.items()
+                if b not in given_up and q - have.get(b, 0) > 0}
+    if not open_def:
+        return None
+    remaining = n_total - n_done
+    if sum(open_def.values()) >= remaining:
+        return max(open_def, key=lambda b: (open_def[b], b))
+    lag = {b: quotas[b] * (n_done + 1) / n_total - have.get(b, 0) for b in open_def}
+    behind = {b: v for b, v in lag.items() if v >= 1.0}
+    if behind:
+        return max(behind, key=lambda b: (behind[b], b))
+    return None
+
+
+_DST_POS = frozenset({'DST', 'DEF', 'D/ST'})
+
+
+def _dst_k_flags(players: list):
+    """Inputs: players (showdown pool dicts with a 'pos'). Output: (is_dst, is_k),
+    two parallel 0/1 int lists. Purpose: lets the solvers count defenses and
+    kickers in a lineup without re-reading position strings in the hot loop."""
+    is_dst = [1 if str(p.get('pos', '')).upper() in _DST_POS else 0 for p in players]
+    is_k = [1 if str(p.get('pos', '')).upper() == 'K' else 0 for p in players]
+    return is_dst, is_k
+
+
+def _dst_k_within_caps(n_dst: int, n_k: int, max_dst_k: Optional[int],
+                       max_dst: Optional[int], max_k: Optional[int]) -> bool:
+    """True when a lineup holding n_dst defenses and n_k kickers respects all
+    three caps (None = that cap is off)."""
+    return ((max_dst_k is None or n_dst + n_k <= max_dst_k)
+            and (max_dst is None or n_dst <= max_dst)
+            and (max_k is None or n_k <= max_k))
 
 
 def _solve_showdown_fast(
@@ -6317,6 +6637,12 @@ def _solve_showdown_fast(
     locked_cpt_indices: set,
     excluded_indices: set,
     cpt_ineligible_indices: set = frozenset(),
+    required_away: Optional[int] = None,
+    away_team: Optional[str] = None,
+    min_salary: int = 0,
+    max_dst_k: Optional[int] = None,
+    max_dst: Optional[int] = None,
+    max_k: Optional[int] = None,
 ) -> Optional[dict]:
     """Pure-Python showdown solve (1 CPT + 5 FLEX). Replaces the per-draw CBC
     ILP: for a 12-26 player single-game pool the ILP's subprocess spawn +
@@ -6334,10 +6660,33 @@ def _solve_showdown_fast(
     players must include at least one from EACH team (2026-09-28 -- was
     unenforced, so blowout-leaning draws could return an illegal one-team
     lineup). Returns {'cpt': idx, 'flex': [idx x5]} or None.
+
+    `required_away` (2026-09-29, build minimums): when set, the lineup must
+    have EXACTLY that many `away_team` players across all 6 slots (captain
+    included) -- e.g. 4 forces a "4-2" build. Enforced as a count-feasibility
+    prune inside the branch-and-bound (a partial pick that already has too
+    many away players, or can't reach enough with the slots left, is cut).
+    The value bound stays valid (it's a relaxation), so the result is still
+    the exact optimum among lineups of that build. None = any build.
+
+    `min_salary` (2026-10-04): the lineup's total salary (captain at 1.5x)
+    must be at least this. Enforced as a leaf reject (the value bound stays a
+    valid relaxation, so the result is still the exact optimum among legal
+    lineups) plus a salary-reachability prune so a tight floor doesn't blow
+    up to full enumeration. 0 = no floor.
+
+    `max_dst_k` / `max_dst` / `max_k` (2026-10-05): per-lineup caps on how many
+    defenses + kickers (combined), defenses, and kickers the 6 players may
+    hold (captain included). Enforced as a feasibility cut on the captain +
+    forced picks, then on every FLEX inclusion inside the branch-and-bound --
+    the value bound stays a valid relaxation, so the result is still the exact
+    optimum among legal lineups. None = that cap is off.
     """
     n = len(players)
     sal = np.array([p['salary'] for p in players], dtype=float)
     team = [p.get('team') for p in players]
+    caps_on = max_dst_k is not None or max_dst is not None or max_k is not None
+    is_dst, is_k = _dst_k_flags(players) if caps_on else (None, None)
     # A tiny salary term in the objective so that, all else near-equal, the
     # solver spends the cap (real showdown lineups do) -- ~0.5 value per $1k,
     # far below a real projection gap, just a tie-breaker toward studs. Keeps
@@ -6359,6 +6708,8 @@ def _solve_showdown_fast(
                 over_total.add(i)
             if c >= max_cpt_apps:
                 over_cpt.add(i)
+
+    is_away = [t == away_team for t in team] if required_away is not None else None
 
     prior_members = [{lu['cpt'], *lu['flex']} for lu in prior_lineups]
     max_shared = 6 - min_unique
@@ -6383,6 +6734,14 @@ def _solve_showdown_fast(
             forced_sal = sum(sal[i] for i in forced)
             if len(forced) > 5 or forced_sal > rem_budget:
                 continue
+            # DST/K caps: the captain + locked FLEX already count toward them.
+            if caps_on:
+                base_dst = is_dst[cpt] + sum(is_dst[i] for i in forced)
+                base_k = is_k[cpt] + sum(is_k[i] for i in forced)
+                if not _dst_k_within_caps(base_dst, base_k, max_dst_k, max_dst, max_k):
+                    continue
+            else:
+                base_dst = base_k = 0
 
             cands = [i for i in range(n)
                      if i != cpt and i not in excluded_indices and i not in over_total
@@ -6394,8 +6753,13 @@ def _solve_showdown_fast(
                 continue
 
             suffix = [0.0] * (nf + 1)
+            # suffix_max_sal[i] = priciest salary among cands[i:], for the
+            # min-salary reachability prune below.
+            suffix_max_sal = [0.0] * (nf + 1)
             for i in range(nf - 1, -1, -1):
                 suffix[i] = suffix[i + 1] + flex_val[cands[i]]
+                suffix_max_sal[i] = max(suffix_max_sal[i + 1], sal[cands[i]])
+            min_flex_sal = min_salary - sal[cpt] * 1.5  # FLEX (incl. forced) must total at least this
 
             forced_val = sum(flex_val[i] for i in forced)
             # One-team rule: if the captain + forced FLEX already span both
@@ -6403,15 +6767,29 @@ def _solve_showdown_fast(
             # include at least one player from a different team.
             base_teams = {team[cpt], *(team[i] for i in forced)}
             needs_other = len(base_teams) < 2
+            # Build constraint: how many more away players the 5-flex search
+            # must add on top of the captain + forced FLEX (None = no constraint).
+            if is_away is not None:
+                away_need = required_away - is_away[cpt] - sum(is_away[i] for i in forced)
+                if away_need < 0 or away_need > need:
+                    continue  # this captain + locks can't make the required build
+            else:
+                away_need = None
             # Pure value-optimal 5-flex for this captain -- NO min-unique
             # check in the loop (that would kill the prune and blow up to
             # full enumeration); checked once, after, on the finished lineup.
             local = {'val': -1e18, 'set': None}
 
-            def dfs(idx, count, cur_sal, cur_val, chosen):
+            def dfs(idx, count, cur_sal, cur_val, chosen, n_away, n_dst, n_k):
+                if away_need is not None:
+                    # too many away already, or too few slots left to reach the count
+                    if n_away > away_need or n_away + (need - count) < away_need:
+                        return
                 if count == need:
                     if needs_other and all(team[i] in base_teams for i in chosen):
                         return  # one-team lineup -- illegal on DK
+                    if min_salary and cur_sal < min_flex_sal:
+                        return  # under the user's salary floor
                     total = cur_val + forced_val
                     if total > local['val']:
                         local['val'] = total
@@ -6426,14 +6804,22 @@ def _solve_showdown_fast(
                 k = need - count
                 if cur_val + (suffix[idx] - suffix[idx + k]) + forced_val <= local['val']:
                     return
+                # Salary floor unreachable even filling every open slot with
+                # the priciest remaining player -> cut.
+                if min_salary and cur_sal + k * suffix_max_sal[idx] < min_flex_sal:
+                    return
                 ci = cands[idx]
-                if cur_sal + sal[ci] <= rem_budget:
+                if cur_sal + sal[ci] <= rem_budget and (
+                        not caps_on or _dst_k_within_caps(n_dst + is_dst[ci], n_k + is_k[ci],
+                                                          max_dst_k, max_dst, max_k)):
                     chosen.append(ci)
-                    dfs(idx + 1, count + 1, cur_sal + sal[ci], cur_val + flex_val[ci], chosen)
+                    dfs(idx + 1, count + 1, cur_sal + sal[ci], cur_val + flex_val[ci], chosen,
+                        n_away + (1 if is_away is not None and is_away[ci] else 0),
+                        n_dst + (is_dst[ci] if caps_on else 0), n_k + (is_k[ci] if caps_on else 0))
                     chosen.pop()
-                dfs(idx + 1, count, cur_sal, cur_val, chosen)
+                dfs(idx + 1, count, cur_sal, cur_val, chosen, n_away, n_dst, n_k)
 
-            dfs(0, 0, forced_sal, 0.0, [])
+            dfs(0, 0, forced_sal, 0.0, [], 0, base_dst, base_k)
             if local['set'] is None:
                 continue
             val = cpt_val[cpt] + local['val']
@@ -6468,6 +6854,10 @@ def _solve_showdown_ilp(
     locked_indices: set,
     locked_cpt_indices: set,
     excluded_indices: set,
+    min_salary: int = 0,
+    max_dst_k: Optional[int] = None,
+    max_dst: Optional[int] = None,
+    max_k: Optional[int] = None,
 ) -> Optional[dict]:
     """Solve one showdown lineup (1 CPT + 5 FLEX) for a given score draw.
 
@@ -6493,6 +6883,21 @@ def _solve_showdown_ilp(
         prob += c[i] + f[i] <= 1                     # a player fills at most one slot
     prob += pulp.lpSum(1.5 * players[i]['salary'] * c[i] + players[i]['salary'] * f[i]
                        for i in range(n)) <= salary_cap
+    if min_salary:
+        prob += pulp.lpSum(1.5 * players[i]['salary'] * c[i] + players[i]['salary'] * f[i]
+                           for i in range(n)) >= min_salary
+
+    # Per-lineup DST/K caps (captain slot counts too) -- see _solve_showdown_fast.
+    if max_dst_k is not None or max_dst is not None or max_k is not None:
+        dst_f, k_f = _dst_k_flags(players)
+        dst_sum = pulp.lpSum((c[i] + f[i]) for i in range(n) if dst_f[i])
+        k_sum = pulp.lpSum((c[i] + f[i]) for i in range(n) if k_f[i])
+        if max_dst_k is not None:
+            prob += dst_sum + k_sum <= max_dst_k
+        if max_dst is not None:
+            prob += dst_sum <= max_dst
+        if max_k is not None:
+            prob += k_sum <= max_k
 
     for i in excluded_indices:
         if i < n:
@@ -7010,6 +7415,15 @@ def optimize_showdown(req: ShowdownOptimizeRequest):
     active = [p.dict() for p in req.players] if manual else [p.dict() for p in req.players if not p.excluded]
     if len(active) < 6:
         raise HTTPException(status_code=400, detail='Need at least 6 players in the pool for a showdown lineup.')
+    if not (0 < req.salary_cap <= SHOWDOWN_DK_SALARY_CAP):
+        raise HTTPException(status_code=400,
+                            detail=f'Max salary must be between $1 and ${SHOWDOWN_DK_SALARY_CAP:,} (the DK cap).')
+    if not (0 <= req.min_salary <= req.salary_cap):
+        raise HTTPException(status_code=400,
+                            detail=f'Min salary must be between $0 and the max salary (${req.salary_cap:,}).')
+    for _cap_name, _cap in (('Max DST+K', req.max_dst_k), ('Max DST', req.max_dst), ('Max K', req.max_k)):
+        if _cap is not None and not (0 <= _cap <= 6):
+            raise HTTPException(status_code=400, detail=f'{_cap_name} must be between 0 and 6 (or blank for no limit).')
 
     # Deterministic ownership seed from pool content (same pool -> same
     # numbers -> comparable EV), same rationale as /api/optimize.
@@ -7067,6 +7481,20 @@ def optimize_showdown(req: ShowdownOptimizeRequest):
                                if p.get('cpt_eligible') is False and i not in locked_cpt_indices}
     if not manual and len(cpt_ineligible_indices) >= n:
         raise HTTPException(status_code=400, detail='At least one player must be eligible for the captain pool.')
+
+    # Build minimums -> lineup-count quotas (see _build_quotas). Lab ignores them.
+    build_quotas: Dict[int, int] = {}
+    if not manual and req.build_minimums:
+        if not req.away_team or req.away_team not in {p['team'] for p in active}:
+            raise HTTPException(status_code=400,
+                                detail='Build minimums need away_team set to one of the pool\'s two teams.')
+        try:
+            build_quotas = _build_quotas(req.build_minimums, req_n)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    build_have: Dict[int, int] = {}
+    build_fails: Dict[int, int] = {}
+    build_given_up: set = set()
 
     # Normalise the leverage penalty so `leverage_lambda` is scale-free and
     # intuitive regardless of the slate's point/ownership magnitudes. `own_scale`
@@ -7140,15 +7568,30 @@ def optimize_showdown(req: ShowdownOptimizeRequest):
                 draw = np.maximum(0.0, ilp_scores + width_mult * (L @ z))
             else:
                 draw = ilp_scores.copy()
+            force = _pick_forced_build(build_quotas, build_have, len(generated), req_n, build_given_up)
             sol = _solve_showdown_fast(
                 active, draw, own_flex, own_cpt, eff_lambda,
                 req.salary_cap, prior, req.min_unique_players,
                 req.max_exposure, req.cpt_max_exposure, req_n,
                 locked_indices, locked_cpt_indices, set(),
                 cpt_ineligible_indices,
+                required_away=force, away_team=req.away_team,
+                min_salary=req.min_salary,
+                max_dst_k=req.max_dst_k, max_dst=req.max_dst, max_k=req.max_k,
             )
             if sol is None:
+                # A forced build that keeps failing is infeasible under the
+                # current locks/caps -- stop forcing it (shortfall is reported).
+                if force is not None:
+                    build_fails[force] = build_fails.get(force, 0) + 1
+                    if build_fails[force] >= BUILD_FORCE_MAX_FAILS:
+                        build_given_up.add(force)
                 continue
+            if force is not None:
+                build_fails[force] = 0
+            if req.away_team:
+                b = sum(1 for i in [sol['cpt'], *sol['flex']] if active[i]['team'] == req.away_team)
+                build_have[b] = build_have.get(b, 0) + 1
             prior.append(sol)
             generated.append(_pack(sol))
 
@@ -7264,7 +7707,9 @@ def optimize_showdown(req: ShowdownOptimizeRequest):
     #                      synthetic field of distinct builds, not the raw contest
     #                      entry count — it answers "was this the best possible
     #                      build given how the game played out".
-    field = _build_showdown_field(active, req.salary_cap, n_field=FIELD_SAMPLE_K, seed=own_seed)
+    # Real DK cap, NOT req.salary_cap -- a user max-salary setting constrains
+    # only our lineups; the field still spends up to $50k.
+    field = _build_showdown_field(active, SHOWDOWN_DK_SALARY_CAP, n_field=FIELD_SAMPLE_K, seed=own_seed)
     field_max_scores = None
     if field:
         # Every field lineup's full score vector across the aligned iterations.
@@ -7315,6 +7760,10 @@ def optimize_showdown(req: ShowdownOptimizeRequest):
         for o in flex_owns:
             p_exact *= (o / 100.0)
         dupe_est = round(req.total_entries * p_exact, 2)
+        # Product ownership (2026-09-29): the same p_exact, surfaced on its own
+        # as the probability a random field entry is this exact lineup. Tiny
+        # (~1e-7), so the frontend shows it as "1 in X"; sent unrounded.
+        product_ownership = float(p_exact)
         # "Finished first": iterations where this lineup outscored the best build
         # in the synthetic field (>= so a tie for the top counts). Reported both
         # as a rate and a raw count out of n_stat_sims.
@@ -7341,8 +7790,9 @@ def optimize_showdown(req: ShowdownOptimizeRequest):
             'total_ownership': lu['total_ownership'],
             'cpt_name': active[sol['cpt']]['name'],
             'dupe_est': dupe_est,
+            'product_ownership': product_ownership,
             'label': lu.get('label'),
-            'over_salary_cap': lu['total_salary'] > req.salary_cap,
+            'over_salary_cap': lu['total_salary'] > SHOWDOWN_DK_SALARY_CAP,
         })
 
     # ── Portfolio metrics ───────────────────────────────────────────────
@@ -7382,6 +7832,16 @@ def optimize_showdown(req: ShowdownOptimizeRequest):
     has_kicker = any(p['pos'] == 'K' for p in active)
     notes = ([] if has_kicker else
              ['Kickers are not in the pool (sim engine does not model them yet) — add them manually on DK.'])
+    # Build minimums: required vs achieved, and a note for any shortfall.
+    build_min_report = [
+        {'away_count': k, 'required': q, 'achieved': build_have.get(k, 0)}
+        for k, q in sorted(build_quotas.items(), reverse=True)
+    ]
+    short = [r for r in build_min_report if r['achieved'] < r['required']]
+    if short:
+        notes.append('Build minimums not fully met (locks, exposure caps or min-unique left no legal lineup): '
+                     + ', '.join(f"{r['away_count']}-{6 - r['away_count']} got {r['achieved']} of {r['required']}"
+                                 for r in short) + '.')
     if field_source == 'season_parquet':
         notes.append('EV / Top% / 1st% ran against the season-long sim (no DFS-week sim for '
                      f'week {req.week} yet) — starters may not match this week\'s availability.')
@@ -7411,6 +7871,7 @@ def optimize_showdown(req: ShowdownOptimizeRequest):
             'n_sims': n_stat_sims,
             'iteration_filter_frac': iteration_filter_frac,
             'iteration_filter_n': len(valid_filter) if valid_filter else None,
+            'build_minimums': build_min_report,
         },
         'notes': notes,
     }

@@ -59,7 +59,8 @@ def test_out_player_share_redistributes_from_live_values():
     rows, _ = bwo.build_team_week_rows(sheet, week=5, team=None, live_traits=live)
     by = {r["player_name"]: float(r["target_share"]) for r in rows}
     assert by["Star WR"] == 0.0
-    # Star's LIVE 0.20 goes pro-rata to WR2 (0.10) / WR3 (0.30): +0.05 / +0.15
-    assert by["WR2"] == pytest.approx(0.15)
-    assert by["WR3"] == pytest.approx(0.45)
-    assert sum(by.values()) == pytest.approx(0.60)  # total conserved
+    # Star's LIVE 0.20 goes pro-rata to WR2 (0.10) / WR3 (0.30): 0.15 / 0.45 (total 0.60),
+    # then the team is normalized to 1.0 (2026-10-13) with the same 1:3 ratio.
+    assert by["WR2"] == pytest.approx(0.25)
+    assert by["WR3"] == pytest.approx(0.75)
+    assert sum(by.values()) == pytest.approx(1.0)

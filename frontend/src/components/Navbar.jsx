@@ -54,6 +54,7 @@ export default function Navbar({ currentPage, setCurrentPage, selectedWeek, sele
   const coreLinks = PAGES.filter(p => p.category === 'core' && p.showInNavbar);
   const toolLinks = PAGES.filter(p => p.category === 'tool' && p.showInNavbar);
   const evalLinks = PAGES.filter(p => p.category === 'eval' && p.showInNavbar);
+  const pickemLinks = PAGES.filter(p => p.category === 'pickems' && p.showInNavbar);
   const metaLinks = PAGES.filter(p => p.category === 'meta' && p.showInNavbar);
 
   const handleNav = (pageId) => {
@@ -173,6 +174,7 @@ export default function Navbar({ currentPage, setCurrentPage, selectedWeek, sele
         {/* Dropdowns: Tools + Evaluation (one page per grader, 2026-09-29) */}
         <NavDropdown label="Tools (Beta)" links={toolLinks} currentPage={currentPage} onNav={handleNav} />
         <NavDropdown label="Evaluation" links={evalLinks} currentPage={currentPage} onNav={handleNav} />
+        <NavDropdown label="Pickems" links={pickemLinks} currentPage={currentPage} onNav={handleNav} />
 
         {/* Meta Links */}
         {metaLinks.map(p => (

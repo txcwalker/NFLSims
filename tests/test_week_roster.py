@@ -146,3 +146,43 @@ class TestLostShare(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNormalizeTeamShares(unittest.TestCase):
+    """normalize_team_shares: every share column lands on exactly 1.0 (2026-10-13)."""
+
+    def _team(self):
+        return [
+            {"player_name": "RB1", "pos": "RB", "hand_edit": "", "target_share": "0.30", "carry_share": "0.90"},
+            {"player_name": "RB2", "pos": "RB", "hand_edit": "", "target_share": "0.30", "carry_share": "0.30"},
+            {"player_name": "WR1", "pos": "WR", "hand_edit": "", "target_share": "0.60", "carry_share": "0.0"},
+            {"player_name": "OUT", "pos": "WR", "hand_edit": "", "target_share": "0.0", "carry_share": "0.0"},
+            {"player_name": "Totals", "pos": "", "target_share": "9", "carry_share": "9"},
+        ]
+
+    def test_columns_sum_to_one_and_ratios_kept(self):
+        from src.data_pipeline.week_roster_v_0_1_0 import normalize_team_shares
+        new, rep = normalize_team_shares(self._team())
+        by = {r["player_name"]: r for r in new}
+        self.assertAlmostEqual(sum(float(by[n]["target_share"]) for n in ("RB1", "RB2", "WR1")), 1.0, places=5)
+        self.assertAlmostEqual(sum(float(by[n]["carry_share"]) for n in ("RB1", "RB2")), 1.0, places=5)
+        self.assertAlmostEqual(float(by["RB1"]["carry_share"]) / float(by["RB2"]["carry_share"]), 3.0, places=3)
+        self.assertEqual(float(by["OUT"]["target_share"]), 0.0)          # zero stays zero
+        self.assertAlmostEqual(float(by["Totals"]["target_share"]), 1.0, places=5)
+        self.assertTrue(rep)
+
+    def test_hand_edit_held_fixed(self):
+        from src.data_pipeline.week_roster_v_0_1_0 import normalize_team_shares
+        rows = self._team()
+        rows[0]["hand_edit"] = "TRUE"                                      # RB1 target 0.30 pinned
+        new, _ = normalize_team_shares(rows)
+        by = {r["player_name"]: r for r in new}
+        self.assertAlmostEqual(float(by["RB1"]["target_share"]), 0.30, places=5)
+        self.assertAlmostEqual(sum(float(by[n]["target_share"]) for n in ("RB1", "RB2", "WR1")), 1.0, places=5)
+
+    def test_already_normal_untouched(self):
+        from src.data_pipeline.week_roster_v_0_1_0 import normalize_team_shares
+        rows = [{"player_name": "A", "pos": "WR", "target_share": "0.5", "carry_share": "0"},
+                {"player_name": "B", "pos": "WR", "target_share": "0.5", "carry_share": "0"}]
+        _, rep = normalize_team_shares(rows)
+        self.assertEqual(rep, [])

@@ -41,16 +41,136 @@ function classicColumns(players) {
 const COLUMNS = [
   { key: 'rank', label: 'Rank' },
   { key: 'actual_points', label: 'Actual Points', digits: 2 },
-  { key: 'ev_pct', label: 'Sim ROI', title: 'EV%% from ranking this lineup against the real (rescored) field in every sim run, looking up the assumed payout at its implied rank', pct: true },
-  { key: 'itm_pct', label: 'Cash Rate', pct: true },
+  { key: 'ev_pct', label: 'Sim ROI', title: 'EV%% from ranking this lineup against the real (rescored) field in every sim run, looking up the payout at its implied rank', pct: true },
+  { key: 'actual_roi_pct', label: 'Actual ROI', title: 'Real payout at the real DK finishing rank, on the same payout table as Sim ROI', pct: true },
+  { key: 'itm_pct', label: 'Cash Rate', title: 'Projected cash rate -- ✓ = actually cashed', pct: true },
   { key: 'score_max', label: 'Ceiling' },
   { key: 'lineup_p50', label: 'Median' },
-  { key: 'top1_pct', label: 'Top 1%', pct: true },
-  { key: 'top01_pct', label: 'Top 0.1%', pct: true },
+  { key: 'top1_pct', label: 'Top 1%', title: 'Projected Top 1% rate -- ✓ = actually finished top 1%', pct: true },
+  { key: 'top01_pct', label: 'Top 0.1%', title: 'Projected Top 0.1% rate -- ✓ = actually finished top 0.1%', pct: true },
   { key: 'total_ownership', label: 'Total Own%', title: 'Sum of real published ownership%% across every roster slot', pct: true },
 ];
 
 const PAGE_SIZE = 100;
+
+// Small ✓ shown beside a projected rate when the lineup actually hit it.
+function Hit({ on }) {
+  return on ? <span style={{ color: 'var(--accent-primary)', fontWeight: 700, marginLeft: '4px' }}>✓</span> : null;
+}
+
+function mean(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null; }
+function fmtRoi(v) { return v == null ? '—' : `${v > 0 ? '+' : ''}${fmt(v)}%`; }
+function fmtMoney(v) {
+  if (v == null) return '—';
+  const sign = v > 0 ? '+' : v < 0 ? '−' : '';
+  return `${sign}$${Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+/**
+ * Projected-vs-realized roll-up for one group of lineups (mine, or the field).
+ * Inputs:  rows -- field_stats entries (ev_pct/itm_pct/top1_pct/top01_pct
+ *          projected; actual_roi_pct/cashed/top1_hit/top01_hit realized, see
+ *          sim_replay_store._compute_contest_field_stats), entryFee (number).
+ * Output:  { n, simRoi, actualRoi, simNet, actualNet, rates: [{label, projPct,
+ *          projCount, actPct, actCount}] } or null for an empty group.
+ * Every entry in one contest pays the same fee, so the mean of per-entry ROI
+ * IS the group's aggregate ROI -- no fee weighting needed. Projected counts
+ * are the sum of per-entry probabilities (expected number of hits), which is
+ * the fair thing to compare an actual hit COUNT against for rare events like
+ * Top 0.1%, where a percentage alone hides that the expectation is < 1.
+ */
+function summarizeGroup(rows, entryFee) {
+  if (!rows.length) return null;
+  const simRoi = mean(rows.filter(r => r.ev_pct != null).map(r => r.ev_pct));
+  const actualRoi = mean(rows.filter(r => r.actual_roi_pct != null).map(r => r.actual_roi_pct));
+  const fees = entryFee * rows.length;
+  const rate = (label, projKey, hitKey) => {
+    const projCount = rows.reduce((a, r) => a + (r[projKey] || 0) / 100, 0);
+    const actCount = rows.filter(r => r[hitKey]).length;
+    return { label, projPct: (projCount / rows.length) * 100, projCount, actPct: (actCount / rows.length) * 100, actCount };
+  };
+  return {
+    n: rows.length,
+    simRoi, actualRoi,
+    simNet: simRoi == null ? null : fees * simRoi / 100,
+    actualNet: actualRoi == null ? null : fees * actualRoi / 100,
+    rates: [rate('Cash rate', 'itm_pct', 'cashed'), rate('Top 1%', 'top1_pct', 'top1_hit'), rate('Top 0.1%', 'top01_pct', 'top01_hit')],
+  };
+}
+
+/**
+ * "How did these lineups do vs what we projected" panel: one column pair
+ * (Projected | Actual) per group; rows = ROI, then Cash / Top 1% / Top 0.1%.
+ * Inputs: groups -- [{ title, note?, summary (summarizeGroup output or null) }].
+ * Output: JSX card (null if every group is empty).
+ */
+function ProjectedVsActual({ groups }) {
+  const cell = { padding: '5px 10px', whiteSpace: 'nowrap' };
+  const divider = { borderLeft: '1px solid rgba(255,255,255,0.08)' };
+  const shown = groups.filter(g => g.summary);
+  if (!shown.length) return null;
+  const rateLabels = shown[0].summary.rates.map(r => r.label);
+  return (
+    <div style={{ ...cardStyle, marginBottom: '18px' }}>
+      <div style={{ fontWeight: 700, color: 'var(--text-white)', marginBottom: '8px', fontSize: '0.9rem' }}>Projected vs Actual</div>
+      <div className="table-container" style={{ overflowX: 'auto' }}>
+        <table style={{ fontSize: '0.8rem' }}>
+          <thead>
+            <tr style={{ textAlign: 'left' }}>
+              <th style={cell} />
+              {shown.map(g => (
+                <th key={g.title} colSpan={2} style={{ ...cell, ...divider }}>
+                  {g.title} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>· {fmtInt(g.summary.n)} lineups</span>
+                  {g.note && <div style={{ fontSize: '0.66rem', color: '#f59e0b', fontWeight: 400 }}>{g.note}</div>}
+                </th>
+              ))}
+            </tr>
+            <tr style={{ textAlign: 'left', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+              <th style={cell} />
+              {shown.flatMap(g => [
+                <th key={`${g.title}-p`} style={{ ...cell, ...divider }}>Projected</th>,
+                <th key={`${g.title}-a`} style={cell}>Actual</th>,
+              ])}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ ...cell, color: 'var(--text-muted)' }}>ROI</td>
+              {shown.flatMap(g => [
+                <td key={`${g.title}-p`} style={{ ...cell, ...divider, color: evColor(g.summary.simRoi) }}>
+                  {fmtRoi(g.summary.simRoi)} <span style={{ color: 'var(--text-muted)' }}>({fmtMoney(g.summary.simNet)})</span>
+                </td>,
+                <td key={`${g.title}-a`} style={{ ...cell, fontWeight: 700, color: evColor(g.summary.actualRoi) }}>
+                  {fmtRoi(g.summary.actualRoi)} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({fmtMoney(g.summary.actualNet)})</span>
+                </td>,
+              ])}
+            </tr>
+            {rateLabels.map((label, ri) => (
+              <tr key={label}>
+                <td style={{ ...cell, color: 'var(--text-muted)' }}>{label}</td>
+                {shown.flatMap(g => {
+                  const r = g.summary.rates[ri];
+                  return [
+                    <td key={`${g.title}-p`} style={{ ...cell, ...divider }}>
+                      {fmt(r.projPct, 2)}% <span style={{ color: 'var(--text-muted)' }}>({fmt(r.projCount, 1)} exp)</span>
+                    </td>,
+                    <td key={`${g.title}-a`} style={{ ...cell, fontWeight: 700 }}>
+                      {fmt(r.actPct, 2)}% <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({fmtInt(r.actCount)})</span>
+                    </td>,
+                  ];
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: '8px 0 0 0' }}>
+        Projected = average of each lineup's sim rate (in parentheses: expected number of hits). Actual = what happened at the real DK finishing rank.
+        One contest is a small sample -- for Top 1% / Top 0.1% compare expected count to actual count, not the percentages.
+      </p>
+    </div>
+  );
+}
 
 /**
  * Sim Replays: pick a contest you've actually entered (auto-found by your DK
@@ -78,6 +198,9 @@ export default function SimReplays({ games = [], allSimResults = {}, selectedWee
   const [modalLineup, setModalLineup] = useState(null);
   const [sort, setSort] = useState({ key: 'rank', asc: true });
   const [page, setPage] = useState(0);
+  const [mineOnly, setMineOnly] = useState(false);
+  // Response-level payout context (real saved DK table vs assumed curve).
+  const [meta, setMeta] = useState(null);
 
   const [showSettings, setShowSettings] = useState(false);
   const [contestType, setContestType] = useState('top_heavy');
@@ -116,14 +239,35 @@ export default function SimReplays({ games = [], allSimResults = {}, selectedWee
       if (cancelled) return;
       if (res.error) setError(res.error);
       setEntries(res.entries || []);
+      setMeta(res.error ? null : {
+        payoutSource: res.payout_source, payingPositions: res.paying_positions,
+        entryFee: res.entry_fee, topPct: res.top_pct,
+      });
       setLoadingEntries(false);
       setPage(0);
     });
     return () => { cancelled = true; };
   }, [selected, contestType, payingPositions, topPct]);
 
+  // "My entries only" is a pure view filter -- the backend still ranks every
+  // entry against the whole real field, so no number changes with it.
+  const visibleEntries = useMemo(() => (mineOnly ? entries.filter(e => e.is_mine) : entries), [entries, mineOnly]);
+
+  const summaryGroups = useMemo(() => {
+    const fee = meta?.entryFee || 0;
+    const wholeField = Number(meta?.topPct) >= 100;
+    return [
+      { title: 'My entries', summary: summarizeGroup(entries.filter(e => e.is_mine), fee) },
+      {
+        title: wholeField ? 'Whole field' : `Shown lineups (top ${meta?.topPct}% + mine)`,
+        note: wholeField ? null : 'Not the whole field -- set Top % of field to 100 for a fair baseline',
+        summary: summarizeGroup(entries, fee),
+      },
+    ];
+  }, [entries, meta]);
+
   const sortedEntries = useMemo(() => {
-    const arr = [...entries];
+    const arr = [...visibleEntries];
     arr.sort((a, b) => {
       const av = a[sort.key], bv = b[sort.key];
       if (av == null && bv == null) return 0;
@@ -132,7 +276,7 @@ export default function SimReplays({ games = [], allSimResults = {}, selectedWee
       return sort.asc ? av - bv : bv - av;
     });
     return arr;
-  }, [entries, sort]);
+  }, [visibleEntries, sort]);
 
   // The backend already scores the whole field -- pagination here is purely
   // to keep the DOM light (a "whole tournament" contest can be thousands of
@@ -165,6 +309,10 @@ export default function SimReplays({ games = [], allSimResults = {}, selectedWee
             ))}
           </select>
         </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
+          <input type="checkbox" checked={mineOnly} onChange={e => { setMineOnly(e.target.checked); setPage(0); }} />
+          <span style={{ color: 'var(--text-muted)' }}>My entries only</span>
+        </label>
         <button onClick={() => setShowSettings(s => !s)} style={{ ...inputStyle, cursor: 'pointer' }}>
           ⚙️ Settings
         </button>
@@ -196,8 +344,10 @@ export default function SimReplays({ games = [], allSimResults = {}, selectedWee
             <input type="number" min="0" max="100" step="0.5" value={topPct} onChange={e => setTopPct(e.target.value)}
               style={{ ...inputStyle, width: '70px' }} />
           </label>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-            No real DK payout table is archived for a settled contest, so this picks an assumed curve for Sim ROI -- set it to match the real contest once you know it.
+          <span style={{ fontSize: '0.7rem', color: meta?.payoutSource === 'real_dk_table' ? 'var(--accent-primary)' : 'var(--text-muted)' }}>
+            {meta?.payoutSource === 'real_dk_table'
+              ? `Using the real DK payout table saved for this contest (${fmtInt(meta.payingPositions)} paid) -- the curve / paying-positions settings are ignored.`
+              : 'No real DK payout table was saved for this contest, so Sim ROI and Actual ROI both use this assumed curve -- set it to match the real contest once you know it.'}
           </span>
         </div>
       )}
@@ -211,13 +361,15 @@ export default function SimReplays({ games = [], allSimResults = {}, selectedWee
       ) : error ? (
         <div style={{ ...cardStyle, textAlign: 'center', color: '#ef4444', padding: '40px' }}>{error}</div>
       ) : (
+        <>
+        <ProjectedVsActual groups={summaryGroups} />
         <div style={cardStyle}>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
             Your entries (highlighted){Number(topPct) >= 100 ? ' plus the whole field' : ` plus the real top ${topPct}% of the field`} — every real submitted
             roster rescored with our own sim and ranked against each other, the field this contest actually had. Click a row for the
-            full range-of-outcomes breakdown.
+            full range-of-outcomes breakdown. ROI is priced on {meta?.payoutSource === 'real_dk_table' ? "the contest's real saved DK payout table" : 'an assumed payout curve (see ⚙️ Settings)'}.
           </p>
-          {entries.length === 0 ? (
+          {visibleEntries.length === 0 ? (
             <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', padding: '10px' }}>No entries found.</div>
           ) : (
             <div className="table-container" style={{ overflowX: 'auto' }}>
@@ -264,12 +416,16 @@ export default function SimReplays({ games = [], allSimResults = {}, selectedWee
                           {e.is_mine && <div style={{ fontSize: '0.65rem', color: 'var(--accent-primary)', fontWeight: 700 }}>MINE</div>}
                         </td>
                         <td style={{ padding: '6px 5px', fontWeight: 700 }}>{fmt(e.actual_points, 2)}</td>
-                        <td style={{ padding: '6px 5px', color: evColor(e.ev_pct) }}>{e.ev_pct != null ? `${e.ev_pct > 0 ? '+' : ''}${fmt(e.ev_pct)}%` : '—'}</td>
-                        <td style={{ padding: '6px 5px' }}>{e.itm_pct != null ? `${fmt(e.itm_pct)}%` : '—'}</td>
+                        <td style={{ padding: '6px 5px', color: evColor(e.ev_pct) }}>{fmtRoi(e.ev_pct)}</td>
+                        <td style={{ padding: '6px 5px', fontWeight: 700, color: evColor(e.actual_roi_pct) }}
+                          title={e.actual_payout != null ? `Won $${Number(e.actual_payout).toLocaleString()}` : undefined}>
+                          {fmtRoi(e.actual_roi_pct)}
+                        </td>
+                        <td style={{ padding: '6px 5px' }}>{e.itm_pct != null ? `${fmt(e.itm_pct)}%` : '—'}<Hit on={e.cashed} /></td>
                         <td style={{ padding: '6px 5px', color: 'var(--accent-gold)' }}>{fmt(e.score_max)}</td>
                         <td style={{ padding: '6px 5px' }}>{fmt(e.lineup_p50)}</td>
-                        <td style={{ padding: '6px 5px' }}>{e.top1_pct != null ? `${fmt(e.top1_pct)}%` : '—'}</td>
-                        <td style={{ padding: '6px 5px' }}>{e.top01_pct != null ? `${fmt(e.top01_pct)}%` : '—'}</td>
+                        <td style={{ padding: '6px 5px' }}>{e.top1_pct != null ? `${fmt(e.top1_pct)}%` : '—'}<Hit on={e.top1_hit} /></td>
+                        <td style={{ padding: '6px 5px' }}>{e.top01_pct != null ? `${fmt(e.top01_pct)}%` : '—'}<Hit on={e.top01_hit} /></td>
                         <td style={{ padding: '6px 5px' }}>{e.total_ownership != null ? `${fmt(e.total_ownership)}%` : '—'}</td>
                       </tr>
                     );
@@ -290,6 +446,7 @@ export default function SimReplays({ games = [], allSimResults = {}, selectedWee
             </div>
           )}
         </div>
+        </>
       )}
 
       <ShowdownFieldEval games={games} allSimResults={allSimResults} selectedWeek={selectedWeek}

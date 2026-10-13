@@ -12,12 +12,15 @@ import InDevelopment from './pages/InDevelopment'
 import DfsSummary from './pages/DfsSummary'
 import Optimizer from './pages/Optimizer'
 import ShowdownOptimizer from './pages/ShowdownOptimizer'
+import Shortlist from './pages/Shortlist'
 import EvaluationPage from './pages/EvaluationPage'
 import SimReplays from './pages/SimReplays'
 import CashLineups from './pages/CashLineups'
 import Bankroll from './pages/Bankroll'
 import Leverage from './pages/Leverage'
 import PropMarkets from './pages/PropMarkets'
+import PickemLines from './pages/PickemLines'
+import PickemResults from './pages/PickemResults'
 import './App.css'
 
 export default function App() {
@@ -134,6 +137,17 @@ export default function App() {
       const data = await ApiService.getWeekSimResults(selectedWeek);
       if (cancelled) return;
       const gameResults = data.games || {};
+      // Results are keyed by game_id, and game_ids are unique per week. Merging
+      // the previous week's pile into the new one (the old `{...gameResults,
+      // ...prev}`) left e.g. Week 5's BAL game -- with Huntley -- in the pool
+      // while viewing Week 2. Keep only entries for THIS week's games (those
+      // are the user's custom Run Engine results, which must survive a refetch).
+      if (!isRefresh) {
+        setAllSimResults(prev => {
+          const kept = Object.fromEntries(Object.entries(prev).filter(([gid]) => gid in gameResults));
+          return { ...gameResults, ...kept };
+        });
+      }
       if (Object.keys(gameResults).length > 0) {
         if (isRefresh) {
           // A new run replaces everything: the baseline for every game AND any
@@ -142,8 +156,6 @@ export default function App() {
           setAllSimResults(gameResults);
           setSlateOverrides(prev => Object.fromEntries(Object.entries(prev).map(
             ([gid, o]) => [gid, { ...o, simResults: null, baselineResults: null }])));
-        } else {
-          setAllSimResults(prev => ({ ...gameResults, ...prev }));
         }
         setHasSimResults(true);
       }
@@ -276,6 +288,17 @@ export default function App() {
             setSelectedDraftGroupId={setSelectedDraftGroupId}
           />
         );
+      case 'shortlist':
+        return (
+          <Shortlist
+            allSimResults={allSimResults}
+            weekProjections={weekProjections}
+            games={games}
+            weeks={weeks}
+            selectedWeek={selectedWeek}
+            setSelectedWeek={setSelectedWeek}
+          />
+        );
       case 'showdown_optimizer':
         return (
           <ShowdownOptimizer
@@ -290,6 +313,7 @@ export default function App() {
       case 'eval_games':
       case 'eval_players':
       case 'eval_rankings':
+      case 'eval_pool':
         return (
           <EvaluationPage
             view={currentPage.replace('eval_', '')}
@@ -321,6 +345,10 @@ export default function App() {
         );
       case 'props':
         return <PropMarkets weeks={weeks} selectedWeek={selectedWeek} setSelectedWeek={setSelectedWeek} />;
+      case 'pickem_lines':
+        return <PickemLines weeks={weeks} selectedWeek={selectedWeek} setSelectedWeek={setSelectedWeek} />;
+      case 'pickem_results':
+        return <PickemResults weeks={weeks} selectedWeek={selectedWeek} setSelectedWeek={setSelectedWeek} />;
       case 'about':
         return <About />;
       case 'roadmap':
@@ -335,7 +363,7 @@ export default function App() {
       display: 'flex',
       flexDirection: 'column',
       minHeight: '100vh',
-      maxWidth: (currentPage === 'optimizer' || currentPage === 'showdown_optimizer' || currentPage.startsWith('eval_')) ? '1680px' : '1280px',
+      maxWidth: (currentPage === 'optimizer' || currentPage === 'showdown_optimizer' || currentPage === 'shortlist' || currentPage.startsWith('eval_')) ? '1680px' : '1280px',
       margin: '0 auto',
       padding: '20px',
       boxSizing: 'border-box'

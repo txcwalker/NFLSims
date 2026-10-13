@@ -361,6 +361,11 @@ def refresh(year, completed_week, blend_mode="legacy"):
     pbp = pbp[pbp["week"] <= completed_week]
     team_totals = build_team_week_totals(pbp) if len(pbp) else {}
     team_zone_totals = build_team_week_zone_totals(pbp) if len(pbp) else {}
+    if len(pbp) and "pass_oe" in pbp.columns:
+        from refresh_live_proe_v_0_1_0 import write_live_proe
+        print(f"Live team PROE (nflverse pass_oe) -> {write_live_proe(year, completed_week, pbp)}")
+        from refresh_team_pace_v_0_1_0 import write_team_pace
+        print(f"Team pace / no-huddle tendencies -> {write_team_pace(year, completed_week)}")
 
     print(f"Pulling NGS passing/receiving for {year} through week {completed_week}...")
     ngs_pass = nfl.import_ngs_data("passing", [year])

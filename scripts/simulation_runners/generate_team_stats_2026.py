@@ -40,7 +40,7 @@ import numpy as np
 
 sys.path.append(os.getcwd())
 from src.data_pipeline.current_week_v_0_1_0 import get_current_week
-from src.data_pipeline.real_results_v_0_1_0 import import_real_played_games, import_real_player_ngs
+from src.data_pipeline.real_results_v_0_1_0 import load_real_actuals, real_team_yard_totals
 
 SIM_YEAR = 2026
 GAMES_CACHE = f"data/interim/sim_results_{SIM_YEAR}_games.parquet"
@@ -79,29 +79,28 @@ def generate():
     games_df = pd.read_parquet(GAMES_CACHE)
     players_df = pd.read_parquet(PLAYERS_CACHE)
 
-    # --- ADDITIVE: drop completed-week games/players from the simulated
+    # --- ADDITIVE: drop completed games/players from the simulated
     # aggregation -- their real contribution gets added back below instead.
+    # 2026-10-01: "completed" = has a final score (not "week < current week"),
+    # and real yards come from nflverse's full stats_player release (every
+    # player) instead of NGS (qualifiers only, which undercounted).
     current_week = get_current_week(SIM_YEAR)
     print(f"Current week (auto-detected): {current_week}")
-    sched = pd.read_csv(SCHEDULE_CSV)
-    week_by_game_id = dict(zip(sched['game_id'], sched['week']))
-    games_df = games_df[games_df['game_id'].map(week_by_game_id).fillna(999) >= current_week]
-    players_df = players_df[players_df['game_id'].map(week_by_game_id).fillna(999) >= current_week]
+    real_played, real_actuals, real_player_game_ids = load_real_actuals(SIM_YEAR)
+    # Opponent join must see every game, including ones dropped just below.
+    game_teams = games_df.groupby('game_id')[['away_team', 'home_team']].first().reset_index()
+    games_df = games_df[~games_df['game_id'].isin(set(real_played['game_id']))]
+    players_df = players_df[~players_df['game_id'].isin(real_player_game_ids)]
 
     real_offsets = {}
-    real_played = import_real_played_games(SIM_YEAR)
-    real_played = real_played[real_played['week'] < current_week]
     if not real_played.empty:
-        real_passing, real_rushing, real_receiving = import_real_player_ngs(SIM_YEAR)
+        real_yards = real_team_yard_totals(real_actuals, real_player_game_ids)
         for team in TEAM_DIVISIONS:
-            pf = real_played.loc[real_played['away_team'] == team, 'away_score'].sum() + \
-                 real_played.loc[real_played['home_team'] == team, 'home_score'].sum()
-            pa = real_played.loc[real_played['away_team'] == team, 'home_score'].sum() + \
-                 real_played.loc[real_played['home_team'] == team, 'away_score'].sum()
-            pYds = real_passing.loc[real_passing['team_abbr'] == team, 'pass_yards'].sum()
-            rYds = real_rushing.loc[real_rushing['team_abbr'] == team, 'rush_yards'].sum()
-            real_offsets[team] = {'pf': pf, 'pa': pa, 'pYds': pYds, 'rYds': rYds}
-        print(f"Real completed-week team offsets available for {len(real_played)} games.")
+            pf = real_played.loc[real_played['away_team'] == team, 'away_score'].sum() +                  real_played.loc[real_played['home_team'] == team, 'home_score'].sum()
+            pa = real_played.loc[real_played['away_team'] == team, 'home_score'].sum() +                  real_played.loc[real_played['home_team'] == team, 'away_score'].sum()
+            yds = real_yards.get(team, {})
+            real_offsets[team] = {'pf': pf, 'pa': pa, 'pYds': yds.get('pYds', 0.0), 'rYds': yds.get('rYds', 0.0)}
+        print(f"Real completed-game team offsets available for {len(real_played)} games.")
 
     # --- Points For/Against, per team per iteration ---
     print("Computing points for/against...")
@@ -116,7 +115,6 @@ def generate():
 
     # --- Opponent join: each player row's game_id -> the OTHER team in that game ---
     print("Building opponent join...")
-    game_teams = games_df.groupby('game_id')[['away_team', 'home_team']].first().reset_index()
     players_df = players_df.merge(game_teams, on='game_id', how='left')
     players_df['Opponent'] = np.where(players_df['Team'] == players_df['away_team'],
                                        players_df['home_team'], players_df['away_team'])

@@ -87,3 +87,74 @@ def real_player_totals_by_name(passing, rushing, receiving):
         t['recTD'] += r['rec_touchdowns']
 
     return totals
+
+
+# ---------------------------------------------------------------------------
+# Full-coverage real stats (2026-10-01) -- replaces the NGS pull above for the
+# rest-of-season scripts. NGS only lists *qualifying* players (e.g. 37 passers,
+# 43 rushers league-wide after 3 weeks), so every non-qualifying player's real
+# games were dropped from the simulated aggregation and never added back.
+# nflverse's `stats_player` weekly release (via src/evaluation/player_actuals)
+# lists every player in every game, keyed by the same game_id as the schedule.
+# ---------------------------------------------------------------------------
+
+def load_real_actuals(year: int):
+    """Real results + full per-player stat lines for every completed game.
+
+    Inputs: year.
+    Output: (played, actuals, player_game_ids)
+      played          -- DataFrame of REG games with a final score (schedule).
+      actuals         -- per-(game, player) stat lines (player_actuals schema);
+                         empty if the download failed and no cache exists.
+      player_game_ids -- set of game_ids that have BOTH a final score and
+                         player stat lines. These are the games the callers
+                         drop from the simulated aggregation, so a game never
+                         vanishes from the season totals without its real
+                         numbers being added back.
+    Purpose: one place that decides "this game is completed". Re-downloads the
+    actuals cache only when a final game is missing from it, so a normal run
+    costs no network call.
+    """
+    from src.evaluation import player_actuals as pa
+
+    played = import_real_played_games(year)
+    final_ids = set(played['game_id'])
+    actuals = pa.load_player_actuals(year)
+    have = set(actuals['game_id']) if not actuals.empty else set()
+    if final_ids - have:
+        try:
+            pa.refresh_player_actuals(year)
+            actuals = pa.load_player_actuals(year, fetch_if_missing=False)
+            have = set(actuals['game_id']) if not actuals.empty else set()
+        except Exception as e:  # noqa: BLE001 -- offline: fall back to whatever is cached
+            print(f"  WARNING: could not refresh player actuals ({e}); using cached file.")
+    missing = final_ids - have
+    if missing:
+        print(f"  WARNING: {len(missing)} final game(s) have no player stat lines yet "
+              f"and stay simulated at player level: {sorted(missing)[:4]}...")
+    return played, actuals, final_ids & have
+
+
+def real_player_totals_from_actuals(actuals, game_ids):
+    """{(team, player_display_name): {field: total}} over `game_ids`.
+
+    Same shape as real_player_totals_by_name() (so _apply_real_player_offsets
+    and apply_real_offsets work unchanged) plus a real `fumbles` total, which
+    the NGS version could not provide.
+    """
+    if actuals is None or actuals.empty or not game_ids:
+        return {}
+    fields = REAL_TOTAL_FIELDS + ['fumbles']
+    df = actuals[actuals['game_id'].isin(game_ids)]
+    grouped = df.groupby(['team', 'player_name'])[fields].sum()
+    return {key: {f: float(row[f]) for f in fields} for key, row in grouped.iterrows()}
+
+
+def real_team_yard_totals(actuals, game_ids):
+    """{team: {'pYds': passing yards, 'rYds': rushing yards}} over `game_ids`,
+    summed across every player (backup QBs and non-qualifying rushers included)."""
+    if actuals is None or actuals.empty or not game_ids:
+        return {}
+    df = actuals[actuals['game_id'].isin(game_ids)]
+    g = df.groupby('team')[['pYds', 'rYds']].sum()
+    return {team: {'pYds': float(r['pYds']), 'rYds': float(r['rYds'])} for team, r in g.iterrows()}

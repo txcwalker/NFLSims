@@ -204,12 +204,54 @@ def resolve_week_rows(rows, week):
     return out_rows, report
 
 
+def normalize_team_shares(rows, target=1.0):
+    """Inputs: rows (list of dicts, ONE team's week rows, already run through
+    resolve_week_rows so out/gone players are 0), target (float, the team
+    total every share column is forced to; 1.0).
+    Output: (rows, report). rows is a fresh list. report is a list of
+    {field, before, after, hand_edit_sum, method} -- one per column that was
+    actually rescaled (columns already within 1e-6 of target are skipped).
+    Purpose: a team's blended shares do not sum to 1 (each player's L4 window
+    differs, missed games, recent signings), but the share columns are model
+    features trained on true shares, so the ratios must be real. Every share
+    column (overall + rz + gl, target and carry, separately) is rescaled so the
+    active players sum to `target`. hand_edit=TRUE rows are held fixed and only
+    the blended rows scale to fill the remainder; if the hand edits alone reach
+    or exceed `target` (or nothing else holds share), everyone scales together.
+    Zero-share players stay 0. Totals rows are recomputed."""
+    out_rows = [dict(r) for r in rows]
+    players = [r for r in out_rows if is_player_row(r)]
+    report = []
+    for f in SHARE_FIELDS:
+        fixed = [r for r in players if (r.get("hand_edit") or "").strip().upper() == "TRUE"]
+        free = [r for r in players if r not in fixed]
+        total = sum(_num(r.get(f)) for r in players)
+        if total <= 0 or abs(total - target) < 1e-6:
+            continue
+        fixed_sum = sum(_num(r.get(f)) for r in fixed)
+        free_sum = sum(_num(r.get(f)) for r in free)
+        if 0 < fixed_sum < target and free_sum > 0:
+            scale_free, scale_fixed, method = (target - fixed_sum) / free_sum, 1.0, "blended rows only"
+        else:
+            scale_free = scale_fixed = target / total
+            method = "all rows (hand edits >= target or no blended share)"
+        for r in free:
+            r[f] = round(_num(r.get(f)) * scale_free, 6)
+        for r in fixed:
+            r[f] = round(_num(r.get(f)) * scale_fixed, 6)
+        report.append({"field": f, "before": round(total, 4),
+                       "after": round(sum(_num(r.get(f)) for r in players), 4),
+                       "hand_edit_sum": round(fixed_sum, 4), "method": method})
+    recompute_totals_rows(out_rows)
+    return out_rows, report
+
+
 def recompute_totals_rows(rows):
     """Update any 'Totals'/summary row's share fields to the column sum of the
     real player rows. In place."""
     players = [r for r in rows if is_player_row(r)]
     sums = {f: round(sum(_num(r.get(f)) for r in players), 6) for f in SHARE_FIELDS}
     for r in rows:
-        if not is_player_row(r) and any((r.get(f) or "").strip() != "" for f in SHARE_FIELDS):
+        if not is_player_row(r) and any(str(r.get(f) if r.get(f) is not None else "").strip() != "" for f in SHARE_FIELDS):
             for f in SHARE_FIELDS:
                 r[f] = sums[f]
